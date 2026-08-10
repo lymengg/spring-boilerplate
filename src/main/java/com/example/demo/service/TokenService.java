@@ -1,0 +1,120 @@
+package com.example.demo.service;
+
+import com.example.demo.config.JwtConfig;
+import com.example.demo.dto.RefreshTokenRequest;
+import com.example.demo.dto.TokenResponse;
+import com.example.demo.entity.Role;
+import com.example.demo.entity.User;
+import com.example.demo.security.audit.SecurityAuditLogger;
+import com.example.demo.security.jwt.JwtTokenProvider;
+import com.example.demo.security.service.CustomUserDetailsService;
+import com.example.demo.security.service.RefreshTokenService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Single owner of the JWT lifecycle (creation, refresh, revocation). Centralizing
+ * token operations prevents token leaks between auth flows and ensures refresh
+ * token rotation is always applied.
+ */
+@Service
+@RequiredArgsConstructor
+public class TokenService {
+
+    private final JwtTokenProvider jwtTokenProvider;
+    private final JwtConfig jwtConfig;
+    private final RefreshTokenService refreshTokenService;
+    private final CustomUserDetailsService customUserDetailsService;
+    private final SecurityAuditLogger securityAuditLogger;
+
+    /**
+     * Reuses Spring Security UserDetails to build the authentication object, so
+     * token claims always match the actual granted authorities.
+     */
+    @Transactional
+    public TokenResponse generateTokenResponse(User user) {
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getUsername());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails, null, userDetails.getAuthorities()
+        );
+
+        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
+
+        refreshTokenService.revokeAllUserRefreshTokens(user.getUsername());
+        refreshTokenService.storeRefreshToken(user.getUsername(), refreshToken, jwtConfig.getRefreshTokenExpiration());
+
+        return buildTokenResponse(accessToken, refreshToken, user);
+    }
+
+    /**
+     * Validates the refresh token, then revokes the old one before issuing a new
+     * one. This rotation mitigates refresh-token replay attacks.
+     */
+    @Transactional
+    public TokenResponse refreshToken(RefreshTokenRequest request, String ipAddress) {
+        String refreshToken = request.getRefreshToken();
+
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Invalid refresh token");
+        }
+
+        String username = jwtTokenProvider.getUsernameFromToken(refreshToken);
+
+        if (!refreshTokenService.validateRefreshToken(username, refreshToken)) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Refresh token not found or revoked");
+        }
+
+        Authentication authentication = jwtTokenProvider.getAuthentication(refreshToken);
+
+        String newAccessToken = jwtTokenProvider.generateAccessToken(authentication);
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(authentication);
+
+        refreshTokenService.revokeRefreshToken(refreshToken);
+        refreshTokenService.storeRefreshToken(username, newRefreshToken, jwtConfig.getRefreshTokenExpiration());
+
+        User user = customUserDetailsService.loadUserEntityByUsername(username);
+        securityAuditLogger.logTokenRefreshed(username, ipAddress);
+
+        return buildTokenResponse(newAccessToken, newRefreshToken, user);
+    }
+
+    /**
+     * Revokes all refresh tokens for the user, terminating any active sessions.
+     */
+    @Transactional
+    public void logout(String username, String ipAddress) {
+        refreshTokenService.revokeAllUserRefreshTokens(username);
+        securityAuditLogger.logLogout(username, ipAddress);
+    }
+
+    /**
+     * Delegated from the auth orchestrator so password changes can revoke tokens
+     * without duplicating the refresh-token repository logic.
+     */
+    public void revokeAllUserRefreshTokens(String username) {
+        refreshTokenService.revokeAllUserRefreshTokens(username);
+    }
+
+    /**
+     * Maps the user entity into the public token response, keeping DTO conversion
+     * inside the token layer instead of leaking it to the orchestrator.
+     */
+    private TokenResponse buildTokenResponse(String accessToken, String refreshToken, User user) {
+        String[] roles = user.getRoles().stream()
+                .map(Role::getName)
+                .toArray(String[]::new);
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtConfig.getAccessTokenExpiration() / 1000)
+                .username(user.getUsername())
+                .roles(roles)
+                .build();
+    }
+}

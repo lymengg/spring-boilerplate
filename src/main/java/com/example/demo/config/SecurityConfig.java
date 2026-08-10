@@ -2,7 +2,6 @@ package com.example.demo.config;
 
 import com.example.demo.dto.ApiResponse;
 import com.example.demo.security.filter.JwtAuthenticationFilter;
-import com.example.demo.security.filter.RateLimitingFilter;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +32,6 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final RateLimitingFilter rateLimitingFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
@@ -54,7 +52,6 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                  .authenticationProvider(authenticationProvider())
-                 .addFilterAt(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                  .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                  .headers(headers -> headers
                          .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)

@@ -1,0 +1,137 @@
+package com.example.demo.service;
+
+import com.example.demo.dto.ChangePasswordRequest;
+import com.example.demo.dto.RegisterRequest;
+import com.example.demo.dto.UserResponse;
+import com.example.demo.entity.Role;
+import com.example.demo.entity.User;
+import com.example.demo.repository.RoleRepository;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.security.audit.SecurityAuditLogger;
+import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+
+/**
+ * Single point of access for user entities. Other auth domain services delegate
+ * user retrieval and persistence here instead of using UserRepository directly,
+ * keeping persistence coupling in one place and making the auth subdomains
+ * easier to test and evolve independently.
+ */
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final ModelMapper modelMapper;
+    private final SecurityAuditLogger securityAuditLogger;
+
+    /**
+     * Validates uniqueness and assigns the default role centrally, keeping the
+     * orchestrator free of user-construction details.
+     */
+    @Transactional
+    public User register(RegisterRequest request, String ipAddress) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        Role userRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new IllegalStateException("Default role USER not found"));
+
+        User user = User.builder()
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .enabled(true)
+                .accountNonExpired(true)
+                .accountNonLocked(true)
+                .credentialsNonExpired(true)
+                .build();
+
+        user.getRoles().add(userRole);
+        user = userRepository.save(user);
+
+        securityAuditLogger.logRegistration(user.getUsername(), user.getEmail(), ipAddress);
+        return user;
+    }
+
+    /**
+     * Returns a user by username or email. Throws BadCredentialsException on
+     * failure to avoid leaking whether the identifier exists.
+     */
+    @Transactional(readOnly = true)
+    public User getByUsernameOrEmail(String usernameOrEmail) {
+        return userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
+                .orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException("Invalid credentials"));
+    }
+
+    /**
+     * Loads the user entity by username, throwing the standard Spring Security
+     * exception when not found.
+     */
+    @Transactional(readOnly = true)
+    public User getByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+    /**
+     * Builds the public user profile DTO and converts the role set to a
+     * String array, avoiding entity exposure through the API.
+     */
+    @Transactional(readOnly = true)
+    public UserResponse getCurrentUser(String username) {
+        User user = getByUsername(username);
+        UserResponse response = modelMapper.map(user, UserResponse.class);
+        response.setRoles(user.getRoles().stream().map(Role::getName).toArray(String[]::new));
+        return response;
+    }
+
+    /**
+     * Requires the current password before encoding the new one, ensuring the
+     * existing credential must be known even if the session is authenticated.
+     */
+    @Transactional
+    public void changePassword(String username, ChangePasswordRequest request, String ipAddress) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
+        User user = getByUsername(username);
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        securityAuditLogger.logPasswordChanged(user.getUsername(), ipAddress);
+    }
+
+    /**
+     * Exposed for other domain services to persist user state changes without
+     * coupling themselves directly to the repository.
+     */
+    @Transactional
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+}
