@@ -66,7 +66,7 @@ Controller → Service → Repository → Database
 - Handle HTTP concerns only: request/response mapping, input validation (`@Valid`), and authentication context.
 - Delegate all business logic to services.
 - Return `ResponseEntity<ApiResponse<T>>` using the project's `ApiResponse` wrapper.
-- Existing controllers: `AuthController` (`/api/auth`), `MfaController` (`/api/mfa`).
+- Existing controllers: `AuthController` (`/api/auth`), `MfaController` (`/api/mfa`), `NoteController` (`/api/notes`).
 
 ### Services (`com.example.demo.service`)
 
@@ -74,7 +74,7 @@ Controller → Service → Repository → Database
 - Annotated with `@Service`.
 - Mark write methods with `@Transactional`.
 - Mark read-only methods with `@Transactional(readOnly = true)`.
-- Existing services: `AuthService` (orchestrator), `UserService`, `AccountLockoutService`, `TokenService`, `PasswordResetService`, `LoginService`, `MfaSetupService`, `MfaService`, `EmailService`.
+- Existing services: `AuthService` (orchestrator), `UserService`, `AccountLockoutService`, `TokenService`, `PasswordResetService`, `LoginService`, `MfaSetupService`, `MfaService`, `EmailService`, `NoteService`.
 - `AuthService` is a thin orchestrator that resolves client IP and dispatches to focused domain services; business logic lives in those domain services.
 
 ### Repositories (`com.example.demo.repository`)
@@ -87,7 +87,7 @@ Controller → Service → Repository → Database
 
 - JPA-mapped domain objects only.
 - Use Lombok `@Getter/@Setter` and `@Builder`; avoid `@Data` on entities to prevent `toString()`/`equals()` issues with lazy loading.
-- Existing entities: `User`, `Role`, `PasswordResetToken`, `RefreshToken`, `MfaMethod`.
+- Existing entities: `User`, `Role`, `PasswordResetToken`, `RefreshToken`, `MfaMethod`, `Note`.
 
 ### DTOs (`com.example.demo.dto`)
 
@@ -330,6 +330,8 @@ Every meaningful change must include appropriate tests.
 
 - `DemoApplicationTests`
 - `AuthServiceTest`
+- `NoteServiceTest`
+- `NoteControllerIntegrationTest`
 - `MfaServiceTest`
 - `ClientIpResolverTest`
 - `RateLimitingServiceTest`
