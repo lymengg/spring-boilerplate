@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -87,6 +88,25 @@ public class UserService {
                 .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username));
     }
 
+    /**
+     * Loads a user by id. Used by management services that operate on a specific
+     * user record rather than the currently authenticated one.
+     */
+    @Transactional(readOnly = true)
+    public User getById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+
+    /**
+     * Returns all users. Delegated to by management services that need to list
+     * user accounts.
+     */
+    @Transactional(readOnly = true)
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
     @Transactional(readOnly = true)
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(email);
@@ -133,5 +153,22 @@ public class UserService {
     @Transactional
     public User save(User user) {
         return userRepository.save(user);
+    }
+
+    /**
+     * Deletes a user. Used by management services after ownership and safety
+     * checks have been performed.
+     */
+    @Transactional
+    public void delete(User user) {
+        userRepository.delete(user);
+    }
+
+    /**
+     * Returns the number of users that have the given role.
+     */
+    @Transactional(readOnly = true)
+    public long countByRoleName(String roleName) {
+        return userRepository.countByRolesName(roleName);
     }
 }

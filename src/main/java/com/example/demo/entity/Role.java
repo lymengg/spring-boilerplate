@@ -3,6 +3,9 @@ package com.example.demo.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 @Table(name = "roles")
 @Getter
@@ -21,4 +24,14 @@ public class Role {
 
     @Column(length = 255)
     private String description;
+
+    @ElementCollection(targetClass = UserPermission.class, fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "role_permissions",
+            joinColumns = @JoinColumn(name = "role_id")
+    )
+    @Enumerated(EnumType.STRING)
+    @Column(name = "permission")
+    @Builder.Default
+    private Set<UserPermission> permissions = new HashSet<>();
 }

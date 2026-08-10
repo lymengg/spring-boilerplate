@@ -66,7 +66,7 @@ Controller → Service → Repository → Database
 - Handle HTTP concerns only: request/response mapping, input validation (`@Valid`), and authentication context.
 - Delegate all business logic to services.
 - Return `ResponseEntity<ApiResponse<T>>` using the project's `ApiResponse` wrapper.
-- Existing controllers: `AuthController` (`/api/auth`), `MfaController` (`/api/mfa`), `NoteController` (`/api/notes`).
+- Existing controllers: `AuthController` (`/api/auth`), `MfaController` (`/api/mfa`), `NoteController` (`/api/notes`), `UserManagementController` (`/api/management/users`), `RoleManagementController` (`/api/management/roles`).
 
 ### Services (`com.example.demo.service`)
 
@@ -74,7 +74,7 @@ Controller → Service → Repository → Database
 - Annotated with `@Service`.
 - Mark write methods with `@Transactional`.
 - Mark read-only methods with `@Transactional(readOnly = true)`.
-- Existing services: `AuthService` (orchestrator), `UserService`, `AccountLockoutService`, `TokenService`, `PasswordResetService`, `LoginService`, `MfaSetupService`, `MfaService`, `EmailService`, `NoteService`.
+- Existing services: `AuthService` (orchestrator), `UserService`, `AccountLockoutService`, `TokenService`, `PasswordResetService`, `LoginService`, `MfaSetupService`, `MfaService`, `EmailService`, `NoteService`, `UserManagementService`, `RoleManagementService`.
 - `AuthService` is a thin orchestrator that resolves client IP and dispatches to focused domain services; business logic lives in those domain services.
 
 ### Repositories (`com.example.demo.repository`)
@@ -186,7 +186,9 @@ Security is mandatory for every protected endpoint. The project uses the followi
   - Security headers: `X-Frame-Options`, CSP, `X-Content-Type-Options`, referrer policy, HSTS, `Permissions-Policy`.
 - **JwtAuthenticationFilter** validates access tokens on every request except the public paths listed in `shouldNotFilter`.
 - **Rate limiting** is enforced in the service layer via `RateLimitingService` using per-user limits in Redis; `RateLimitingFilter` was removed in favor of identity-based limits.
-- **Role checks** are defined in `SecurityConfig` with `hasRole` / `hasAnyRole`; method security is enabled (`@EnableMethodSecurity`) for future use.
+- **Role checks** are defined in `SecurityConfig` with `hasRole` / `hasAnyRole` for coarse-grained access.
+- **Permission checks** use `hasAuthority` with method-level security (`@PreAuthorize`) on management services; `UserPermission` is an enum and each role is mapped to a set of permissions in `role_permissions`.
+- **Method security** is enabled (`@EnableMethodSecurity`) and used for fine-grained authorization.
 
 ### JWT Requirements
 
@@ -332,6 +334,8 @@ Every meaningful change must include appropriate tests.
 - `AuthServiceTest`
 - `NoteServiceTest`
 - `NoteControllerIntegrationTest`
+- `UserManagementControllerIntegrationTest`
+- `RoleManagementControllerIntegrationTest`
 - `MfaServiceTest`
 - `ClientIpResolverTest`
 - `RateLimitingServiceTest`
