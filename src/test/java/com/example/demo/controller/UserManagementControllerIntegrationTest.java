@@ -1,8 +1,10 @@
 package com.example.demo.controller;
 
 import com.example.demo.entity.Role;
+import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
 import com.example.demo.repository.RoleRepository;
+import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
@@ -44,6 +46,9 @@ class UserManagementControllerIntegrationTest {
     private RoleRepository roleRepository;
 
     @Autowired
+    private TenantRepository tenantRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -66,9 +71,11 @@ class UserManagementControllerIntegrationTest {
         Role managerRole = roleRepository.findByName("USER_MANAGER").orElseThrow();
         Role userRole = roleRepository.findByName("USER").orElseThrow();
 
-        User admin = createUser("adminuser", "admin@example.com", adminRole);
-        User manager = createUser("manager", "manager@example.com", managerRole);
-        User user = createUser("testuser", "test@example.com", userRole);
+        Tenant tenant = tenantRepository.save(Tenant.builder().name("Test Tenant").build());
+
+        User admin = createUser("adminuser", "admin@example.com", adminRole, null);
+        User manager = createUser("manager", "manager@example.com", managerRole, tenant);
+        User user = createUser("testuser", "test@example.com", userRole, tenant);
         regularUserId = user.getId();
 
         adminToken = generateToken(admin.getUsername());
@@ -76,7 +83,7 @@ class UserManagementControllerIntegrationTest {
         userToken = generateToken(user.getUsername());
     }
 
-    private User createUser(String username, String email, Role role) {
+    private User createUser(String username, String email, Role role, Tenant tenant) {
         User user = User.builder()
                 .username(username)
                 .email(email)
@@ -87,6 +94,7 @@ class UserManagementControllerIntegrationTest {
                 .accountNonExpired(true)
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
+                .tenant(tenant)
                 .build();
         user.getRoles().add(role);
         return userRepository.save(user);
@@ -106,17 +114,18 @@ class UserManagementControllerIntegrationTest {
         mockMvc.perform(get("/api/management/users")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(3));
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content.length()").value(3));
     }
 
     @Test
-    @DisplayName("User manager can list users")
+    @DisplayName("User manager can list users in their tenant")
     void userManagerCanListUsers() throws Exception {
         mockMvc.perform(get("/api/management/users")
                         .header("Authorization", "Bearer " + managerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
     }
 
     @Test
@@ -194,8 +203,9 @@ class UserManagementControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("User manager can assign USER role")
+    @DisplayName("User manager can assign USER role to a user in their tenant")
     void userManagerCanAssignUserRole() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
         User noRoleUser = User.builder()
                 .username("norole")
                 .email("norole@example.com")
@@ -206,6 +216,7 @@ class UserManagementControllerIntegrationTest {
                 .accountNonExpired(true)
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
+                .tenant(tenant)
                 .build();
         noRoleUser = userRepository.save(noRoleUser);
 
@@ -230,7 +241,7 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("Admin can assign ADMIN role")
     void adminCanAssignAdminRole() throws Exception {
-        User newUser = createUser("newuser", "new@example.com", roleRepository.findByName("USER").orElseThrow());
+        User newUser = createUser("newuser", "new@example.com", roleRepository.findByName("USER").orElseThrow(), null);
         mockMvc.perform(post("/api/management/users/{id}/roles", newUser.getId())
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -241,6 +252,7 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("User manager cannot assign USER_MANAGER role")
     void userManagerCannotAssignUserManagerRole() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
         User noRoleUser = User.builder()
                 .username("norole2")
                 .email("norole2@example.com")
@@ -251,6 +263,7 @@ class UserManagementControllerIntegrationTest {
                 .accountNonExpired(true)
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
+                .tenant(tenant)
                 .build();
         noRoleUser = userRepository.save(noRoleUser);
 

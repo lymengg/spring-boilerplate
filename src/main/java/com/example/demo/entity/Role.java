@@ -1,5 +1,6 @@
 package com.example.demo.entity;
 
+import com.example.demo.constants.UserPermission;
 import jakarta.persistence.*;
 import lombok.*;
 

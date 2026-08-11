@@ -11,13 +11,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NoteCreateRequest {
+public class DepartmentUpdateRequest {
 
-    @NotBlank
-    @Size(max = 255)
-    private String title;
+    @NotBlank(message = "Department name is required")
+    @Size(max = 100, message = "Department name must not exceed 100 characters")
+    private String name;
 
-    @NotBlank
-    @Size(max = 4000)
-    private String content;
+    private Long managerId;
 }

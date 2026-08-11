@@ -8,11 +8,11 @@ import com.example.demo.dto.UserUpdateRequest;
 import com.example.demo.service.UserManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/management/users")
@@ -22,14 +22,14 @@ public class UserManagementController {
     private final UserManagementService userManagementService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<UserManagementResponse>>> getUsers() {
-        List<UserManagementResponse> users = userManagementService.getUsers();
+    public ResponseEntity<ApiResponse<Page<UserManagementResponse>>> getUsers(Pageable pageable, Authentication authentication) {
+        Page<UserManagementResponse> users = userManagementService.getUsers(pageable, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Users retrieved successfully", users));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserManagementResponse>> getUserById(@PathVariable Long id) {
-        UserManagementResponse user = userManagementService.getUserById(id);
+    public ResponseEntity<ApiResponse<UserManagementResponse>> getUserById(@PathVariable Long id, Authentication authentication) {
+        UserManagementResponse user = userManagementService.getUserById(id, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("User retrieved successfully", user));
     }
 

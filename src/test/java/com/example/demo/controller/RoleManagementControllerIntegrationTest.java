@@ -2,7 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
-import com.example.demo.entity.UserPermission;
+import com.example.demo.constants.UserPermission;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.jwt.JwtTokenProvider;
@@ -109,7 +109,7 @@ class RoleManagementControllerIntegrationTest {
         mockMvc.perform(get("/api/management/roles")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(jsonPath("$.data.content").isArray());
     }
 
     @Test

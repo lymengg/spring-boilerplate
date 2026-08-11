@@ -1,5 +1,6 @@
 package com.example.demo.dto;
 
+import com.example.demo.entity.TenantStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,12 +12,10 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NoteResponse {
+public class TenantResponse {
 
     private Long id;
-    private String title;
-    private String content;
-    private String ownerUsername;
+    private String name;
+    private TenantStatus status;
     private Instant createdAt;
-    private Instant updatedAt;
 }

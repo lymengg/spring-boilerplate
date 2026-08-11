@@ -52,8 +52,16 @@ public class JwtTokenProvider {
                 .collect(Collectors.toList());
 
         Long userId = null;
+        Long tenantId = null;
+        Long departmentId = null;
         if (userDetails instanceof User user) {
             userId = user.getId();
+            if (user.getTenant() != null) {
+                tenantId = user.getTenant().getId();
+            }
+            if (user.getDepartment() != null) {
+                departmentId = user.getDepartment().getId();
+            }
         }
 
         Date now = new Date();
@@ -63,6 +71,8 @@ public class JwtTokenProvider {
                 .subject(userDetails.getUsername())
                 .claim("roles", roles)
                 .claim("userId", userId)
+                .claim("tenantId", tenantId)
+                .claim("departmentId", departmentId)
                 .issuedAt(now)
                 .expiration(expiry)
                 .issuer(jwtConfig.getIssuer())
@@ -147,6 +157,14 @@ public class JwtTokenProvider {
             return ((List<?>) roles).stream().map(Object::toString).toList();
         }
         return List.of();
+    }
+
+    public Long getTenantIdFromToken(String token) {
+        return parseClaims(token).get("tenantId", Long.class);
+    }
+
+    public Long getDepartmentIdFromToken(String token) {
+        return parseClaims(token).get("departmentId", Long.class);
     }
 
     public String generateMfaPendingToken(String username) {

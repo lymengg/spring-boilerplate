@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.ChangePasswordRequest;
 import com.example.demo.dto.RegisterRequest;
 import com.example.demo.dto.UserResponse;
+import com.example.demo.constants.Roles;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.RoleRepository;
@@ -10,6 +11,8 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.security.audit.SecurityAuditLogger;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,8 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    // Direct repository injection is used intentionally to avoid a circular dependency
+    // with RoleManagementService, which itself depends on UserService for user counts.
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
@@ -46,7 +51,7 @@ public class UserService {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        Role userRole = roleRepository.findByName("USER")
+        Role userRole = roleRepository.findByName(Roles.USER)
                 .orElseThrow(() -> new IllegalStateException("Default role USER not found"));
 
         User user = User.builder()
@@ -105,6 +110,31 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<User> findAll() {
         return userRepository.findAll();
+    }
+
+    /**
+     * Returns all users in a paginated form.
+     */
+    @Transactional(readOnly = true)
+    public Page<User> findAll(Pageable pageable) {
+        return userRepository.findAll(pageable);
+    }
+
+    /**
+     * Returns a paginated list of users that belong to the given tenant.
+     */
+    @Transactional(readOnly = true)
+    public Page<User> findAllByTenantId(Long tenantId, Pageable pageable) {
+        return userRepository.findAllByTenantId(tenantId, pageable);
+    }
+
+    /**
+     * Loads a user by id constrained to the given tenant.
+     */
+    @Transactional(readOnly = true)
+    public User getByIdAndTenantId(Long id, Long tenantId) {
+        return userRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
     @Transactional(readOnly = true)

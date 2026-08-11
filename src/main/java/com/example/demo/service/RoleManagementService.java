@@ -3,16 +3,19 @@ package com.example.demo.service;
 import com.example.demo.dto.RoleCreateRequest;
 import com.example.demo.dto.RolePermissionRequest;
 import com.example.demo.dto.RoleResponse;
+import com.example.demo.constants.Roles;
+import com.example.demo.constants.UserPermission;
 import com.example.demo.entity.Role;
-import com.example.demo.entity.UserPermission;
+import com.example.demo.mapper.RoleMapper;
 import com.example.demo.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Set;
 
 @Service
@@ -21,19 +24,24 @@ public class RoleManagementService {
 
     private final RoleRepository roleRepository;
     private final UserService userService;
+    private final RoleMapper roleMapper;
+
+    @Transactional(readOnly = true)
+    public Role findByName(String name) {
+        return roleRepository.findByName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + name));
+    }
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_READ')")
-    public List<RoleResponse> getRoles() {
-        return roleRepository.findAll().stream()
-                .map(this::mapToResponse)
-                .toList();
+    public Page<RoleResponse> getRoles(Pageable pageable) {
+        return roleRepository.findAll(pageable).map(roleMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_READ')")
     public RoleResponse getRoleById(Long id) {
-        return mapToResponse(roleRepository.findById(id)
+        return roleMapper.toResponse(roleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found")));
     }
 
@@ -51,7 +59,7 @@ public class RoleManagementService {
                 .build();
 
         try {
-            return mapToResponse(roleRepository.save(role));
+            return roleMapper.toResponse(roleRepository.save(role));
         } catch (DataIntegrityViolationException e) {
             throw new IllegalArgumentException("Role already exists");
         }
@@ -77,7 +85,7 @@ public class RoleManagementService {
         role.setName(newName);
         role.setDescription(request.getDescription());
 
-        return mapToResponse(roleRepository.save(role));
+        return roleMapper.toResponse(roleRepository.save(role));
     }
 
     @Transactional
@@ -108,7 +116,7 @@ public class RoleManagementService {
         }
 
         role.getPermissions().add(request.getPermission());
-        return mapToResponse(roleRepository.save(role));
+        return roleMapper.toResponse(roleRepository.save(role));
     }
 
     @Transactional
@@ -122,19 +130,11 @@ public class RoleManagementService {
         }
 
         role.getPermissions().remove(request.getPermission());
-        return mapToResponse(roleRepository.save(role));
+        return roleMapper.toResponse(roleRepository.save(role));
     }
 
     private boolean isBuiltIn(Role role) {
-        return "ADMIN".equals(role.getName()) || "USER".equals(role.getName()) || "USER_MANAGER".equals(role.getName());
-    }
-
-    private RoleResponse mapToResponse(Role role) {
-        return RoleResponse.builder()
-                .id(role.getId())
-                .name(role.getName())
-                .description(role.getDescription())
-                .permissions(Set.copyOf(role.getPermissions()))
-                .build();
+        return Set.of(Roles.ADMIN, Roles.USER, Roles.USER_MANAGER, Roles.MANAGER, Roles.EMPLOYEE, Roles.AUDITOR, Roles.FINANCE)
+                .contains(role.getName());
     }
 }

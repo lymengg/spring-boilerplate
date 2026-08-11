@@ -1,6 +1,6 @@
 package com.example.demo.dto;
 
-import com.example.demo.entity.UserPermission;
+import com.example.demo.constants.UserPermission;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

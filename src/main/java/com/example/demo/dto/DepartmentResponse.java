@@ -1,21 +1,20 @@
 package com.example.demo.dto;
 
-import com.example.demo.constants.UserPermission;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Set;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RoleResponse {
+public class DepartmentResponse {
 
     private Long id;
     private String name;
-    private String description;
-    private Set<UserPermission> permissions;
+    private Long tenantId;
+    private String tenantName;
+    private Long managerId;
+    private String managerUsername;
 }

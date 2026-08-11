@@ -1,19 +1,24 @@
 package com.example.demo.service;
 
+import com.example.demo.constants.AuditActions;
+import com.example.demo.constants.Roles;
+import com.example.demo.constants.UserPermission;
 import com.example.demo.dto.UserEnableRequest;
 import com.example.demo.dto.UserManagementResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
-import com.example.demo.entity.UserPermission;
-import com.example.demo.repository.RoleRepository;
+import com.example.demo.mapper.UserManagementMapper;
+import com.example.demo.security.service.AuthorizationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -22,27 +27,38 @@ import java.util.stream.Collectors;
 public class UserManagementService {
 
     private final UserService userService;
-    private final RoleRepository roleRepository;
+    private final RoleManagementService roleManagementService;
+    private final AuthorizationService authorizationService;
+    private final AuditLogService auditLogService;
+    private final UserManagementMapper userManagementMapper;
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
-    public List<UserManagementResponse> getUsers() {
-        return userService.findAll().stream()
-                .map(this::mapToResponse)
-                .toList();
+    public Page<UserManagementResponse> getUsers(Pageable pageable, String currentUsername) {
+        User currentUser = userService.getByUsername(currentUsername);
+        if (authorizationService.isSuperAdmin(currentUser)) {
+            return userService.findAll(pageable).map(userManagementMapper::toResponse);
+        }
+        if (currentUser.getTenant() == null) {
+            return Page.empty(pageable);
+        }
+        return userService.findAllByTenantId(currentUser.getTenant().getId(), pageable)
+                .map(userManagementMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
-    public UserManagementResponse getUserById(Long id) {
-        return mapToResponse(userService.getById(id));
+    public UserManagementResponse getUserById(Long id, String currentUsername) {
+        User currentUser = userService.getByUsername(currentUsername);
+        User user = findAccessibleUser(id, currentUser);
+        return userManagementMapper.toResponse(user);
     }
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_WRITE')")
     public UserManagementResponse updateUser(Long id, UserUpdateRequest request, String currentUsername) {
-        User user = userService.getById(id);
         User currentUser = userService.getByUsername(currentUsername);
+        User user = findAccessibleUser(id, currentUser);
 
         if (!canManage(currentUser, user)) {
             throw new IllegalArgumentException("Cannot update a user with more privileges");
@@ -55,14 +71,16 @@ public class UserManagementService {
             user.setLastName(request.getLastName());
         }
 
-        return mapToResponse(userService.save(user));
+        User updated = userService.save(user);
+        auditLogService.record(AuditActions.USER_UPDATED, AuditActions.RESOURCE_USER, String.valueOf(updated.getId()), "User updated", currentUsername);
+        return userManagementMapper.toResponse(updated);
     }
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_DELETE')")
     public void deleteUser(Long id, String currentUsername) {
-        User user = userService.getById(id);
         User currentUser = userService.getByUsername(currentUsername);
+        User user = findAccessibleUser(id, currentUser);
 
         if (user.getUsername().equals(currentUsername)) {
             throw new IllegalArgumentException("Cannot delete your own account");
@@ -74,14 +92,16 @@ public class UserManagementService {
             throw new IllegalArgumentException("Cannot delete a user with more privileges");
         }
 
+        Long userId = user.getId();
         userService.delete(user);
+        auditLogService.record(AuditActions.USER_DELETED, AuditActions.RESOURCE_USER, String.valueOf(userId), "User deleted", currentUsername);
     }
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_ENABLE')")
     public UserManagementResponse toggleUserEnabled(Long id, UserEnableRequest request, String currentUsername) {
-        User user = userService.getById(id);
         User currentUser = userService.getByUsername(currentUsername);
+        User user = findAccessibleUser(id, currentUser);
 
         if (user.getUsername().equals(currentUsername)) {
             throw new IllegalArgumentException("Cannot change your own enabled state");
@@ -94,18 +114,20 @@ public class UserManagementService {
         }
 
         user.setEnabled(request.getEnabled());
-        return mapToResponse(userService.save(user));
+        User saved = userService.save(user);
+        String action = request.getEnabled() ? AuditActions.USER_ENABLED : AuditActions.USER_DISABLED;
+        auditLogService.record(action, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "User enabled state changed to " + request.getEnabled(), currentUsername);
+        return userManagementMapper.toResponse(saved);
     }
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_ASSIGN_ROLE')")
     public UserManagementResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
-        User user = userService.getById(id);
-        String roleName = request.getRoleName().toUpperCase();
-        Role role = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
-
         User currentUser = userService.getByUsername(currentUsername);
+        User user = findAccessibleUser(id, currentUser);
+        String roleName = request.getRoleName().toUpperCase();
+        Role role = roleManagementService.findByName(roleName);
+
         Set<UserPermission> granterPermissions = getAllPermissions(currentUser);
 
         if (!canManage(currentUser, user)) {
@@ -122,18 +144,19 @@ public class UserManagementService {
         }
 
         user.getRoles().add(role);
-        return mapToResponse(userService.save(user));
+        User saved = userService.save(user);
+        auditLogService.record(AuditActions.USER_ROLE_ASSIGNED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Assigned role " + roleName, currentUsername);
+        return userManagementMapper.toResponse(saved);
     }
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_ASSIGN_ROLE')")
     public UserManagementResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
-        User user = userService.getById(id);
-        String roleName = request.getRoleName().toUpperCase();
-        Role role = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
-
         User currentUser = userService.getByUsername(currentUsername);
+        User user = findAccessibleUser(id, currentUser);
+        String roleName = request.getRoleName().toUpperCase();
+        Role role = roleManagementService.findByName(roleName);
+
         Set<UserPermission> granterPermissions = getAllPermissions(currentUser);
 
         if (!canManage(currentUser, user)) {
@@ -142,7 +165,7 @@ public class UserManagementService {
         if (!canAssignBuiltInRole(currentUser, role)) {
             throw new IllegalArgumentException("Only admin can remove this role");
         }
-        if ("ADMIN".equals(role.getName()) && isLastAdmin(user)) {
+        if (Roles.ADMIN.equals(role.getName()) && isLastAdmin(user)) {
             throw new IllegalArgumentException("Cannot remove the last admin");
         }
         if (!user.getRoles().contains(role)) {
@@ -150,46 +173,45 @@ public class UserManagementService {
         }
 
         user.getRoles().remove(role);
-        return mapToResponse(userService.save(user));
+        User saved = userService.save(user);
+        auditLogService.record(AuditActions.USER_ROLE_REMOVED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Removed role " + roleName, currentUsername);
+        return userManagementMapper.toResponse(saved);
+    }
+
+    private User findAccessibleUser(Long id, User currentUser) {
+        if (authorizationService.isSuperAdmin(currentUser)) {
+            return userService.getById(id);
+        }
+        if (currentUser.getTenant() == null) {
+            throw new AccessDeniedException("Cannot access this user");
+        }
+        return userService.getByIdAndTenantId(id, currentUser.getTenant().getId());
     }
 
     private boolean isLastAdmin(User user) {
         boolean isAdmin = user.getRoles().stream()
-                .anyMatch(role -> "ADMIN".equals(role.getName()));
-        return isAdmin && userService.countByRoleName("ADMIN") <= 1;
+                .anyMatch(role -> Roles.ADMIN.equals(role.getName()));
+        return isAdmin && userService.countByRoleName(Roles.ADMIN) <= 1;
     }
 
     private boolean canManage(User granter, User target) {
+        if (!authorizationService.canAccessTenant(granter, target.getTenant())) {
+            return false;
+        }
         return getAllPermissions(granter).containsAll(getAllPermissions(target));
     }
 
     private boolean canAssignBuiltInRole(User granter, Role role) {
-        if (!("ADMIN".equals(role.getName()) || "USER_MANAGER".equals(role.getName()))) {
+        if (!(Roles.ADMIN.equals(role.getName()) || Roles.USER_MANAGER.equals(role.getName()))) {
             return true;
         }
         return granter.getRoles().stream()
-                .anyMatch(r -> "ADMIN".equals(r.getName()));
+                .anyMatch(r -> Roles.ADMIN.equals(r.getName()));
     }
 
     private Set<UserPermission> getAllPermissions(User user) {
         return user.getRoles().stream()
                 .flatMap(role -> role.getPermissions().stream())
                 .collect(Collectors.toSet());
-    }
-
-    private UserManagementResponse mapToResponse(User user) {
-        return UserManagementResponse.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .enabled(user.getEnabled())
-                .accountNonLocked(user.getAccountNonLocked())
-                .roles(user.getRoles().stream().map(Role::getName).collect(Collectors.toSet()))
-                .permissions(getAllPermissions(user).stream().map(UserPermission::name).collect(Collectors.toSet()))
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
     }
 }
