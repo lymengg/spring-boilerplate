@@ -98,13 +98,13 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should delegate get current user to UserService")
     void shouldDelegateGetCurrentUser() {
-        UserResponse userResponse = UserResponse.builder().username("testuser").build();
+        UserProfileResponse userProfileResponse = UserProfileResponse.builder().username("testuser").build();
 
-        when(userService.getCurrentUser("testuser")).thenReturn(userResponse);
+        when(userService.getCurrentUser("testuser")).thenReturn(userProfileResponse);
 
-        UserResponse result = authService.getCurrentUser(auth());
+        UserProfileResponse result = authService.getCurrentUser(auth());
 
-        assertThat(result).isEqualTo(userResponse);
+        assertThat(result).isEqualTo(userProfileResponse);
     }
 
     @Test

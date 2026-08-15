@@ -5,7 +5,7 @@ import com.example.demo.constants.Roles;
 import com.example.demo.constants.UserPermission;
 import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
-import com.example.demo.dto.UserManagementResponse;
+import com.example.demo.dto.UserResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
 import com.example.demo.entity.Role;
@@ -45,7 +45,7 @@ public class UserManagementService {
      */
     @Transactional
     @PreAuthorize("hasAuthority('USER_CREATE')")
-    public UserManagementResponse createUser(UserCreateRequest request, String currentUsername) {
+    public UserResponse createUser(UserCreateRequest request, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
 
         String username = request.getUsername().trim();
@@ -64,12 +64,7 @@ public class UserManagementService {
                 ? Roles.USER : request.getRoleName().toUpperCase();
         Role role = roleManagementService.findByName(roleName);
 
-        if (!canAssignBuiltInRole(currentUser, role)) {
-            throw new IllegalArgumentException("Only admin can assign this role");
-        }
-        if (!getAllPermissions(currentUser).containsAll(role.getPermissions())) {
-            throw new IllegalArgumentException("Cannot assign a role with permissions you do not have");
-        }
+        validateRoleAssignment(currentUser, role);
 
         User user = User.builder()
                 .username(username)
@@ -89,7 +84,7 @@ public class UserManagementService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
-    public Page<UserManagementResponse> getUsers(Pageable pageable, String currentUsername) {
+    public Page<UserResponse> getUsers(Pageable pageable, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         if (authorizationService.isSuperAdmin(currentUser)) {
             return userService.findAll(pageable).map(userManagementMapper::toResponse);
@@ -103,7 +98,7 @@ public class UserManagementService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
-    public UserManagementResponse getUserById(Long id, String currentUsername) {
+    public UserResponse getUserById(Long id, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         User user = findAccessibleUser(id, currentUser);
         return userManagementMapper.toResponse(user);
@@ -111,7 +106,7 @@ public class UserManagementService {
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_WRITE')")
-    public UserManagementResponse updateUser(Long id, UserUpdateRequest request, String currentUsername) {
+    public UserResponse updateUser(Long id, UserUpdateRequest request, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         User user = findAccessibleUser(id, currentUser);
 
@@ -154,7 +149,7 @@ public class UserManagementService {
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_ENABLE')")
-    public UserManagementResponse toggleUserEnabled(Long id, UserEnableRequest request, String currentUsername) {
+    public UserResponse toggleUserEnabled(Long id, UserEnableRequest request, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         User user = findAccessibleUser(id, currentUser);
 
@@ -177,23 +172,16 @@ public class UserManagementService {
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_ASSIGN_ROLE')")
-    public UserManagementResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
+    public UserResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         User user = findAccessibleUser(id, currentUser);
         String roleName = request.getRoleName().toUpperCase();
         Role role = roleManagementService.findByName(roleName);
 
-        Set<UserPermission> granterPermissions = getAllPermissions(currentUser);
-
         if (!canManage(currentUser, user)) {
             throw new IllegalArgumentException("Cannot modify roles of a user with more privileges");
         }
-        if (!canAssignBuiltInRole(currentUser, role)) {
-            throw new IllegalArgumentException("Only admin can assign this role");
-        }
-        if (!granterPermissions.containsAll(role.getPermissions())) {
-            throw new IllegalArgumentException("Cannot assign a role with permissions you do not have");
-        }
+        validateRoleAssignment(currentUser, role);
         if (user.getRoles().contains(role)) {
             throw new IllegalArgumentException("User already has this role");
         }
@@ -206,13 +194,11 @@ public class UserManagementService {
 
     @Transactional
     @PreAuthorize("hasAuthority('USER_ASSIGN_ROLE')")
-    public UserManagementResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
+    public UserResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         User user = findAccessibleUser(id, currentUser);
         String roleName = request.getRoleName().toUpperCase();
         Role role = roleManagementService.findByName(roleName);
-
-        Set<UserPermission> granterPermissions = getAllPermissions(currentUser);
 
         if (!canManage(currentUser, user)) {
             throw new IllegalArgumentException("Cannot modify roles of a user with more privileges");
@@ -231,6 +217,15 @@ public class UserManagementService {
         User saved = userService.save(user);
         auditLogService.record(AuditActions.USER_ROLE_REMOVED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Removed role " + roleName, currentUsername);
         return userManagementMapper.toResponse(saved);
+    }
+
+    private void validateRoleAssignment(User granter, Role role) {
+        if (!canAssignBuiltInRole(granter, role)) {
+            throw new IllegalArgumentException("Only admin can assign this role");
+        }
+        if (!getAllPermissions(granter).containsAll(role.getPermissions())) {
+            throw new IllegalArgumentException("Cannot assign a role with permissions you do not have");
+        }
     }
 
     /**
