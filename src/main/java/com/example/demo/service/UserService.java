@@ -1,12 +1,9 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.ChangePasswordRequest;
-import com.example.demo.dto.RegisterRequest;
 import com.example.demo.dto.UserResponse;
-import com.example.demo.constants.Roles;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
-import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.audit.SecurityAuditLogger;
 import lombok.RequiredArgsConstructor;
@@ -31,46 +28,26 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
-    // Direct repository injection is used intentionally to avoid a circular dependency
-    // with RoleManagementService, which itself depends on UserService for user counts.
-    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
     private final SecurityAuditLogger securityAuditLogger;
 
     /**
-     * Validates uniqueness and assigns the default role centrally, keeping the
-     * orchestrator free of user-construction details.
+     * Checks whether a username is already taken. Exposed for management
+     * services to validate user creation without direct repository access.
      */
-    @Transactional
-    public User register(RegisterRequest request, String ipAddress) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Username already exists");
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already exists");
-        }
+    @Transactional(readOnly = true)
+    public boolean existsByUsername(String username) {
+        return userRepository.existsByUsername(username);
+    }
 
-        Role userRole = roleRepository.findByName(Roles.USER)
-                .orElseThrow(() -> new IllegalStateException("Default role USER not found"));
-
-        User user = User.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .enabled(true)
-                .accountNonExpired(true)
-                .accountNonLocked(true)
-                .credentialsNonExpired(true)
-                .build();
-
-        user.getRoles().add(userRole);
-        user = userRepository.save(user);
-
-        securityAuditLogger.logRegistration(user.getUsername(), user.getEmail(), ipAddress);
-        return user;
+    /**
+     * Checks whether an email is already in use. Exposed for management
+     * services to validate user creation without direct repository access.
+     */
+    @Transactional(readOnly = true)
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
     }
 
     /**

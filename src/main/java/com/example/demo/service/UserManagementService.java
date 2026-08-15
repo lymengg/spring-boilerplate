@@ -3,11 +3,13 @@ package com.example.demo.service;
 import com.example.demo.constants.AuditActions;
 import com.example.demo.constants.Roles;
 import com.example.demo.constants.UserPermission;
+import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
 import com.example.demo.dto.UserManagementResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
 import com.example.demo.entity.Role;
+import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.UserManagementMapper;
 import com.example.demo.security.service.AuthorizationService;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +31,61 @@ public class UserManagementService {
 
     private final UserService userService;
     private final RoleManagementService roleManagementService;
+    private final TenantManagementService tenantManagementService;
     private final AuthorizationService authorizationService;
     private final AuditLogService auditLogService;
     private final UserManagementMapper userManagementMapper;
+    private final PasswordEncoder passwordEncoder;
+
+    /**
+     * Creates a new user. Only admins and user managers can provision accounts;
+     * self-registration is not supported. The creator assigns the initial role
+     * subject to the same privilege constraints as role assignment, and a user
+     * manager can only create users within their own tenant.
+     */
+    @Transactional
+    @PreAuthorize("hasAuthority('USER_CREATE')")
+    public UserManagementResponse createUser(UserCreateRequest request, String currentUsername) {
+        User currentUser = userService.getByUsername(currentUsername);
+
+        String username = request.getUsername().trim();
+        String email = request.getEmail().trim();
+
+        if (userService.existsByUsername(username)) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+        if (userService.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        Tenant tenant = resolveTenantForCreation(currentUser, request.getTenantId());
+
+        String roleName = request.getRoleName() == null || request.getRoleName().isBlank()
+                ? Roles.USER : request.getRoleName().toUpperCase();
+        Role role = roleManagementService.findByName(roleName);
+
+        if (!canAssignBuiltInRole(currentUser, role)) {
+            throw new IllegalArgumentException("Only admin can assign this role");
+        }
+        if (!getAllPermissions(currentUser).containsAll(role.getPermissions())) {
+            throw new IllegalArgumentException("Cannot assign a role with permissions you do not have");
+        }
+
+        User user = User.builder()
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .tenant(tenant)
+                .build();
+        user.getRoles().add(role);
+
+        User saved = userService.save(user);
+        auditLogService.record(AuditActions.USER_CREATED, AuditActions.RESOURCE_USER,
+                String.valueOf(saved.getId()), "User created with role " + roleName, currentUsername);
+        return userManagementMapper.toResponse(saved);
+    }
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
@@ -176,6 +231,21 @@ public class UserManagementService {
         User saved = userService.save(user);
         auditLogService.record(AuditActions.USER_ROLE_REMOVED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Removed role " + roleName, currentUsername);
         return userManagementMapper.toResponse(saved);
+    }
+
+    /**
+     * Resolves the tenant for a newly created user. A user manager can only
+     * create users within their own tenant; only a super admin may place the
+     * user in a specific (or global) tenant.
+     */
+    private Tenant resolveTenantForCreation(User creator, Long tenantId) {
+        if (tenantId == null) {
+            return creator.getTenant();
+        }
+        if (!authorizationService.isSuperAdmin(creator)) {
+            throw new AccessDeniedException("Cannot create user in a different tenant");
+        }
+        return tenantManagementService.findById(tenantId);
     }
 
     private User findAccessibleUser(Long id, User currentUser) {

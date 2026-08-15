@@ -152,6 +152,17 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    @DisplayName("Self-registration endpoint is no longer publicly accessible")
+    void registerEndpointIsNoLongerPublic() throws Exception {
+        String body = "{\"username\":\"attacker\",\"email\":\"attacker@example.com\",\"password\":\"SecurePass123!\"}";
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("User without permission receives 403 for protected management endpoint")
     void unauthorizedRoleReceives403() throws Exception {
         mockMvc.perform(get("/api/management/users")

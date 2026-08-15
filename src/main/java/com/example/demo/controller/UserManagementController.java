@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.ApiResponse;
+import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
 import com.example.demo.dto.UserManagementResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
@@ -20,6 +21,14 @@ import org.springframework.web.bind.annotation.*;
 public class UserManagementController {
 
     private final UserManagementService userManagementService;
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<UserManagementResponse>> createUser(
+            @Valid @RequestBody UserCreateRequest request,
+            Authentication authentication) {
+        UserManagementResponse user = userManagementService.createUser(request, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("User created successfully", user));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<UserManagementResponse>>> getUsers(Pageable pageable, Authentication authentication) {
