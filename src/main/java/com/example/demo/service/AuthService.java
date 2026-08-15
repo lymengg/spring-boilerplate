@@ -24,10 +24,6 @@ public class AuthService {
     private final MfaSetupService mfaSetupService;
     private final ClientIpResolver clientIpResolver;
 
-    public TokenResponse register(RegisterRequest request) {
-        return tokenService.generateTokenResponse(userService.register(request, getClientIp()));
-    }
-
     public Object login(LoginRequest request) {
         return loginService.login(request, getClientIp());
     }

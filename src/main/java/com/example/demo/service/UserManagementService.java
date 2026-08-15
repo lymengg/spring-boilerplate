@@ -3,11 +3,14 @@ package com.example.demo.service;
 import com.example.demo.constants.AuditActions;
 import com.example.demo.constants.Roles;
 import com.example.demo.constants.UserPermission;
+import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
 import com.example.demo.dto.UserManagementResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
+import com.example.demo.entity.Department;
 import com.example.demo.entity.Role;
+import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.UserManagementMapper;
 import com.example.demo.security.service.AuthorizationService;
@@ -16,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +32,54 @@ public class UserManagementService {
 
     private final UserService userService;
     private final RoleManagementService roleManagementService;
+    private final TenantManagementService tenantManagementService;
+    private final DepartmentManagementService departmentManagementService;
     private final AuthorizationService authorizationService;
     private final AuditLogService auditLogService;
+    private final PasswordEncoder passwordEncoder;
     private final UserManagementMapper userManagementMapper;
+
+    @Transactional
+    @PreAuthorize("hasAuthority('USER_WRITE')")
+    public UserManagementResponse createUser(UserCreateRequest request, String currentUsername) {
+        User currentUser = userService.getByUsername(currentUsername);
+        String roleName = request.getRoleName().toUpperCase();
+        Role role = roleManagementService.findByName(roleName);
+
+        if (!canAssignBuiltInRole(currentUser, role)) {
+            throw new IllegalArgumentException("Only admin can create users with role " + roleName);
+        }
+
+        Tenant tenant = resolveTenantForCreation(request.getTenantId(), currentUser);
+        Department department = resolveDepartmentForCreation(request.getDepartmentId(), currentUser, tenant);
+
+        if (userService.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+        if (userService.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        User user = User.builder()
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .enabled(true)
+                .accountNonExpired(true)
+                .accountNonLocked(true)
+                .credentialsNonExpired(true)
+                .tenant(tenant)
+                .department(department)
+                .build();
+        user.getRoles().add(role);
+
+        User saved = userService.save(user);
+        auditLogService.record(AuditActions.USER_CREATED, AuditActions.RESOURCE_USER,
+                String.valueOf(saved.getId()), "User created with role " + roleName, currentUsername);
+        return userManagementMapper.toResponse(saved);
+    }
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
@@ -213,5 +262,33 @@ public class UserManagementService {
         return user.getRoles().stream()
                 .flatMap(role -> role.getPermissions().stream())
                 .collect(Collectors.toSet());
+    }
+
+    private Tenant resolveTenantForCreation(Long tenantId, User currentUser) {
+        if (tenantId == null) {
+            if (currentUser.getTenant() != null) {
+                throw new IllegalArgumentException("Tenant is required to create a user in your tenant");
+            }
+            return null;
+        }
+        Tenant tenant = tenantManagementService.findById(tenantId);
+        if (!authorizationService.canAccessTenant(currentUser, tenant)) {
+            throw new AccessDeniedException("Cannot create users in this tenant");
+        }
+        return tenant;
+    }
+
+    private Department resolveDepartmentForCreation(Long departmentId, User currentUser, Tenant tenant) {
+        if (departmentId == null) {
+            return null;
+        }
+        Department department = departmentManagementService.findById(departmentId);
+        if (tenant != null && !tenant.getId().equals(department.getTenant().getId())) {
+            throw new IllegalArgumentException("Department must belong to the same tenant");
+        }
+        if (tenant == null && !authorizationService.isSuperAdmin(currentUser)) {
+            throw new AccessDeniedException("Cannot assign a department without a tenant");
+        }
+        return department;
     }
 }

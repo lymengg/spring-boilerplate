@@ -1,8 +1,11 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.UserCreateRequest;
+import com.example.demo.entity.Department;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
+import com.example.demo.repository.DepartmentRepository;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
@@ -47,6 +50,9 @@ class UserManagementControllerIntegrationTest {
 
     @Autowired
     private TenantRepository tenantRepository;
+
+    @Autowired
+    private DepartmentRepository departmentRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -296,5 +302,276 @@ class UserManagementControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
                 .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Admin can create a user")
+    void adminCanCreateUser() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("newuser")
+                .email("newuser@example.com")
+                .password("SecurePass123!")
+                .firstName("New")
+                .lastName("User")
+                .roleName("USER")
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("newuser"))
+                .andExpect(jsonPath("$.data.roles").isArray())
+                .andExpect(jsonPath("$.data.roles[0]").value("USER"));
+    }
+
+    @Test
+    @DisplayName("Admin can create a user with tenant and department")
+    void adminCanCreateUserWithTenantAndDepartment() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+        Department dept = departmentRepository.save(Department.builder()
+                .name("Engineering")
+                .tenant(tenant)
+                .build());
+
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("deptuser")
+                .email("deptuser@example.com")
+                .password("SecurePass123!")
+                .firstName("Dept")
+                .lastName("User")
+                .roleName("USER")
+                .tenantId(tenant.getId())
+                .departmentId(dept.getId())
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("deptuser"))
+                .andExpect(jsonPath("$.data.roles").isArray())
+                .andExpect(jsonPath("$.data.roles[0]").value("USER"));
+    }
+
+    @Test
+    @DisplayName("User manager can create a user in their own tenant")
+    void userManagerCanCreateUserInOwnTenant() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("manageduser")
+                .email("manageduser@example.com")
+                .password("SecurePass123!")
+                .firstName("Managed")
+                .lastName("User")
+                .roleName("USER")
+                .tenantId(tenant.getId())
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("manageduser"));
+    }
+
+    @Test
+    @DisplayName("User manager cannot create user in a different tenant")
+    void userManagerCannotCreateUserInDifferentTenant() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant").build());
+
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("crossuser")
+                .email("crossuser@example.com")
+                .password("SecurePass123!")
+                .firstName("Cross")
+                .lastName("User")
+                .roleName("USER")
+                .tenantId(otherTenant.getId())
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("User manager cannot create user with ADMIN role")
+    void userManagerCannotCreateAdminUser() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("adminuser2")
+                .email("adminuser2@example.com")
+                .password("SecurePass123!")
+                .firstName("Admin")
+                .lastName("User")
+                .roleName("ADMIN")
+                .tenantId(tenant.getId())
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot create user with USER_MANAGER role")
+    void userManagerCannotCreateUserManager() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("mgruser")
+                .email("mgruser@example.com")
+                .password("SecurePass123!")
+                .firstName("Mgr")
+                .lastName("User")
+                .roleName("USER_MANAGER")
+                .tenantId(tenant.getId())
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Admin can create user with USER_MANAGER role")
+    void adminCanCreateUserManager() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("newmanager")
+                .email("newmanager@example.com")
+                .password("SecurePass123!")
+                .firstName("New")
+                .lastName("Manager")
+                .roleName("USER_MANAGER")
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roles[0]").value("USER_MANAGER"));
+    }
+
+    @Test
+    @DisplayName("Regular user cannot create users")
+    void regularUserCannotCreateUser() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("anotheruser")
+                .email("another@example.com")
+                .password("SecurePass123!")
+                .firstName("Another")
+                .lastName("User")
+                .roleName("USER")
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Unauthenticated cannot create users")
+    void unauthenticatedCannotCreateUser() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("anonuser")
+                .email("anon@example.com")
+                .password("SecurePass123!")
+                .firstName("Anon")
+                .lastName("User")
+                .roleName("USER")
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Creating user with duplicate username returns error")
+    void createDuplicateUsernameReturnsError() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("adminuser")
+                .email("adminuser2@example.com")
+                .password("SecurePass123!")
+                .firstName("Dup")
+                .lastName("User")
+                .roleName("USER")
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Creating user with missing fields returns 400")
+    void createWithMissingFieldsReturns400() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("")
+                .email("valid@example.com")
+                .password("SecurePass123!")
+                .roleName("USER")
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Creating user with non-existent role returns 400")
+    void createWithNonExistentRoleReturns400() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("badrole")
+                .email("badrole@example.com")
+                .password("SecurePass123!")
+                .firstName("Bad")
+                .lastName("Role")
+                .roleName("NONEXISTENT_ROLE")
+                .build();
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Register endpoint is no longer available")
+    void registerEndpointNotAvailable() throws Exception {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username("reguser")
+                .email("reguser@example.com")
+                .password("SecurePass123!")
+                .firstName("Reg")
+                .lastName("User")
+                .roleName("USER")
+                .build();
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
     }
 }

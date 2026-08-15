@@ -51,10 +51,6 @@ public class SecurityAuditLogger {
         log.warn("SECURITY_AUDIT: access_denied username={} ip={} path={} timestamp={}", username, ipAddress, requestedPath, java.time.Instant.now());
     }
 
-    public void logRegistration(String username, String email, String ipAddress) {
-        log.info("SECURITY_AUDIT: registration username={} email={} ip={} timestamp={}", username, email, ipAddress, java.time.Instant.now());
-    }
-
     public void logSuspiciousActivity(String username, String ipAddress, String activity) {
         log.error("SECURITY_AUDIT: suspicious_activity username={} ip={} activity={} timestamp={}", username, ipAddress, activity, java.time.Instant.now());
     }
