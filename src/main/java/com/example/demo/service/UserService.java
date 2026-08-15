@@ -1,7 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.ChangePasswordRequest;
-import com.example.demo.dto.UserResponse;
+import com.example.demo.dto.UserProfileResponse;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
@@ -124,9 +124,9 @@ public class UserService {
      * String array, avoiding entity exposure through the API.
      */
     @Transactional(readOnly = true)
-    public UserResponse getCurrentUser(String username) {
+    public UserProfileResponse getCurrentUser(String username) {
         User user = getByUsername(username);
-        UserResponse response = modelMapper.map(user, UserResponse.class);
+        UserProfileResponse response = modelMapper.map(user, UserProfileResponse.class);
         response.setRoles(user.getRoles().stream().map(Role::getName).toArray(String[]::new));
         return response;
     }

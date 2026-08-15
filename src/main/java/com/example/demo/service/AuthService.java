@@ -40,7 +40,7 @@ public class AuthService {
         tokenService.logout(authentication.getName(), getClientIp());
     }
 
-    public UserResponse getCurrentUser(Authentication authentication) {
+    public UserProfileResponse getCurrentUser(Authentication authentication) {
         return userService.getCurrentUser(authentication.getName());
     }
 

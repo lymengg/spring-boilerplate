@@ -40,9 +40,9 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(Authentication authentication) {
-        UserResponse userResponse = authService.getCurrentUser(authentication);
-        return ResponseEntity.ok(ApiResponse.success(userResponse));
+    public ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentUser(Authentication authentication) {
+        UserProfileResponse userProfileResponse = authService.getCurrentUser(authentication);
+        return ResponseEntity.ok(ApiResponse.success(userProfileResponse));
     }
 
     @PostMapping("/change-password")
