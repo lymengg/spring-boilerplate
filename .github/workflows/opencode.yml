@@ -17,19 +17,18 @@ jobs:
 
     permissions:
       id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
           model: opencode/laguna-s-2.1-free
-          # share: true
-          # github_token: xxxx
