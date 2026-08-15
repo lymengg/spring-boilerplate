@@ -2,7 +2,6 @@ package com.example.demo.service;
 
 import com.example.demo.dto.*;
 import com.example.demo.entity.MfaMethod;
-import com.example.demo.entity.User;
 import com.example.demo.security.service.ClientIpResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,24 +43,6 @@ class AuthServiceTest {
                 .authorities(new SimpleGrantedAuthority("ROLE_USER"))
                 .build();
         return new UsernamePasswordAuthenticationToken(details, null, details.getAuthorities());
-    }
-
-    @Test
-    @DisplayName("Should register user and return token response")
-    void shouldRegisterAndReturnTokenResponse() {
-        RegisterRequest request = RegisterRequest.builder()
-                .username("newuser").email("new@example.com").password("SecurePass123!").build();
-        User user = User.builder().username("newuser").email("new@example.com").build();
-        TokenResponse tokenResponse = TokenResponse.builder().accessToken("access").refreshToken("refresh").build();
-
-        when(userService.register(request, "unknown")).thenReturn(user);
-        when(tokenService.generateTokenResponse(user)).thenReturn(tokenResponse);
-
-        TokenResponse result = authService.register(request);
-
-        assertThat(result).isEqualTo(tokenResponse);
-        verify(userService).register(request, "unknown");
-        verify(tokenService).generateTokenResponse(user);
     }
 
     @Test

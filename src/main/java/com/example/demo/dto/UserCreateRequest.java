@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RegisterRequest {
+public class UserCreateRequest {
 
     @NotBlank(message = "Username is required")
     @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
@@ -33,4 +33,9 @@ public class RegisterRequest {
 
     @Size(max = 50, message = "Last name must not exceed 50 characters")
     private String lastName;
+
+    @Size(max = 50, message = "Role name must not exceed 50 characters")
+    private String roleName;
+
+    private Long tenantId;
 }

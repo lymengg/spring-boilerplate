@@ -297,4 +297,136 @@ class UserManagementControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
                 .andExpect(status().is(400));
     }
+
+    @Test
+    @DisplayName("Admin can create a user with role and tenant")
+    void adminCanCreateUser() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!",
+                "firstName", "Created",
+                "lastName", "User",
+                "roleName", "EMPLOYEE",
+                "tenantId", tenant.getId());
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("createduser"))
+                .andExpect(jsonPath("$.data.email").value("created@example.com"))
+                .andExpect(jsonPath("$.data.roles[0]").value("EMPLOYEE"));
+    }
+
+    @Test
+    @DisplayName("User manager can create a user in their tenant with default role")
+    void userManagerCanCreateUserInTenant() throws Exception {
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!");
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("createduser"))
+                .andExpect(jsonPath("$.data.roles[0]").value("USER"));
+    }
+
+    @Test
+    @DisplayName("User manager cannot create a user with ADMIN role")
+    void userManagerCannotCreateAdmin() throws Exception {
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!",
+                "roleName", "ADMIN");
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot create a user in a different tenant")
+    void userManagerCannotCreateUserInOtherTenant() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant").build());
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!",
+                "tenantId", otherTenant.getId());
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Regular user cannot create a user")
+    void regularUserCannotCreateUser() throws Exception {
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!");
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Unauthenticated cannot create a user")
+    void unauthenticatedCannotCreateUser() throws Exception {
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!");
+
+        mockMvc.perform(post("/api/management/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(401));
+    }
+
+    @Test
+    @DisplayName("Creating a user with a duplicate username returns 400")
+    void duplicateUsernameReturns400() throws Exception {
+        Map<String, Object> body = Map.of(
+                "username", "testuser",
+                "email", "unique@example.com",
+                "password", "SecurePass123!");
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Weak password on user creation returns 400")
+    void weakPasswordReturns400() throws Exception {
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "weak");
+
+        mockMvc.perform(post("/api/management/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
 }
