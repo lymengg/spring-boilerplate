@@ -124,7 +124,7 @@ class SecurityIntegrationTest {
 
         String expiredToken = Jwts.builder()
                 .subject("testuser")
-                .claim("roles", List.of("ROLE_USER"))
+                .claim("roles", List.of("ROLE_EMPLOYEE"))
                 .issuedAt(now)
                 .expiration(expiry)
                 .issuer(jwtConfig.getIssuer())

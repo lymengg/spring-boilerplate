@@ -102,6 +102,30 @@ public class DepartmentManagementService {
                 .orElseThrow(() -> new IllegalArgumentException("Department not found"));
     }
 
+    @Transactional(readOnly = true)
+    public List<Long> findManagedDepartmentIds(User user) {
+        if (user == null || user.getId() == null) {
+            return List.of();
+        }
+        return departmentRepository.findByManagersId(user.getId()).stream()
+                .map(Department::getId)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isLastManagerOfAnyDepartment(User user) {
+        if (user == null || user.getId() == null) {
+            return false;
+        }
+        List<Department> managed = departmentRepository.findByManagersId(user.getId());
+        for (Department dept : managed) {
+            if (dept.getManagers().size() <= 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private Department findAccessibleDepartment(Long id, User user) {
         if (authorizationService.isSuperAdmin(user)) {
             return departmentRepository.findById(id)

@@ -32,6 +32,7 @@ public class UserManagementService {
     private final UserService userService;
     private final RoleManagementService roleManagementService;
     private final TenantManagementService tenantManagementService;
+    private final DepartmentManagementService departmentManagementService;
     private final AuthorizationService authorizationService;
     private final AuditLogService auditLogService;
     private final UserManagementMapper userManagementMapper;
@@ -137,6 +138,9 @@ public class UserManagementService {
         }
         if (isLastAdmin(user)) {
             throw new IllegalArgumentException("Cannot delete the last admin");
+        }
+        if (departmentManagementService.isLastManagerOfAnyDepartment(user)) {
+            throw new IllegalArgumentException("Cannot delete a user who is the last manager of a department");
         }
         if (!canManage(currentUser, user)) {
             throw new IllegalArgumentException("Cannot delete a user with more privileges");
@@ -255,11 +259,16 @@ public class UserManagementService {
     }
 
     private boolean isLastAdmin(User user) {
-        boolean isAdmin = user.getRoles().stream()
-                .anyMatch(role -> Roles.PLATFORM_ADMIN.equals(role.getName())
-                        || Roles.TENANT_ADMIN.equals(role.getName()));
-        return isAdmin && (userService.countByRoleName(Roles.PLATFORM_ADMIN)
-                    + userService.countByRoleName(Roles.TENANT_ADMIN)) <= 1;
+        if (user.getRoles().stream().anyMatch(role -> Roles.PLATFORM_ADMIN.equals(role.getName()))) {
+            return userService.countByRoleName(Roles.PLATFORM_ADMIN) <= 1;
+        }
+        if (user.getRoles().stream().anyMatch(role -> Roles.TENANT_ADMIN.equals(role.getName()))) {
+            if (user.getTenant() == null) {
+                return false;
+            }
+            return userService.countByRoleNameAndTenantId(Roles.TENANT_ADMIN, user.getTenant().getId()) <= 1;
+        }
+        return false;
     }
 
     private boolean canManage(User granter, User target) {

@@ -178,4 +178,9 @@ public class UserService {
     public long countByRoleName(String roleName) {
         return userRepository.countByRolesName(roleName);
     }
+
+    @Transactional(readOnly = true)
+    public long countByRoleNameAndTenantId(String roleName, Long tenantId) {
+        return userRepository.countByRolesNameAndTenantId(roleName, tenantId);
+    }
 }

@@ -20,6 +20,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ExpenseService {
@@ -45,10 +47,12 @@ public class ExpenseService {
         if (authorizationService.hasAuthority(currentUser, Authorities.AUDIT_LOG_READ)) {
             return expenseRepository.findAllByTenantId(tenantId, pageable).map(expenseMapper::toResponse);
         }
-        if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_APPROVE)
-                && currentUser.getDepartment() != null) {
-            return expenseRepository.findAllByDepartmentId(currentUser.getDepartment().getId(), pageable)
-                    .map(expenseMapper::toResponse);
+        if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_APPROVE)) {
+            List<Long> managedDeptIds = departmentManagementService.findManagedDepartmentIds(currentUser);
+            if (!managedDeptIds.isEmpty()) {
+                return expenseRepository.findAllByDepartmentIdIn(managedDeptIds, pageable)
+                        .map(expenseMapper::toResponse);
+            }
         }
         if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_PROCESS)) {
             return expenseRepository.findAllByTenantIdAndStatus(tenantId, ExpenseStatus.APPROVED, pageable)
