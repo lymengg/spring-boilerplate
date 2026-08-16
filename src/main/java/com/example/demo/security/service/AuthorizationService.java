@@ -23,7 +23,7 @@ public class AuthorizationService {
     }
 
     public boolean isSuperAdmin(User user) {
-        return user != null && user.getTenant() == null && hasRole(user, Roles.ADMIN);
+        return user != null && user.getTenant() == null && hasRole(user, Roles.PLATFORM_ADMIN);
     }
 
     public boolean belongsToTenant(User user, Tenant tenant) {

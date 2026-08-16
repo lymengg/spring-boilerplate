@@ -16,6 +16,7 @@ public class RoleResponse {
 
     private Long id;
     private String name;
+    private String title;
     private String description;
     private Set<UserPermission> permissions;
 }

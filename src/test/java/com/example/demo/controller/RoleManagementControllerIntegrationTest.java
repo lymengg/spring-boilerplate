@@ -62,7 +62,7 @@ class RoleManagementControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        Role adminRole = roleRepository.findByName("PLATFORM_ADMIN").orElseThrow();
         Role managerRole = roleRepository.findByName("USER_MANAGER").orElseThrow();
 
         User admin = createUser("adminuser", "admin@example.com", adminRole);

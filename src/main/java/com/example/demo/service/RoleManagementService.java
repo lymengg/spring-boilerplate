@@ -55,6 +55,7 @@ public class RoleManagementService {
 
         Role role = Role.builder()
                 .name(roleName)
+                .title(request.getTitle())
                 .description(request.getDescription())
                 .build();
 
@@ -83,6 +84,7 @@ public class RoleManagementService {
         });
 
         role.setName(newName);
+        role.setTitle(request.getTitle());
         role.setDescription(request.getDescription());
 
         return roleMapper.toResponse(roleRepository.save(role));
@@ -134,7 +136,10 @@ public class RoleManagementService {
     }
 
     private boolean isBuiltIn(Role role) {
-        return Set.of(Roles.ADMIN, Roles.USER, Roles.USER_MANAGER, Roles.MANAGER, Roles.EMPLOYEE, Roles.AUDITOR, Roles.FINANCE)
-                .contains(role.getName());
+        return Set.of(
+                Roles.PLATFORM_ADMIN, Roles.TENANT_ADMIN, Roles.USER_MANAGER,
+                Roles.DEPARTMENT_MANAGER, Roles.EMPLOYEE, Roles.AUDITOR,
+                Roles.FINANCE, Roles.USER
+        ).contains(role.getName());
     }
 }

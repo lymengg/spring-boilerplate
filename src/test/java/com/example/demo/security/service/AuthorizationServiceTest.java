@@ -41,18 +41,18 @@ class AuthorizationServiceTest {
         employeeRole.getPermissions().add(UserPermission.EXPENSE_UPDATE);
         employeeRole.getPermissions().add(UserPermission.EXPENSE_DELETE);
 
-        managerRole = Role.builder().name(Roles.MANAGER).permissions(new HashSet<>()).build();
+        managerRole = Role.builder().name(Roles.DEPARTMENT_MANAGER).permissions(new HashSet<>()).build();
         managerRole.getPermissions().add(UserPermission.EXPENSE_READ);
         managerRole.getPermissions().add(UserPermission.EXPENSE_APPROVE);
         managerRole.getPermissions().add(UserPermission.EXPENSE_REJECT);
         managerRole.getPermissions().add(UserPermission.REPORT_READ);
 
-        tenantAdminRole = Role.builder().name("TENANT_ADMIN").permissions(new HashSet<>()).build();
+        tenantAdminRole = Role.builder().name(Roles.TENANT_ADMIN).permissions(new HashSet<>()).build();
         tenantAdminRole.getPermissions().add(UserPermission.TENANT_UPDATE);
         tenantAdminRole.getPermissions().add(UserPermission.EXPENSE_UPDATE);
         tenantAdminRole.getPermissions().add(UserPermission.EXPENSE_APPROVE);
 
-        adminRole = Role.builder().name(Roles.ADMIN).permissions(new HashSet<>()).build();
+        adminRole = Role.builder().name(Roles.PLATFORM_ADMIN).permissions(new HashSet<>()).build();
         for (UserPermission permission : UserPermission.values()) {
             adminRole.getPermissions().add(permission);
         }

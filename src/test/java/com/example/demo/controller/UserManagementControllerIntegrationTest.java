@@ -67,7 +67,7 @@ class UserManagementControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        Role adminRole = roleRepository.findByName("PLATFORM_ADMIN").orElseThrow();
         Role managerRole = roleRepository.findByName("USER_MANAGER").orElseThrow();
         Role userRole = roleRepository.findByName("USER").orElseThrow();
 
@@ -229,23 +229,23 @@ class UserManagementControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("User manager cannot assign ADMIN role")
+    @DisplayName("User manager cannot assign PLATFORM_ADMIN role")
     void userManagerCannotAssignAdminRole() throws Exception {
         mockMvc.perform(post("/api/management/users/{id}/roles", regularUserId)
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().is(400));
     }
 
     @Test
-    @DisplayName("Admin can assign ADMIN role")
+    @DisplayName("Admin can assign PLATFORM_ADMIN role")
     void adminCanAssignAdminRole() throws Exception {
         User newUser = createUser("newuser", "new@example.com", roleRepository.findByName("USER").orElseThrow(), null);
         mockMvc.perform(post("/api/management/users/{id}/roles", newUser.getId())
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().isOk());
     }
 
@@ -294,7 +294,7 @@ class UserManagementControllerIntegrationTest {
         mockMvc.perform(delete("/api/management/users/{id}/roles", admin.getId())
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().is(400));
     }
 
@@ -345,7 +345,7 @@ class UserManagementControllerIntegrationTest {
                 "username", "createduser",
                 "email", "created@example.com",
                 "password", "SecurePass123!",
-                "roleName", "ADMIN");
+                "roleName", "PLATFORM_ADMIN");
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + managerToken)

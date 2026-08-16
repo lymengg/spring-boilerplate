@@ -64,7 +64,7 @@ The application exposes a **RESTful API** for a multi-tenant expense management 
 
 ### Authorization Matrix
 
-| Functionality | ADMIN | USER_MANAGER | MANAGER | EMPLOYEE | AUDITOR | FINANCE | USER |
+| Functionality | PLATFORM_ADMIN | TENANT_ADMIN | USER_MANAGER | DEPARTMENT_MANAGER | EMPLOYEE | AUDITOR | FINANCE | USER |
 |---------------|-------|--------------|---------|----------|---------|---------|------|
 | **Auth** | | | | | | | |
 | Login | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
@@ -988,7 +988,7 @@ All list endpoints support pagination via query parameters:
 **Request Body:**
 ```json
 {
-  "roleName": "MANAGER"
+  "roleName": "DEPARTMENT_MANAGER"
 }
 ```
 
@@ -1013,7 +1013,7 @@ All list endpoints support pagination via query parameters:
 **Request Body:**
 ```json
 {
-  "roleName": "MANAGER"
+  "roleName": "DEPARTMENT_MANAGER"
 }
 ```
 
@@ -1048,8 +1048,9 @@ All list endpoints support pagination via query parameters:
     "content": [
       {
         "id": 1,
-        "name": "ADMIN",
-        "description": "Administrator role",
+        "name": "PLATFORM_ADMIN",
+        "title": "Platform Administrator",
+        "description": "Platform-wide administrator with unrestricted cross-tenant access",
         "permissions": ["USER_CREATE", "USER_UPDATE", "EXPENSE_READ", ...]
       }
     ],

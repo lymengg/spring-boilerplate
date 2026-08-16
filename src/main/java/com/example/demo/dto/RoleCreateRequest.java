@@ -17,6 +17,9 @@ public class RoleCreateRequest {
     @Size(max = 50)
     private String name;
 
+    @Size(max = 100)
+    private String title;
+
     @Size(max = 255)
     private String description;
 }

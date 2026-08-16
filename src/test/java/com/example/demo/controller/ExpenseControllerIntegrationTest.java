@@ -82,8 +82,8 @@ class ExpenseControllerIntegrationTest {
         Department dept2 = departmentRepository.save(Department.builder().name("Dept 2").tenant(tenant1).build());
         Department otherDept = departmentRepository.save(Department.builder().name("Other Dept").tenant(tenant2).build());
 
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-        Role managerRole = roleRepository.findByName("MANAGER").orElseThrow();
+        Role adminRole = roleRepository.findByName("PLATFORM_ADMIN").orElseThrow();
+        Role managerRole = roleRepository.findByName("DEPARTMENT_MANAGER").orElseThrow();
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
         Role financeRole = roleRepository.findByName("FINANCE").orElseThrow();
 
