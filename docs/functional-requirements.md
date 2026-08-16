@@ -333,7 +333,7 @@ This requirements document covers:
 **Authorization:** ROLE_READ, ROLE_WRITE, ROLE_DELETE, ROLE_ASSIGN_PERMISSION
 
 **Business Rules:**
-- Built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE) are immutable
+- Built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE) are immutable
 - Roles assigned to any user cannot be deleted
 - Permission changes take effect on next token refresh
 
@@ -510,7 +510,7 @@ This requirements document covers:
   - System creates user with provided username, email, first name, last name
   - Password must meet complexity requirements
   - User is assigned to actor's tenant (user manager) or specified tenant (platform admin/tenant admin)
-  - Default role is USER (user manager) or as specified (platform admin/tenant admin)
+  - Default role is EMPLOYEE (user manager) or as specified (platform admin/tenant admin)
   - Account is enabled by default
 - **Business Rules:**
   - User manager can only create users in their own tenant
@@ -777,7 +777,7 @@ This requirements document covers:
 | BR-006 | Processing Authority | Only users with EXPENSE_PROCESS permission can process approved expenses. |
 | BR-007 | Privilege Hierarchy | Users cannot manage other users with equal or higher permissions. |
 | BR-008 | Last Admin Protection | The last user with TENANT_ADMIN role in a tenant cannot be deleted or disabled. |
-| BR-009 | Role Immutability | Built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE) cannot be modified or deleted. |
+| BR-009 | Role Immutability | Built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE) cannot be modified or deleted. |
 | BR-010 | Role Assignment Restrictions | Only PLATFORM_ADMIN or TENANT_ADMIN can assign PLATFORM_ADMIN, TENANT_ADMIN, or USER_MANAGER roles. |
 | BR-011 | Expense Editing | Only PENDING expenses can be edited or cancelled. |
 | BR-012 | Expense Ownership | Only the owner or authorized manager can edit PENDING expenses. |
@@ -996,12 +996,11 @@ Paths, HTTP methods, and required authorities are verified against the controlle
 10. **Notification Preferences:** No user-configurable notification preferences for email notifications.
 
 ### Areas Requiring Business Confirmation
-1. Whether the USER role is actively used or retained solely for backward compatibility.
-2. Whether tenant status (INACTIVE/SUSPENDED) should restrict user login or data access.
-3. Whether department manager assignment should affect expense visibility beyond the current model.
-4. Specific business justification for each of the 28 permissions.
-5. Whether additional expense statuses or workflow transitions are planned.
-6. Data retention policies for audit logs and expense records.
+1. Whether tenant status (INACTIVE/SUSPENDED) should restrict user login or data access.
+2. Whether department manager assignment should affect expense visibility beyond the current model.
+3. Specific business justification for each of the 28 permissions.
+4. Whether additional expense statuses or workflow transitions are planned.
+5. Data retention policies for audit logs and expense records.
 7. Whether the expense category field has a controlled vocabulary or is free-text.
 8. Whether multi-currency support is planned (amount field is a single BigDecimal without currency).
 

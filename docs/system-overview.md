@@ -132,11 +132,10 @@ com.example.demo
 | **PLATFORM_ADMIN** | Full system administrator with unrestricted access across all tenants | Manage all tenants, users, roles, departments; view all expenses; view all audit logs |
 | **TENANT_ADMIN** | Tenant-scoped administrator responsible for managing their organization | Manage users, departments, and settings within their tenant; assign most roles |
 | **USER_MANAGER** | Organization-level user administrator | Create and manage users within their tenant; assign most roles |
-| **DEPARTMENT_MANAGER** | Department-level expense approver | Review and approve/reject expenses within their department |
+| **DEPARTMENT_MANAGER** | Department-level expense approver | Review and approve/reject expenses within their department (multiple managers per department) |
 | **EMPLOYEE** | Expense submitter | Create, edit, cancel, and view own expenses |
 | **AUDITOR** | Read-only compliance reviewer | View all tenant data including expenses, users, departments, and audit logs |
 | **FINANCE** | Payment processor | Process approved expenses for payment |
-| **USER** | Legacy low-privilege role | Minimal permissions; retained for backward compatibility |
 
 ---
 
@@ -273,13 +272,13 @@ Organizations that use the system. Each tenant represents a separate company or 
 Individuals who have accounts in the system. Each user belongs to one tenant and may belong to one department. Users have roles that determine their permissions.
 
 ### Roles
-Named collections of permissions. The system has 8 built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE, USER) that cannot be modified. Custom roles can be created by administrators.
+Named collections of permissions. The system has 7 built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE) that cannot be modified. Custom roles can be created by administrators.
 
 ### Permissions
 28 granular access rights (e.g., EXPENSE_CREATE, USER_READ, TENANT_UPDATE) that control what operations a user can perform.
 
 ### Departments
-Organizational units within a tenant. Each department has a name (unique within the tenant) and a designated manager. Departments group users and are used for expense routing and approval.
+Organizational units within a tenant. Each department has a name (unique within the tenant) and can have multiple managers. Departments group users and are used for expense routing and approval.
 
 ### Expenses
 Business expense requests submitted by employees. Each expense has a title, description, amount, category, and status. Expenses follow a lifecycle: PENDING → APPROVED/REJECTED/CANCELLED → PROCESSED.
@@ -381,7 +380,6 @@ The detailed behavioral content that previously lived in this overview is mainta
 
 **Areas where behavior was ambiguous:**
 - Whether email verification is fully implemented (endpoint exists but verification flow is not fully wired in current codebase)
-- Whether the USER role is actively used or retained solely for backward compatibility
 - Whether the REPORT_READ permission is utilized (permission exists but no reporting endpoints are implemented)
 - Organization-wide MFA policy enforcement (individual users can enable/disable MFA, but no tenant-level MFA requirement is enforced in the current implementation)
 

@@ -139,7 +139,7 @@ public class RoleManagementService {
         return Set.of(
                 Roles.PLATFORM_ADMIN, Roles.TENANT_ADMIN, Roles.USER_MANAGER,
                 Roles.DEPARTMENT_MANAGER, Roles.EMPLOYEE, Roles.AUDITOR,
-                Roles.FINANCE, Roles.USER
+                Roles.FINANCE
         ).contains(role.getName());
     }
 }

@@ -64,7 +64,7 @@ The application exposes a **RESTful API** for a multi-tenant expense management 
 
 ### Authorization Matrix
 
-| Functionality | PLATFORM_ADMIN | TENANT_ADMIN | USER_MANAGER | DEPARTMENT_MANAGER | EMPLOYEE | AUDITOR | FINANCE | USER |
+| Functionality | PLATFORM_ADMIN | TENANT_ADMIN | USER_MANAGER | DEPARTMENT_MANAGER | EMPLOYEE | AUDITOR | FINANCE |
 |---------------|-------|--------------|---------|----------|---------|---------|------|
 | **Auth** | | | | | | | |
 | Login | Yes | Yes | Yes | Yes | Yes | Yes | Yes |

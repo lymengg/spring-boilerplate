@@ -94,7 +94,7 @@ class ExpenseControllerIntegrationTest {
         User finance = createUser("finance", "finance@example.com", financeRole, tenant1, null);
         User admin = createUser("adminexp", "adminexp@example.com", adminRole, tenant1, null);
 
-        dept1.setManager(manager);
+        dept1.getManagers().add(manager);
         departmentRepository.save(dept1);
 
         employeeToken = generateToken(employee.getUsername());

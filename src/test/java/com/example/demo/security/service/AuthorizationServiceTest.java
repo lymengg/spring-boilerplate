@@ -109,7 +109,7 @@ class AuthorizationServiceTest {
     @DisplayName("Manager can approve expense in their managed department")
     void managerCanApproveDepartmentExpense() {
         User manager = userWithRole(managerRole, tenant, department);
-        department.setManager(manager);
+        department.getManagers().add(manager);
         User employee = userWithRole(employeeRole, tenant, department);
         Expense expense = expenseOwnedBy(employee);
         assertThat(authorizationService.canApproveExpense(manager, expense)).isTrue();
@@ -119,7 +119,7 @@ class AuthorizationServiceTest {
     @DisplayName("Manager cannot approve expense in another department")
     void managerCannotApproveOtherDepartmentExpense() {
         User manager = userWithRole(managerRole, tenant, department);
-        department.setManager(manager);
+        department.getManagers().add(manager);
         Department otherDepartment = Department.builder().id(11L).name("Other Dept").tenant(tenant).build();
         User otherEmployee = userWithRole(employeeRole, tenant, otherDepartment);
         Expense expense = expenseOwnedBy(otherEmployee);

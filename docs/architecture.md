@@ -222,7 +222,7 @@ Response → ApiResponse<T>       ← Standardized JSON response envelope
 ## 7. Authorization Architecture
 
 ### Roles
-Eight built-in roles: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `USER_MANAGER`, `DEPARTMENT_MANAGER`, `EMPLOYEE`, `AUDITOR`, `FINANCE`, `USER`.
+Seven built-in roles: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `USER_MANAGER`, `DEPARTMENT_MANAGER`, `EMPLOYEE`, `AUDITOR`, `FINANCE`.
 
 Custom roles can be created but cannot modify built-in roles.
 

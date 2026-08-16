@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,5 +19,5 @@ public class DepartmentUpdateRequest {
     @Size(max = 100, message = "Department name must not exceed 100 characters")
     private String name;
 
-    private Long managerId;
+    private List<Long> managerIds;
 }

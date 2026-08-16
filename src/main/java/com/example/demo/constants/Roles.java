@@ -9,7 +9,6 @@ public final class Roles {
     public static final String EMPLOYEE = "EMPLOYEE";
     public static final String AUDITOR = "AUDITOR";
     public static final String FINANCE = "FINANCE";
-    public static final String USER = "USER";
 
     private Roles() {
     }

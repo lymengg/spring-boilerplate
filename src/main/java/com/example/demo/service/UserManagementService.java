@@ -61,7 +61,7 @@ public class UserManagementService {
         Tenant tenant = resolveTenantForCreation(currentUser, request.getTenantId());
 
         String roleName = request.getRoleName() == null || request.getRoleName().isBlank()
-                ? Roles.USER : request.getRoleName().toUpperCase();
+                ? Roles.EMPLOYEE : request.getRoleName().toUpperCase();
         Role role = roleManagementService.findByName(roleName);
 
         validateRoleAssignment(currentUser, role);

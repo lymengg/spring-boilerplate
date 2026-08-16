@@ -94,11 +94,10 @@ The application implements a multi-layered security model based on **Spring Secu
 | `PLATFORM_ADMIN` | Platform-wide administrator with unrestricted cross-tenant access | Yes |
 | `TENANT_ADMIN` | Tenant-scoped administrator managing their organization | Yes |
 | `USER_MANAGER` | Can manage users within tenant | Yes |
-| `DEPARTMENT_MANAGER` | Department manager, expense approval | Yes |
+| `DEPARTMENT_MANAGER` | Department manager, expense approval (multiple per department) | Yes |
 | `EMPLOYEE` | Create and manage own expenses | Yes |
 | `AUDITOR` | Read-only audit access | Yes |
 | `FINANCE` | Process approved expenses | Yes |
-| `USER` | Legacy low-privilege role | Yes |
 
 Built-in roles are **immutable** — they cannot be updated, deleted, or have their permissions modified via the API.
 
