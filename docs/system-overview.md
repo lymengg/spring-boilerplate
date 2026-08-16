@@ -117,7 +117,7 @@ com.example.demo
 |-----------|--------------|------------------------|------------------|
 | **System Administrator (Super Admin)** | Platform operator with no tenant assignment | Manage the entire platform, all tenants, and all users across organizations | Full CRUD on tenants, users, roles, departments; view all expenses and audit logs |
 | **Tenant Administrator** | Organization-level admin within a specific tenant | Manage their organization's users, departments, and settings | Create/edit users and departments within their tenant; assign roles; view tenant expenses |
-| **User Manager** | HR or team lead responsible for user administration within a tenant | Create and manage user accounts for their organization | Create users, update user details, assign roles (except ADMIN and USER_MANAGER) |
+| **User Manager** | HR or team lead responsible for user administration within a tenant | Create and manage user accounts for their organization | Create users, update user details, assign roles (except Administrator and User Manager) |
 | **Manager** | Department manager who supervises expense approvals | Review and approve/reject employee expense submissions | View department expenses, approve or reject pending expenses |
 | **Employee** | Regular staff member submitting business expenses | Submit expenses for reimbursement and track their status | Create, view, edit, and cancel own expenses |
 | **Finance Officer** | Finance department staff responsible for payment processing | Process approved expenses for payment | View approved expenses, mark them as processed |
@@ -127,15 +127,15 @@ com.example.demo
 
 ## 5. Roles and Responsibilities
 
-| Role | Business Purpose | Key Capabilities |
-|------|-----------------|------------------|
-| **ADMIN** | Full system administrator with unrestricted access across all tenants | Manage all tenants, users, roles, departments; view all expenses; view all audit logs |
-| **USER_MANAGER** | Organization-level user administrator | Create and manage users within their tenant; assign most roles |
-| **MANAGER** | Department-level expense approver | Review and approve/reject expenses within their department |
-| **EMPLOYEE** | Expense submitter | Create, edit, cancel, and view own expenses |
-| **AUDITOR** | Read-only compliance reviewer | View all tenant data including expenses, users, departments, and audit logs |
-| **FINANCE** | Payment processor | Process approved expenses for payment |
-| **USER** | Legacy low-privilege role | Minimal permissions; retained for backward compatibility |
+| Role | Title | Business Purpose | Key Capabilities |
+|------|-------|-----------------|------------------|
+| **ADMIN** | Administrator | Full system administrator with unrestricted access across all tenants | Manage all tenants, users, roles, departments; view all expenses; view all audit logs |
+| **USER_MANAGER** | User Manager | Organization-level user administrator | Create and manage users within their tenant; assign most roles |
+| **MANAGER** | Manager | Department-level expense approver | Review and approve/reject expenses within their department |
+| **EMPLOYEE** | Employee | Expense submitter | Create, edit, cancel, and view own expenses |
+| **AUDITOR** | Auditor | Read-only compliance reviewer | View all tenant data including expenses, users, departments, and audit logs |
+| **FINANCE** | Finance | Payment processor | Process approved expenses for payment |
+| **USER** | User | Legacy low-privilege role | Minimal permissions; retained for backward compatibility |
 
 ---
 
@@ -157,56 +157,56 @@ com.example.demo
 
 ### 6.3 User Management
 - **What:** CRUD operations on user accounts with role assignment
-- **Who:** ADMIN, USER_MANAGER
+- **Who:** Administrator, User Manager
 - **Why:** Maintain the organization's workforce in the system
 - **Key rules:** No self-registration; user manager can only manage users in their own tenant; cannot delete last admin; cannot modify users with higher privileges
 - **Dependencies:** Role management, tenant management
 
 ### 6.4 Tenant Management
 - **What:** CRUD operations on tenant (organization) records
-- **Who:** ADMIN (super admin)
+- **Who:** Administrator (super admin)
 - **Why:** Onboard and manage organizations on the platform
 - **Key rules:** Each tenant has a unique name and status (ACTIVE/INACTIVE/SUSPENDED)
 - **Dependencies:** None (top-level entity)
 
 ### 6.5 Department Management
 - **What:** CRUD operations on departments within a tenant
-- **Who:** ADMIN, USER_MANAGER (within their tenant)
+- **Who:** Administrator, User Manager (within their tenant)
 - **Why:** Organize users into functional units for expense routing and approval
 - **Key rules:** Departments are scoped to a tenant; each department has a manager; unique name per tenant
 - **Dependencies:** Tenant management, user management
 
 ### 6.6 Role and Permission Management
 - **What:** Define and manage roles with associated permissions
-- **Who:** ADMIN
+- **Who:** Administrator
 - **Why:** Control what users can do in the system
 - **Key rules:** 7 built-in roles are immutable; custom roles can be created; roles assigned to users cannot be deleted; users cannot grant permissions they don't have
 - **Dependencies:** Permission definitions
 
 ### 6.7 Expense Submission
 - **What:** Employees create expense requests with title, description, amount, and category
-- **Who:** EMPLOYEE, MANAGER, ADMIN, or any user with EXPENSE_CREATE permission
+- **Who:** Employee, Manager, Administrator, or any user with EXPENSE_CREATE permission
 - **Why:** Initiate the reimbursement process
 - **Key rules:** User must belong to a tenant; department defaults to user's department; status starts as PENDING
 - **Dependencies:** Tenant and department assignment
 
 ### 6.8 Expense Approval Workflow
 - **What:** Managerial review and decision on pending expenses
-- **Who:** MANAGER, ADMIN (with EXPENSE_APPROVE/EXPENSE_REJECT permissions)
+- **Who:** Manager, Administrator (with EXPENSE_APPROVE/EXPENSE_REJECT permissions)
 - **Why:** Ensure expenses comply with organizational policies before payment
 - **Key rules:** Only PENDING expenses can be approved/rejected; approver must be a tenant manager or department manager; records approver identity and decision date
 - **Dependencies:** Expense submission
 
 ### 6.9 Expense Payment Processing
 - **What:** Finance marks approved expenses as processed for payment
-- **Who:** FINANCE, ADMIN (with EXPENSE_PROCESS permission)
+- **Who:** Finance, Administrator (with EXPENSE_PROCESS permission)
 - **Why:** Complete the expense reimbursement lifecycle
 - **Key rules:** Only APPROVED expenses can be processed; processor must be in the same tenant; records processor identity and processing date
 - **Dependencies:** Expense approval
 
 ### 6.10 Audit Logging
 - **What:** Persistent record of all security and business events
-- **Who:** AUDITOR, ADMIN (viewing); system (writing)
+- **Who:** Auditor, Administrator (viewing); system (writing)
 - **Why:** Compliance, troubleshooting, and security monitoring
 - **Key rules:** Each log entry includes actor, tenant, action, resource type/id, details, and timestamp; super admins see all logs; others see only their tenant's logs
 - **Dependencies:** All system operations
@@ -272,7 +272,7 @@ Organizations that use the system. Each tenant represents a separate company or 
 Individuals who have accounts in the system. Each user belongs to one tenant and may belong to one department. Users have roles that determine their permissions.
 
 ### Roles
-Named collections of permissions. The system has 7 built-in roles (ADMIN, USER_MANAGER, MANAGER, EMPLOYEE, AUDITOR, FINANCE, USER) that cannot be modified. Custom roles can be created by administrators.
+Named collections of permissions. The system has 7 built-in roles (Administrator, User Manager, Manager, Employee, Auditor, Finance, User) that cannot be modified. Custom roles can be created by administrators.
 
 ### Permissions
 28 granular access rights (e.g., EXPENSE_CREATE, USER_READ, TENANT_UPDATE) that control what operations a user can perform.

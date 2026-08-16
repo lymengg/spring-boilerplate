@@ -30,13 +30,13 @@ This requirements document covers:
 | Actor | Description | Capabilities |
 |-------|-------------|-------------|
 | **Unauthenticated User** | A person who has not logged in | Login, request password reset, reset password with token |
-| **Super Admin** | System administrator with ADMIN role and no tenant assignment | Full access to all tenants, users, roles, departments, expenses, and audit logs |
-| **Tenant Administrator** | User with ADMIN role assigned to a specific tenant | Manage users, roles, departments within their tenant; view tenant expenses and audit logs |
-| **User Manager** | User with USER_MANAGER role within a tenant | Create and manage users within their tenant; assign roles (except ADMIN and USER_MANAGER) |
-| **Manager** | User with MANAGER role in a department | View department expenses; approve or reject pending expenses |
-| **Employee** | User with EMPLOYEE role | Create, view, edit, and cancel own expenses |
-| **Finance Officer** | User with FINANCE role | View approved expenses; process expenses for payment |
-| **Auditor** | User with AUDITOR role | Read-only access to all tenant data including expenses, users, departments, and audit logs |
+| **Super Admin** | System administrator with ADMIN (Administrator) role and no tenant assignment | Full access to all tenants, users, roles, departments, expenses, and audit logs |
+| **Tenant Administrator** | User with ADMIN (Administrator) role assigned to a specific tenant | Manage users, roles, departments within their tenant; view tenant expenses and audit logs |
+| **User Manager** | User with USER_MANAGER (User Manager) role within a tenant | Create and manage users within their tenant; assign roles (except ADMIN and USER_MANAGER) |
+| **Manager** | User with MANAGER (Manager) role in a department | View department expenses; approve or reject pending expenses |
+| **Employee** | User with EMPLOYEE (Employee) role | Create, view, edit, and cancel own expenses |
+| **Finance Officer** | User with FINANCE (Finance) role | View approved expenses; process expenses for payment |
+| **Auditor** | User with AUDITOR (Auditor) role | Read-only access to all tenant data including expenses, users, departments, and audit logs |
 | **System (Automated)** | Internal system processes | Scheduled cleanup of expired password reset tokens; audit log creation |
 
 ---
@@ -134,7 +134,7 @@ This requirements document covers:
 - **Expected Behavior:**
   - All data queries are automatically scoped to the user's tenant
   - Users cannot access data from other tenants
-  - Super admins (ADMIN with no tenant) bypass tenant isolation
+  - Super admins (Administrator with no tenant) bypass tenant isolation
 
 ### FR-AUTHZ-002: Privilege Hierarchy
 - **Actor:** All users performing management operations
@@ -145,10 +145,10 @@ This requirements document covers:
 
 ### FR-AUTHZ-003: Last Admin Protection
 - **Actor:** All users performing user management operations
-- **Preconditions:** Target user is the last user with ADMIN role in their tenant
+- **Preconditions:** Target user is the last user with Administrator role in their tenant
 - **Expected Behavior:**
   - System prevents deletion or disabling of the last admin in a tenant
-  - System prevents removal of the last ADMIN role assignment
+  - System prevents removal of the last Administrator role assignment
 
 ---
 
@@ -248,7 +248,7 @@ This requirements document covers:
 
 **Business Rules:**
 - User manager can only manage users in their own tenant
-- Only ADMIN can assign ADMIN or USER_MANAGER roles
+- Only Administrator can assign Administrator or User Manager roles
 - Users cannot grant permissions they do not possess
 
 **Error Conditions:**
@@ -333,7 +333,7 @@ This requirements document covers:
 **Authorization:** ROLE_READ, ROLE_WRITE, ROLE_DELETE, ROLE_ASSIGN_PERMISSION
 
 **Business Rules:**
-- Built-in roles (ADMIN, USER, USER_MANAGER, MANAGER, EMPLOYEE, AUDITOR, FINANCE) are immutable
+- Built-in roles (Administrator, User Manager, Manager, Employee, Auditor, Finance, User) are immutable
 - Roles assigned to any user cannot be deleted
 - Permission changes take effect on next token refresh
 
@@ -382,15 +382,15 @@ This requirements document covers:
 - Only PENDING expenses can be approved or rejected
 - Only APPROVED expenses can be processed
 - Approver must be a tenant manager or department manager
-- Processor must have EXPENSE_PROCESS authority (FINANCE role)
+- Processor must have EXPENSE_PROCESS authority (Finance role)
 - Owner or authorized manager can edit PENDING expenses
 
 **Viewing Scope by Role:**
 - Super admin: all expenses across all tenants
-- AUDITOR: all expenses in their tenant
-- MANAGER: expenses in their department
-- FINANCE: approved expenses in their tenant
-- EMPLOYEE: only their own expenses
+- Auditor: all expenses in their tenant
+- Manager: expenses in their department
+- Finance: approved expenses in their tenant
+- Employee: only their own expenses
 
 **Error Conditions:**
 - Invalid status transition → 409
@@ -510,11 +510,11 @@ This requirements document covers:
   - System creates user with provided username, email, first name, last name
   - Password must meet complexity requirements
   - User is assigned to actor's tenant (user manager) or specified tenant (admin)
-  - Default role is USER (user manager) or as specified (admin)
+  - Default role is User (user manager) or as specified (admin)
   - Account is enabled by default
 - **Business Rules:**
   - User manager can only create users in their own tenant
-  - Only ADMIN can assign ADMIN or USER_MANAGER roles
+  - Only Administrator can assign Administrator or User Manager roles
   - No self-registration exists (API endpoint returns 401)
 
 ### FR-UM-002: User Update
@@ -555,9 +555,9 @@ This requirements document covers:
   - System assigns role to user
   - System validates that granter has sufficient permissions
 - **Business Rules:**
-  - Only ADMIN can assign ADMIN or USER_MANAGER roles
+  - Only Administrator can assign Administrator or User Manager roles
   - Users cannot grant permissions they do not possess
-  - Cannot remove last ADMIN role from any user
+  - Cannot remove last Administrator role from any user
 
 ### FR-UM-006: User Retrieval
 - **Actor:** ADMIN, USER_MANAGER, MANAGER, AUDITOR
@@ -776,9 +776,9 @@ This requirements document covers:
 | BR-005 | Rejection Authority | Only managers with EXPENSE_REJECT permission can reject expenses. |
 | BR-006 | Processing Authority | Only users with EXPENSE_PROCESS permission can process approved expenses. |
 | BR-007 | Privilege Hierarchy | Users cannot manage other users with equal or higher permissions. |
-| BR-008 | Last Admin Protection | The last user with ADMIN role in a tenant cannot be deleted or disabled. |
-| BR-009 | Role Immutability | Built-in roles (ADMIN, USER, USER_MANAGER, MANAGER, EMPLOYEE, AUDITOR, FINANCE) cannot be modified or deleted. |
-| BR-010 | Role Assignment Restrictions | Only ADMIN can assign ADMIN or USER_MANAGER roles. |
+| BR-008 | Last Admin Protection | The last user with Administrator role in a tenant cannot be deleted or disabled. |
+| BR-009 | Role Immutability | Built-in roles (Administrator, User, User Manager, Manager, Employee, Auditor, Finance) cannot be modified or deleted. |
+| BR-010 | Role Assignment Restrictions | Only Administrator can assign Administrator or User Manager roles. |
 | BR-011 | Expense Editing | Only PENDING expenses can be edited or cancelled. |
 | BR-012 | Expense Ownership | Only the owner or authorized manager can edit PENDING expenses. |
 | BR-013 | Password Complexity | Passwords must be at least 8 characters with uppercase, lowercase, digit, and special character. |
@@ -1051,8 +1051,8 @@ Paths, HTTP methods, and required authorities are verified against the controlle
 | Term | Definition |
 |------|-----------|
 | **Tenant** | An organization or business unit that uses the system. All data within a tenant is isolated from other tenants. |
-| **Super Admin** | A user with the ADMIN role and no tenant assignment. Has unrestricted cross-tenant access. |
-| **Tenant Admin** | A user with the ADMIN role assigned to a specific tenant. Scoped to their tenant's data. |
+| **Super Admin** | A user with the Administrator role and no tenant assignment. Has unrestricted cross-tenant access. |
+| **Tenant Admin** | A user with the Administrator role assigned to a specific tenant. Scoped to their tenant's data. |
 | **JWT** | JSON Web Token — a compact, URL-safe token used for stateless authentication. Contains user identity and permission claims. |
 | **Access Token** | A short-lived JWT (15 minutes) used to authenticate API requests. |
 | **Refresh Token** | A longer-lived token (7 days) used to obtain new access tokens without re-authentication. |
@@ -1060,7 +1060,7 @@ Paths, HTTP methods, and required authorities are verified against the controlle
 | **TOTP** | Time-based One-Time Password — an MFA method using authenticator apps like Google Authenticator. |
 | **OTP** | One-Time Password — a single-use code for authentication. |
 | **Authority** | A specific permission (e.g., EXPENSE_CREATE) that grants the ability to perform an operation. |
-| **Role** | A named collection of permissions assigned to users (e.g., ADMIN, EMPLOYEE, MANAGER). |
+| **Role** | A named collection of permissions assigned to users (e.g., Administrator, Employee, Manager). |
 | **Expense Lifecycle** | The progression of an expense through statuses: PENDING → APPROVED/REJECTED/CANCELLED → PROCESSED. |
 | **Rate Limiting** | Controlling the number of requests a user can make within a time window to prevent abuse. |
 | **Account Lockout** | Temporarily disabling an account after multiple failed login attempts. |
