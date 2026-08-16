@@ -1084,6 +1084,7 @@ All list endpoints support pagination via query parameters:
 ```json
 {
   "name": "CUSTOM_ROLE",
+  "title": "Custom Role",
   "description": "A custom role"
 }
 ```
@@ -1096,6 +1097,7 @@ All list endpoints support pagination via query parameters:
   "data": {
     "id": 8,
     "name": "CUSTOM_ROLE",
+    "title": "Custom Role",
     "description": "A custom role",
     "permissions": []
   }

@@ -382,7 +382,7 @@ This requirements document covers:
 - Only PENDING expenses can be approved or rejected
 - Only APPROVED expenses can be processed
 - Approver must be a tenant manager or department manager
-- Processor must have EXPENSE_PROCESS authority (FINANCE role)
+- Processor must have EXPENSE_PROCESS authority (Finance role)
 - Owner or authorized manager can edit PENDING expenses
 
 **Viewing Scope by Role:**

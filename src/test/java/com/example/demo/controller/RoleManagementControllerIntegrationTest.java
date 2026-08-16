@@ -73,6 +73,7 @@ class RoleManagementControllerIntegrationTest {
 
         Role custom = Role.builder()
                 .name("CUSTOM")
+                .title("Custom")
                 .description("Custom role")
                 .build();
         custom = roleRepository.save(custom);
@@ -126,9 +127,10 @@ class RoleManagementControllerIntegrationTest {
         mockMvc.perform(post("/api/management/roles")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", "REPORTER", "description", "Reporter"))))
+                        .content(objectMapper.writeValueAsString(Map.of("name", "REPORTER", "title", "Reporter", "description", "Reporter role"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.name").value("REPORTER"));
+                .andExpect(jsonPath("$.data.name").value("REPORTER"))
+                .andExpect(jsonPath("$.data.title").value("Reporter"));
     }
 
     @Test
@@ -182,7 +184,7 @@ class RoleManagementControllerIntegrationTest {
         mockMvc.perform(post("/api/management/roles")
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", "HACKER", "description", "Hacker"))))
+                        .content(objectMapper.writeValueAsString(Map.of("name", "HACKER", "title", "Hacker", "description", "Hacker role"))))
                 .andExpect(status().is(403));
     }
 
@@ -205,7 +207,7 @@ class RoleManagementControllerIntegrationTest {
         mockMvc.perform(post("/api/management/roles")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", "user", "description", "Duplicate"))))
+                        .content(objectMapper.writeValueAsString(Map.of("name", "user", "title", "Duplicate", "description", "Duplicate role"))))
                 .andExpect(status().is(400));
     }
 
