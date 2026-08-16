@@ -55,6 +55,7 @@ public class RoleManagementService {
 
         Role role = Role.builder()
                 .name(roleName)
+                .title(request.getTitle())
                 .description(request.getDescription())
                 .build();
 
@@ -83,6 +84,7 @@ public class RoleManagementService {
         });
 
         role.setName(newName);
+        role.setTitle(request.getTitle());
         role.setDescription(request.getDescription());
 
         return roleMapper.toResponse(roleRepository.save(role));
