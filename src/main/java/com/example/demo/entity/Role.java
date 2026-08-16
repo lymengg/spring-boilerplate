@@ -23,7 +23,7 @@ public class Role {
     @Column(nullable = false, unique = true, length = 50)
     private String name;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String title;
 
     @Column(length = 255)

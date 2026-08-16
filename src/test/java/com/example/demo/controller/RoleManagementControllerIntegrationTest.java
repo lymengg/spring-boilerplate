@@ -62,7 +62,7 @@ class RoleManagementControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        Role adminRole = roleRepository.findByName("PLATFORM_ADMIN").orElseThrow();
         Role managerRole = roleRepository.findByName("USER_MANAGER").orElseThrow();
 
         User admin = createUser("adminuser", "admin@example.com", adminRole);
@@ -136,11 +136,11 @@ class RoleManagementControllerIntegrationTest {
     @Test
     @DisplayName("Admin cannot update built-in role")
     void adminCannotUpdateBuiltInRole() throws Exception {
-        Role userRole = roleRepository.findByName("USER").orElseThrow();
-        mockMvc.perform(put("/api/management/roles/{id}", userRole.getId())
+        Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
+        mockMvc.perform(put("/api/management/roles/{id}", employeeRole.getId())
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", "USER", "title", "User", "description", "Updated"))))
+                        .content(objectMapper.writeValueAsString(Map.of("name", "EMPLOYEE", "description", "Updated"))))
                 .andExpect(status().is(400));
     }
 
@@ -172,8 +172,8 @@ class RoleManagementControllerIntegrationTest {
     @Test
     @DisplayName("Admin cannot delete built-in role")
     void adminCannotDeleteBuiltInRole() throws Exception {
-        Role userRole = roleRepository.findByName("USER").orElseThrow();
-        mockMvc.perform(delete("/api/management/roles/{id}", userRole.getId())
+        Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
+        mockMvc.perform(delete("/api/management/roles/{id}", employeeRole.getId())
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().is(400));
     }
@@ -191,7 +191,7 @@ class RoleManagementControllerIntegrationTest {
     @Test
     @DisplayName("Admin cannot delete role that is assigned to users")
     void adminCannotDeleteRoleInUse() throws Exception {
-        User user = createUser("roletest", "roletest@example.com", roleRepository.findByName("USER").orElseThrow());
+        User user = createUser("roletest", "roletest@example.com", roleRepository.findByName("EMPLOYEE").orElseThrow());
         Role custom = roleRepository.findById(customRoleId).orElseThrow();
         user.getRoles().add(custom);
         userRepository.save(user);
@@ -217,7 +217,7 @@ class RoleManagementControllerIntegrationTest {
         mockMvc.perform(put("/api/management/roles/{id}", customRoleId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", "USER", "title", "User", "description", "Collision"))))
+                        .content(objectMapper.writeValueAsString(Map.of("name", "EMPLOYEE", "description", "Collision"))))
                 .andExpect(status().is(400));
     }
 }

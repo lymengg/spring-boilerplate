@@ -17,6 +17,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 public class DepartmentManagementService {
@@ -60,11 +64,11 @@ public class DepartmentManagementService {
         if (departmentRepository.existsByNameAndTenantId(request.getName(), tenant.getId())) {
             throw new IllegalArgumentException("Department already exists in this tenant");
         }
-        User manager = resolveManager(request.getManagerId(), tenant);
+        Set<User> managers = resolveManagers(request.getManagerIds(), tenant);
         Department department = Department.builder()
                 .name(request.getName())
                 .tenant(tenant)
-                .manager(manager)
+                .managers(managers)
                 .build();
         return departmentMapper.toResponse(departmentRepository.save(department));
     }
@@ -80,7 +84,7 @@ public class DepartmentManagementService {
                     throw new IllegalArgumentException("Department name already in use");
                 });
         department.setName(request.getName());
-        department.setManager(resolveManager(request.getManagerId(), department.getTenant()));
+        department.setManagers(resolveManagers(request.getManagerIds(), department.getTenant()));
         return departmentMapper.toResponse(departmentRepository.save(department));
     }
 
@@ -118,14 +122,18 @@ public class DepartmentManagementService {
         return department;
     }
 
-    private User resolveManager(Long managerId, Tenant tenant) {
-        if (managerId == null) {
-            return null;
+    private Set<User> resolveManagers(List<Long> managerIds, Tenant tenant) {
+        if (managerIds == null || managerIds.isEmpty()) {
+            return new HashSet<>();
         }
-        User manager = userService.getById(managerId);
-        if (manager.getTenant() == null || !manager.getTenant().getId().equals(tenant.getId())) {
-            throw new IllegalArgumentException("Manager must belong to the same tenant");
+        Set<User> managers = new HashSet<>();
+        for (Long managerId : managerIds) {
+            User manager = userService.getById(managerId);
+            if (manager.getTenant() == null || !manager.getTenant().getId().equals(tenant.getId())) {
+                throw new IllegalArgumentException("Manager must belong to the same tenant");
+            }
+            managers.add(manager);
         }
-        return manager;
+        return managers;
     }
 }

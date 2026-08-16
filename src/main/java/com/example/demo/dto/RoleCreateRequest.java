@@ -17,7 +17,6 @@ public class RoleCreateRequest {
     @Size(max = 50)
     private String name;
 
-    @NotBlank
     @Size(max = 100)
     private String title;
 

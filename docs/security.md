@@ -89,15 +89,15 @@ The application implements a multi-layered security model based on **Spring Secu
 
 ### Roles
 
-| Role | Title | Description | Built-in |
-|------|-------|-------------|----------|
-| `ADMIN` | Administrator | Full system access | Yes |
-| `USER` | User | Legacy low-privilege role | Yes |
-| `USER_MANAGER` | User Manager | Can manage users within tenant | Yes |
-| `MANAGER` | Manager | Department manager, expense approval | Yes |
-| `EMPLOYEE` | Employee | Create and manage own expenses | Yes |
-| `AUDITOR` | Auditor | Read-only audit access | Yes |
-| `FINANCE` | Finance | Process approved expenses | Yes |
+| Role | Description | Built-in |
+|------|-------------|----------|
+| `PLATFORM_ADMIN` | Platform-wide administrator with unrestricted cross-tenant access | Yes |
+| `TENANT_ADMIN` | Tenant-scoped administrator managing their organization | Yes |
+| `USER_MANAGER` | Can manage users within tenant | Yes |
+| `DEPARTMENT_MANAGER` | Department manager, expense approval (multiple per department) | Yes |
+| `EMPLOYEE` | Create and manage own expenses | Yes |
+| `AUDITOR` | Read-only audit access | Yes |
+| `FINANCE` | Process approved expenses | Yes |
 
 Built-in roles are **immutable** — they cannot be updated, deleted, or have their permissions modified via the API.
 
@@ -125,7 +125,7 @@ Built-in roles are **immutable** — they cannot be updated, deleted, or have th
   - **Department scoping**: Managers can only approve/reject expenses within their department.
   - **Resource ownership**: Employees can only view/edit their own expenses.
   - **Privilege hierarchy**: Users cannot manage users with equal or higher permissions.
-  - **Last admin protection**: The last Administrator in a tenant cannot be deleted or disabled.
+  - **Last admin protection**: The last admin (PLATFORM_ADMIN or TENANT_ADMIN) in a tenant cannot be deleted or disabled.
 
 ## 5. Access-Control Security
 

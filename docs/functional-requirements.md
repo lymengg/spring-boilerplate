@@ -30,13 +30,13 @@ This requirements document covers:
 | Actor | Description | Capabilities |
 |-------|-------------|-------------|
 | **Unauthenticated User** | A person who has not logged in | Login, request password reset, reset password with token |
-| **Super Admin** | System administrator with ADMIN (Administrator) role and no tenant assignment | Full access to all tenants, users, roles, departments, expenses, and audit logs |
-| **Tenant Administrator** | User with ADMIN (Administrator) role assigned to a specific tenant | Manage users, roles, departments within their tenant; view tenant expenses and audit logs |
-| **User Manager** | User with USER_MANAGER (User Manager) role within a tenant | Create and manage users within their tenant; assign roles (except ADMIN and USER_MANAGER) |
-| **Manager** | User with MANAGER (Manager) role in a department | View department expenses; approve or reject pending expenses |
-| **Employee** | User with EMPLOYEE (Employee) role | Create, view, edit, and cancel own expenses |
-| **Finance Officer** | User with FINANCE (Finance) role | View approved expenses; process expenses for payment |
-| **Auditor** | User with AUDITOR (Auditor) role | Read-only access to all tenant data including expenses, users, departments, and audit logs |
+| **Super Admin** | System administrator with PLATFORM_ADMIN role and no tenant assignment | Full access to all tenants, users, roles, departments, expenses, and audit logs |
+| **Tenant Administrator** | User with TENANT_ADMIN role assigned to a specific tenant | Manage users, roles, departments within their tenant; view tenant expenses and audit logs |
+| **User Manager** | User with USER_MANAGER role within a tenant | Create and manage users within their tenant; assign roles (except PLATFORM_ADMIN, TENANT_ADMIN, and USER_MANAGER) |
+| **Department Manager** | User with DEPARTMENT_MANAGER role in a department | View department expenses; approve or reject pending expenses |
+| **Employee** | User with EMPLOYEE role | Create, view, edit, and cancel own expenses |
+| **Finance Officer** | User with FINANCE role | View approved expenses; process expenses for payment |
+| **Auditor** | User with AUDITOR role | Read-only access to all tenant data including expenses, users, departments, and audit logs |
 | **System (Automated)** | Internal system processes | Scheduled cleanup of expired password reset tokens; audit log creation |
 
 ---
@@ -92,8 +92,8 @@ This requirements document covers:
 
 ### Role/Functionality Matrix
 
-| Functionality | ADMIN | USER_MANAGER | MANAGER | EMPLOYEE | AUDITOR | FINANCE |
-|--------------|-------|-------------|---------|----------|---------|---------|
+| Functionality | PLATFORM_ADMIN | TENANT_ADMIN | USER_MANAGER | DEPARTMENT_MANAGER | EMPLOYEE | AUDITOR | FINANCE |
+|--------------|-------|-------|-------------|---------|----------|---------|---------|
 | **Tenant Management** |
 | List tenants | Yes | No | No | No | No | No |
 | Create tenant | Yes | No | No | No | No | No |
@@ -134,7 +134,7 @@ This requirements document covers:
 - **Expected Behavior:**
   - All data queries are automatically scoped to the user's tenant
   - Users cannot access data from other tenants
-  - Super admins (Administrator with no tenant) bypass tenant isolation
+  - Super admins (PLATFORM_ADMIN with no tenant) bypass tenant isolation
 
 ### FR-AUTHZ-002: Privilege Hierarchy
 - **Actor:** All users performing management operations
@@ -145,10 +145,10 @@ This requirements document covers:
 
 ### FR-AUTHZ-003: Last Admin Protection
 - **Actor:** All users performing user management operations
-- **Preconditions:** Target user is the last user with Administrator role in their tenant
+- **Preconditions:** Target user is the last user with TENANT_ADMIN role in their tenant
 - **Expected Behavior:**
   - System prevents deletion or disabling of the last admin in a tenant
-  - System prevents removal of the last Administrator role assignment
+  - System prevents removal of the last TENANT_ADMIN role assignment
 
 ---
 
@@ -248,7 +248,7 @@ This requirements document covers:
 
 **Business Rules:**
 - User manager can only manage users in their own tenant
-- Only Administrator can assign Administrator or User Manager roles
+- Only PLATFORM_ADMIN or TENANT_ADMIN can assign PLATFORM_ADMIN, TENANT_ADMIN, or USER_MANAGER roles
 - Users cannot grant permissions they do not possess
 
 **Error Conditions:**
@@ -333,7 +333,7 @@ This requirements document covers:
 **Authorization:** ROLE_READ, ROLE_WRITE, ROLE_DELETE, ROLE_ASSIGN_PERMISSION
 
 **Business Rules:**
-- Built-in roles (Administrator, User Manager, Manager, Employee, Auditor, Finance, User) are immutable
+- Built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE) are immutable
 - Roles assigned to any user cannot be deleted
 - Permission changes take effect on next token refresh
 
@@ -387,10 +387,10 @@ This requirements document covers:
 
 **Viewing Scope by Role:**
 - Super admin: all expenses across all tenants
-- Auditor: all expenses in their tenant
-- Manager: expenses in their department
-- Finance: approved expenses in their tenant
-- Employee: only their own expenses
+- AUDITOR: all expenses in their tenant
+- DEPARTMENT_MANAGER: expenses in their department
+- FINANCE: approved expenses in their tenant
+- EMPLOYEE: only their own expenses
 
 **Error Conditions:**
 - Invalid status transition → 409
@@ -504,21 +504,21 @@ This requirements document covers:
 ## 6. User Management
 
 ### FR-UM-001: User Creation
-- **Actor:** ADMIN or USER_MANAGER
+- **Actor:** PLATFORM_ADMIN or TENANT_ADMIN or USER_MANAGER
 - **Preconditions:** Actor has USER_CREATE permission; username and email are unique
 - **Expected Behavior:**
   - System creates user with provided username, email, first name, last name
   - Password must meet complexity requirements
-  - User is assigned to actor's tenant (user manager) or specified tenant (admin)
-  - Default role is User (user manager) or as specified (admin)
+  - User is assigned to actor's tenant (user manager) or specified tenant (platform admin/tenant admin)
+  - Default role is EMPLOYEE (user manager) or as specified (platform admin/tenant admin)
   - Account is enabled by default
 - **Business Rules:**
   - User manager can only create users in their own tenant
-  - Only Administrator can assign Administrator or User Manager roles
+  - Only PLATFORM_ADMIN or TENANT_ADMIN can assign PLATFORM_ADMIN, TENANT_ADMIN, or USER_MANAGER roles
   - No self-registration exists (API endpoint returns 401)
 
 ### FR-UM-002: User Update
-- **Actor:** ADMIN or USER_MANAGER
+- **Actor:** PLATFORM_ADMIN or TENANT_ADMIN or USER_MANAGER
 - **Preconditions:** Actor has USER_WRITE permission; target user exists; privilege hierarchy satisfied
 - **Expected Behavior:**
   - System updates user's first name and last name
@@ -528,7 +528,7 @@ This requirements document covers:
   - User manager scoped to own tenant
 
 ### FR-UM-003: User Deletion
-- **Actor:** ADMIN or USER_MANAGER
+- **Actor:** PLATFORM_ADMIN or TENANT_ADMIN or USER_MANAGER
 - **Preconditions:** Actor has USER_DELETE permission; target user exists; not last admin; not self
 - **Expected Behavior:**
   - System deletes the user account
@@ -539,7 +539,7 @@ This requirements document covers:
   - User manager scoped to own tenant
 
 ### FR-UM-004: User Enable/Disable
-- **Actor:** ADMIN or USER_MANAGER
+- **Actor:** PLATFORM_ADMIN or TENANT_ADMIN or USER_MANAGER
 - **Preconditions:** Actor has USER_ENABLE permission; target user exists; not last admin
 - **Expected Behavior:**
   - System toggles user's enabled status
@@ -549,18 +549,18 @@ This requirements document covers:
   - Privilege hierarchy enforced
 
 ### FR-UM-005: Role Assignment
-- **Actor:** ADMIN or USER_MANAGER
+- **Actor:** PLATFORM_ADMIN or TENANT_ADMIN or USER_MANAGER
 - **Preconditions:** Actor has USER_ASSIGN_ROLE permission; role exists; privilege hierarchy satisfied
 - **Expected Behavior:**
   - System assigns role to user
   - System validates that granter has sufficient permissions
 - **Business Rules:**
-  - Only Administrator can assign Administrator or User Manager roles
+  - Only PLATFORM_ADMIN or TENANT_ADMIN can assign PLATFORM_ADMIN, TENANT_ADMIN, or USER_MANAGER roles
   - Users cannot grant permissions they do not possess
-  - Cannot remove last Administrator role from any user
+  - Cannot remove last TENANT_ADMIN role from any user
 
 ### FR-UM-006: User Retrieval
-- **Actor:** ADMIN, USER_MANAGER, MANAGER, AUDITOR
+- **Actor:** PLATFORM_ADMIN or TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, AUDITOR
 - **Preconditions:** Actor has USER_READ permission
 - **Expected Behavior:**
   - System returns paginated list of users
@@ -776,9 +776,9 @@ This requirements document covers:
 | BR-005 | Rejection Authority | Only managers with EXPENSE_REJECT permission can reject expenses. |
 | BR-006 | Processing Authority | Only users with EXPENSE_PROCESS permission can process approved expenses. |
 | BR-007 | Privilege Hierarchy | Users cannot manage other users with equal or higher permissions. |
-| BR-008 | Last Admin Protection | The last user with Administrator role in a tenant cannot be deleted or disabled. |
-| BR-009 | Role Immutability | Built-in roles (Administrator, User, User Manager, Manager, Employee, Auditor, Finance) cannot be modified or deleted. |
-| BR-010 | Role Assignment Restrictions | Only Administrator can assign Administrator or User Manager roles. |
+| BR-008 | Last Admin Protection | The last user with TENANT_ADMIN role in a tenant cannot be deleted or disabled. |
+| BR-009 | Role Immutability | Built-in roles (PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, EMPLOYEE, AUDITOR, FINANCE) cannot be modified or deleted. |
+| BR-010 | Role Assignment Restrictions | Only PLATFORM_ADMIN or TENANT_ADMIN can assign PLATFORM_ADMIN, TENANT_ADMIN, or USER_MANAGER roles. |
 | BR-011 | Expense Editing | Only PENDING expenses can be edited or cancelled. |
 | BR-012 | Expense Ownership | Only the owner or authorized manager can edit PENDING expenses. |
 | BR-013 | Password Complexity | Passwords must be at least 8 characters with uppercase, lowercase, digit, and special character. |
@@ -800,29 +800,29 @@ This requirements document covers:
 | FR-002 | Token refresh | Authenticated User | Valid refresh token exists | System issues new access/refresh token pair | BR-015 |
 | FR-003 | User logout | Authenticated User | User is authenticated | System revokes all refresh tokens | - |
 | FR-004 | Get current user profile | Authenticated User | User is authenticated | System returns user profile | - |
-| FR-005 | Create user | ADMIN, USER_MANAGER | USER_CREATE permission; unique username/email | System creates user with tenant assignment | BR-001, BR-018 |
-| FR-006 | Update user | ADMIN, USER_MANAGER | USER_WRITE permission; privilege hierarchy satisfied | System updates user details | BR-007 |
-| FR-007 | Delete user | ADMIN, USER_MANAGER | USER_DELETE permission; not last admin; not self | System deletes user | BR-007, BR-008 |
-| FR-008 | Enable/disable user | ADMIN, USER_MANAGER | USER_ENABLE permission; not last admin | System toggles user enabled status | BR-008 |
-| FR-009 | Assign role to user | ADMIN, USER_MANAGER | USER_ASSIGN_ROLE permission; role exists | System assigns role to user | BR-010, BR-007 |
-| FR-010 | Remove role from user | ADMIN, USER_MANAGER | USER_ASSIGN_ROLE permission; not last admin role | System removes role from user | BR-008 |
-| FR-011 | List users | ADMIN, USER_MANAGER, MANAGER, AUDITOR | USER_READ permission | System returns paginated user list (tenant-scoped) | BR-002 |
-| FR-012 | Get user by ID | ADMIN, USER_MANAGER, MANAGER, AUDITOR | USER_READ permission | System returns user details (tenant-scoped) | BR-002 |
-| FR-013 | Create tenant | ADMIN | TENANT_CREATE permission; unique name | System creates tenant | - |
-| FR-014 | Update tenant | ADMIN | TENANT_UPDATE permission | System updates tenant details | - |
-| FR-015 | Delete tenant | ADMIN | TENANT_DELETE permission | System deletes tenant | - |
-| FR-016 | List tenants | ADMIN | TENANT_READ permission | System returns paginated tenant list | - |
-| FR-017 | Get tenant by ID | ADMIN | TENANT_READ permission | System returns tenant details | - |
-| FR-018 | Create department | ADMIN, USER_MANAGER | DEPARTMENT_CREATE permission; unique name in tenant | System creates department | BR-019 |
-| FR-019 | Update department | ADMIN, USER_MANAGER | DEPARTMENT_UPDATE permission | System updates department | BR-019 |
-| FR-020 | Delete department | ADMIN, USER_MANAGER | DEPARTMENT_DELETE permission | System deletes department | - |
-| FR-021 | List departments | ADMIN, USER_MANAGER, MANAGER, AUDITOR | DEPARTMENT_READ permission | System returns paginated department list (tenant-scoped) | BR-002 |
-| FR-022 | Create custom role | ADMIN | ROLE_WRITE permission | System creates custom role | BR-009 |
-| FR-023 | Update custom role | ADMIN | ROLE_WRITE permission; role is custom | System updates custom role | BR-009 |
-| FR-024 | Delete custom role | ADMIN | ROLE_DELETE permission; role is custom; not assigned to users | System deletes custom role | BR-009 |
-| FR-025 | Add permission to role | ADMIN | ROLE_ASSIGN_PERMISSION permission; role is custom | System adds permission to role | BR-009 |
-| FR-026 | Remove permission from role | ADMIN | ROLE_ASSIGN_PERMISSION permission; role is custom | System removes permission from role | BR-009 |
-| FR-027 | List roles | ADMIN, USER_MANAGER, MANAGER | ROLE_READ permission | System returns paginated role list | - |
+| FR-005 | Create user | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | USER_CREATE permission; unique username/email | System creates user with tenant assignment | BR-001, BR-018 |
+| FR-006 | Update user | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | USER_WRITE permission; privilege hierarchy satisfied | System updates user details | BR-007 |
+| FR-007 | Delete user | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | USER_DELETE permission; not last admin; not self | System deletes user | BR-007, BR-008 |
+| FR-008 | Enable/disable user | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | USER_ENABLE permission; not last admin | System toggles user enabled status | BR-008 |
+| FR-009 | Assign role to user | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | USER_ASSIGN_ROLE permission; role exists | System assigns role to user | BR-010, BR-007 |
+| FR-010 | Remove role from user | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | USER_ASSIGN_ROLE permission; not last admin role | System removes role from user | BR-008 |
+| FR-011 | List users | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, AUDITOR | USER_READ permission | System returns paginated user list (tenant-scoped) | BR-002 |
+| FR-012 | Get user by ID | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, AUDITOR | USER_READ permission | System returns user details (tenant-scoped) | BR-002 |
+| FR-013 | Create tenant | PLATFORM_ADMIN | TENANT_CREATE permission; unique name | System creates tenant | - |
+| FR-014 | Update tenant | PLATFORM_ADMIN | TENANT_UPDATE permission | System updates tenant details | - |
+| FR-015 | Delete tenant | PLATFORM_ADMIN | TENANT_DELETE permission | System deletes tenant | - |
+| FR-016 | List tenants | PLATFORM_ADMIN | TENANT_READ permission | System returns paginated tenant list | - |
+| FR-017 | Get tenant by ID | PLATFORM_ADMIN | TENANT_READ permission | System returns tenant details | - |
+| FR-018 | Create department | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | DEPARTMENT_CREATE permission; unique name in tenant | System creates department | BR-019 |
+| FR-019 | Update department | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | DEPARTMENT_UPDATE permission | System updates department | BR-019 |
+| FR-020 | Delete department | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER | DEPARTMENT_DELETE permission | System deletes department | - |
+| FR-021 | List departments | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER, AUDITOR | DEPARTMENT_READ permission | System returns paginated department list (tenant-scoped) | BR-002 |
+| FR-022 | Create custom role | PLATFORM_ADMIN | ROLE_WRITE permission | System creates custom role | BR-009 |
+| FR-023 | Update custom role | PLATFORM_ADMIN | ROLE_WRITE permission; role is custom | System updates custom role | BR-009 |
+| FR-024 | Delete custom role | PLATFORM_ADMIN | ROLE_DELETE permission; role is custom; not assigned to users | System deletes custom role | BR-009 |
+| FR-025 | Add permission to role | PLATFORM_ADMIN | ROLE_ASSIGN_PERMISSION permission; role is custom | System adds permission to role | BR-009 |
+| FR-026 | Remove permission from role | PLATFORM_ADMIN | ROLE_ASSIGN_PERMISSION permission; role is custom | System removes permission from role | BR-009 |
+| FR-027 | List roles | PLATFORM_ADMIN, TENANT_ADMIN, USER_MANAGER, DEPARTMENT_MANAGER | ROLE_READ permission | System returns paginated role list | - |
 | FR-028 | Create expense | Any user with EXPENSE_CREATE | User belongs to a tenant | System creates expense with PENDING status | BR-003, BR-011 |
 | FR-029 | Update expense | Owner, Manager with EXPENSE_UPDATE | EXPENSE_UPDATE permission; expense is PENDING; privilege hierarchy satisfied | System updates expense | BR-003, BR-011, BR-012 |
 | FR-030 | Cancel expense | Owner, Manager with EXPENSE_UPDATE | EXPENSE_UPDATE permission; expense is PENDING | System cancels expense | BR-003, BR-011, BR-012 |
@@ -831,7 +831,7 @@ This requirements document covers:
 | FR-033 | Process expense | Finance with EXPENSE_PROCESS | EXPENSE_PROCESS permission; expense is APPROVED; same tenant | System processes expense | BR-003, BR-006 |
 | FR-034 | List expenses | Various | EXPENSE_READ permission; role determines scope | System returns paginated expense list | BR-002 |
 | FR-035 | Get expense by ID | Various | EXPENSE_READ permission; authorization check | System returns expense details | BR-002 |
-| FR-036 | View audit logs | ADMIN, AUDITOR | AUDIT_LOG_READ permission | System returns paginated audit log list (tenant-scoped) | BR-002 |
+| FR-036 | View audit logs | PLATFORM_ADMIN, TENANT_ADMIN, AUDITOR | AUDIT_LOG_READ permission | System returns paginated audit log list (tenant-scoped) | BR-002 |
 | FR-037 | Change password | Authenticated User | User is authenticated; current password verified | System updates password; revokes all tokens | BR-013, BR-015 |
 | FR-038 | Request password reset | Unauthenticated User | Rate limit not exceeded | System sends reset email | BR-017 |
 | FR-039 | Reset password with token | Unauthenticated User | Valid, unused, unexpired token | System updates password; revokes all tokens | BR-013, BR-017 |
@@ -996,12 +996,11 @@ Paths, HTTP methods, and required authorities are verified against the controlle
 10. **Notification Preferences:** No user-configurable notification preferences for email notifications.
 
 ### Areas Requiring Business Confirmation
-1. Whether the USER role is actively used or retained solely for backward compatibility.
-2. Whether tenant status (INACTIVE/SUSPENDED) should restrict user login or data access.
-3. Whether department manager assignment should affect expense visibility beyond the current model.
-4. Specific business justification for each of the 28 permissions.
-5. Whether additional expense statuses or workflow transitions are planned.
-6. Data retention policies for audit logs and expense records.
+1. Whether tenant status (INACTIVE/SUSPENDED) should restrict user login or data access.
+2. Whether department manager assignment should affect expense visibility beyond the current model.
+3. Specific business justification for each of the 28 permissions.
+4. Whether additional expense statuses or workflow transitions are planned.
+5. Data retention policies for audit logs and expense records.
 7. Whether the expense category field has a controlled vocabulary or is free-text.
 8. Whether multi-currency support is planned (amount field is a single BigDecimal without currency).
 
@@ -1051,8 +1050,8 @@ Paths, HTTP methods, and required authorities are verified against the controlle
 | Term | Definition |
 |------|-----------|
 | **Tenant** | An organization or business unit that uses the system. All data within a tenant is isolated from other tenants. |
-| **Super Admin** | A user with the Administrator role and no tenant assignment. Has unrestricted cross-tenant access. |
-| **Tenant Admin** | A user with the Administrator role assigned to a specific tenant. Scoped to their tenant's data. |
+| **Super Admin** | A user with the PLATFORM_ADMIN role and no tenant assignment. Has unrestricted cross-tenant access. |
+| **Tenant Admin** | A user with the TENANT_ADMIN role assigned to a specific tenant. Scoped to their tenant's data. |
 | **JWT** | JSON Web Token — a compact, URL-safe token used for stateless authentication. Contains user identity and permission claims. |
 | **Access Token** | A short-lived JWT (15 minutes) used to authenticate API requests. |
 | **Refresh Token** | A longer-lived token (7 days) used to obtain new access tokens without re-authentication. |
@@ -1060,7 +1059,7 @@ Paths, HTTP methods, and required authorities are verified against the controlle
 | **TOTP** | Time-based One-Time Password — an MFA method using authenticator apps like Google Authenticator. |
 | **OTP** | One-Time Password — a single-use code for authentication. |
 | **Authority** | A specific permission (e.g., EXPENSE_CREATE) that grants the ability to perform an operation. |
-| **Role** | A named collection of permissions assigned to users (e.g., Administrator, Employee, Manager). |
+| **Role** | A named collection of permissions assigned to users (e.g., PLATFORM_ADMIN, TENANT_ADMIN, EMPLOYEE, DEPARTMENT_MANAGER). |
 | **Expense Lifecycle** | The progression of an expense through statuses: PENDING → APPROVED/REJECTED/CANCELLED → PROCESSED. |
 | **Rate Limiting** | Controlling the number of requests a user can make within a time window to prevent abuse. |
 | **Account Lockout** | Temporarily disabling an account after multiple failed login attempts. |

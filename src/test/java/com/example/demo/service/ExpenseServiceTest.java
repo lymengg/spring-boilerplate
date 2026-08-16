@@ -178,7 +178,7 @@ class ExpenseServiceTest {
                 .accountNonLocked(true)
                 .build();
         user.setRoles(new HashSet<>());
-        user.getRoles().add(Role.builder().name("USER").permissions(new HashSet<>()).build());
+        user.getRoles().add(Role.builder().name("EMPLOYEE").permissions(new HashSet<>()).build());
         return user;
     }
 

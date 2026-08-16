@@ -41,18 +41,18 @@ class AuthorizationServiceTest {
         employeeRole.getPermissions().add(UserPermission.EXPENSE_UPDATE);
         employeeRole.getPermissions().add(UserPermission.EXPENSE_DELETE);
 
-        managerRole = Role.builder().name(Roles.MANAGER).permissions(new HashSet<>()).build();
+        managerRole = Role.builder().name(Roles.DEPARTMENT_MANAGER).permissions(new HashSet<>()).build();
         managerRole.getPermissions().add(UserPermission.EXPENSE_READ);
         managerRole.getPermissions().add(UserPermission.EXPENSE_APPROVE);
         managerRole.getPermissions().add(UserPermission.EXPENSE_REJECT);
         managerRole.getPermissions().add(UserPermission.REPORT_READ);
 
-        tenantAdminRole = Role.builder().name("TENANT_ADMIN").permissions(new HashSet<>()).build();
+        tenantAdminRole = Role.builder().name(Roles.TENANT_ADMIN).permissions(new HashSet<>()).build();
         tenantAdminRole.getPermissions().add(UserPermission.TENANT_UPDATE);
         tenantAdminRole.getPermissions().add(UserPermission.EXPENSE_UPDATE);
         tenantAdminRole.getPermissions().add(UserPermission.EXPENSE_APPROVE);
 
-        adminRole = Role.builder().name(Roles.ADMIN).permissions(new HashSet<>()).build();
+        adminRole = Role.builder().name(Roles.PLATFORM_ADMIN).permissions(new HashSet<>()).build();
         for (UserPermission permission : UserPermission.values()) {
             adminRole.getPermissions().add(permission);
         }
@@ -109,7 +109,7 @@ class AuthorizationServiceTest {
     @DisplayName("Manager can approve expense in their managed department")
     void managerCanApproveDepartmentExpense() {
         User manager = userWithRole(managerRole, tenant, department);
-        department.setManager(manager);
+        department.getManagers().add(manager);
         User employee = userWithRole(employeeRole, tenant, department);
         Expense expense = expenseOwnedBy(employee);
         assertThat(authorizationService.canApproveExpense(manager, expense)).isTrue();
@@ -119,7 +119,7 @@ class AuthorizationServiceTest {
     @DisplayName("Manager cannot approve expense in another department")
     void managerCannotApproveOtherDepartmentExpense() {
         User manager = userWithRole(managerRole, tenant, department);
-        department.setManager(manager);
+        department.getManagers().add(manager);
         Department otherDepartment = Department.builder().id(11L).name("Other Dept").tenant(tenant).build();
         User otherEmployee = userWithRole(employeeRole, tenant, otherDepartment);
         Expense expense = expenseOwnedBy(otherEmployee);
