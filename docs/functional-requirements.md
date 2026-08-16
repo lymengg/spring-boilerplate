@@ -388,7 +388,7 @@ This requirements document covers:
 **Viewing Scope by Role:**
 - Super admin: all expenses across all tenants
 - AUDITOR: all expenses in their tenant
-- DEPARTMENT_MANAGER: expenses in their department
+- DEPARTMENT_MANAGER: expenses in all departments they manage
 - FINANCE: approved expenses in their tenant
 - EMPLOYEE: only their own expenses
 
@@ -580,11 +580,11 @@ This requirements document covers:
 6. System sets status to PENDING
 7. System records submission date
 8. Audit log entry created with EXPENSE_CREATED action
-9. Expense is visible to managers in the department
+ 9. Expense is visible to managers of the department
 
 ### 7.2 Expense Approval Process
 1. Manager authenticates and obtains access token
-2. Manager views pending expenses via GET /api/expenses (filtered by department)
+2. Manager views pending expenses via GET /api/expenses (filtered by managed departments)
 3. Manager selects expense and approves via POST /api/expenses/{id}/approve
 4. System validates EXPENSE_APPROVE authority
 5. System validates manager is tenant manager or department manager
@@ -595,7 +595,7 @@ This requirements document covers:
 
 ### 7.3 Expense Rejection Process
 1. Manager authenticates and obtains access token
-2. Manager views pending expenses via GET /api/expenses (filtered by department)
+2. Manager views pending expenses via GET /api/expenses (filtered by managed departments)
 3. Manager selects expense and rejects via POST /api/expenses/{id}/reject
 4. System validates EXPENSE_REJECT authority
 5. System validates manager is tenant manager or department manager

@@ -1277,8 +1277,8 @@ All list endpoints support pagination via query parameters:
         "name": "Engineering",
         "tenantId": 1,
         "tenantName": "Acme Corp",
-        "managerId": 1,
-        "managerUsername": "john.doe"
+        "managerIds": [1, 2],
+        "managerUsernames": ["john.doe", "jane.smith"]
       }
     ],
     "totalElements": 1,
@@ -1312,7 +1312,7 @@ All list endpoints support pagination via query parameters:
 {
   "name": "Marketing",
   "tenantId": 1,
-  "managerId": 2
+  "managerIds": [2, 3]
 }
 ```
 
@@ -1332,7 +1332,7 @@ All list endpoints support pagination via query parameters:
 ```json
 {
   "name": "Marketing & Communications",
-  "managerId": 3
+  "managerIds": [3, 4]
 }
 ```
 

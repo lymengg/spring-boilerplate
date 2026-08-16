@@ -21,4 +21,6 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     Optional<Department> findByNameAndTenantId(String name, Long tenantId);
 
     boolean existsByNameAndTenantId(String name, Long tenantId);
+
+    List<Department> findByManagersId(Long userId);
 }
