@@ -61,7 +61,7 @@ public class UserManagementService {
         Tenant tenant = resolveTenantForCreation(currentUser, request.getTenantId());
 
         String roleName = request.getRoleName() == null || request.getRoleName().isBlank()
-                ? Roles.USER : request.getRoleName().toUpperCase();
+                ? Roles.EMPLOYEE : request.getRoleName().toUpperCase();
         Role role = roleManagementService.findByName(roleName);
 
         validateRoleAssignment(currentUser, role);
@@ -206,7 +206,8 @@ public class UserManagementService {
         if (!canAssignBuiltInRole(currentUser, role)) {
             throw new IllegalArgumentException("Only admin can remove this role");
         }
-        if (Roles.ADMIN.equals(role.getName()) && isLastAdmin(user)) {
+        if ((Roles.PLATFORM_ADMIN.equals(role.getName()) || Roles.TENANT_ADMIN.equals(role.getName()))
+                && isLastAdmin(user)) {
             throw new IllegalArgumentException("Cannot remove the last admin");
         }
         if (!user.getRoles().contains(role)) {
@@ -255,8 +256,10 @@ public class UserManagementService {
 
     private boolean isLastAdmin(User user) {
         boolean isAdmin = user.getRoles().stream()
-                .anyMatch(role -> Roles.ADMIN.equals(role.getName()));
-        return isAdmin && userService.countByRoleName(Roles.ADMIN) <= 1;
+                .anyMatch(role -> Roles.PLATFORM_ADMIN.equals(role.getName())
+                        || Roles.TENANT_ADMIN.equals(role.getName()));
+        return isAdmin && (userService.countByRoleName(Roles.PLATFORM_ADMIN)
+                    + userService.countByRoleName(Roles.TENANT_ADMIN)) <= 1;
     }
 
     private boolean canManage(User granter, User target) {
@@ -267,11 +270,14 @@ public class UserManagementService {
     }
 
     private boolean canAssignBuiltInRole(User granter, Role role) {
-        if (!(Roles.ADMIN.equals(role.getName()) || Roles.USER_MANAGER.equals(role.getName()))) {
+        if (!(Roles.PLATFORM_ADMIN.equals(role.getName())
+                || Roles.TENANT_ADMIN.equals(role.getName())
+                || Roles.USER_MANAGER.equals(role.getName()))) {
             return true;
         }
         return granter.getRoles().stream()
-                .anyMatch(r -> Roles.ADMIN.equals(r.getName()));
+                .anyMatch(r -> Roles.PLATFORM_ADMIN.equals(r.getName())
+                        || Roles.TENANT_ADMIN.equals(r.getName()));
     }
 
     private Set<UserPermission> getAllPermissions(User user) {

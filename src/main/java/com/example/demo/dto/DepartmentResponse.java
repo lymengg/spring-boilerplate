@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -15,6 +17,6 @@ public class DepartmentResponse {
     private String name;
     private Long tenantId;
     private String tenantName;
-    private Long managerId;
-    private String managerUsername;
+    private List<Long> managerIds;
+    private List<String> managerUsernames;
 }

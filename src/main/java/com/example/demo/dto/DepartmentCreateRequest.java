@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,5 +23,5 @@ public class DepartmentCreateRequest {
     @NotNull(message = "Tenant is required")
     private Long tenantId;
 
-    private Long managerId;
+    private List<Long> managerIds;
 }

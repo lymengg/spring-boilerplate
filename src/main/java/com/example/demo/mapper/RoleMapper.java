@@ -13,6 +13,7 @@ public class RoleMapper {
         return RoleResponse.builder()
                 .id(role.getId())
                 .name(role.getName())
+                .title(role.getTitle())
                 .description(role.getDescription())
                 .permissions(Set.copyOf(role.getPermissions()))
                 .build();

@@ -71,7 +71,7 @@ class SecurityIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Role userRole = roleRepository.findByName("USER").orElseThrow();
+        Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
         User user = User.builder()
                 .username("testuser")
                 .email("test@example.com")
@@ -83,7 +83,7 @@ class SecurityIntegrationTest {
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .build();
-        user.getRoles().add(userRole);
+        user.getRoles().add(employeeRole);
         userRepository.save(user);
 
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("testuser");

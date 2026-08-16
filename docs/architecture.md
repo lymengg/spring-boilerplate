@@ -222,7 +222,7 @@ Response → ApiResponse<T>       ← Standardized JSON response envelope
 ## 7. Authorization Architecture
 
 ### Roles
-Seven built-in roles: `ADMIN`, `USER`, `USER_MANAGER`, `MANAGER`, `EMPLOYEE`, `AUDITOR`, `FINANCE`.
+Seven built-in roles: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `USER_MANAGER`, `DEPARTMENT_MANAGER`, `EMPLOYEE`, `AUDITOR`, `FINANCE`.
 
 Custom roles can be created but cannot modify built-in roles.
 
@@ -245,7 +245,7 @@ Custom roles can be created but cannot modify built-in roles.
 
 ### Resource/Object-Level Authorization
 - **Expense**: Owner can view/edit their own. Managers can approve/reject within their department. Finance can process approved expenses within their tenant. Super admins have unrestricted access.
-- **User management**: Privilege hierarchy prevents managing users with equal/higher permissions. Last admin protection prevents deleting/disabling the last ADMIN in a tenant.
+- **User management**: Privilege hierarchy prevents managing users with equal/higher permissions. Last admin protection prevents deleting/disabling the last admin (PLATFORM_ADMIN or TENANT_ADMIN) in a tenant.
 - **Tenant/Department**: Scoped to tenant membership and management authority.
 
 ## 8. Data Architecture

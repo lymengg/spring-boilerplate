@@ -91,10 +91,10 @@ The application implements a multi-layered security model based on **Spring Secu
 
 | Role | Description | Built-in |
 |------|-------------|----------|
-| `ADMIN` | Full system access | Yes |
-| `USER` | Legacy low-privilege role | Yes |
+| `PLATFORM_ADMIN` | Platform-wide administrator with unrestricted cross-tenant access | Yes |
+| `TENANT_ADMIN` | Tenant-scoped administrator managing their organization | Yes |
 | `USER_MANAGER` | Can manage users within tenant | Yes |
-| `MANAGER` | Department manager, expense approval | Yes |
+| `DEPARTMENT_MANAGER` | Department manager, expense approval (multiple per department) | Yes |
 | `EMPLOYEE` | Create and manage own expenses | Yes |
 | `AUDITOR` | Read-only audit access | Yes |
 | `FINANCE` | Process approved expenses | Yes |
@@ -125,7 +125,7 @@ Built-in roles are **immutable** — they cannot be updated, deleted, or have th
   - **Department scoping**: Managers can only approve/reject expenses within their department.
   - **Resource ownership**: Employees can only view/edit their own expenses.
   - **Privilege hierarchy**: Users cannot manage users with equal or higher permissions.
-  - **Last admin protection**: The last ADMIN in a tenant cannot be deleted or disabled.
+  - **Last admin protection**: The last admin (PLATFORM_ADMIN or TENANT_ADMIN) in a tenant cannot be deleted or disabled.
 
 ## 5. Access-Control Security
 

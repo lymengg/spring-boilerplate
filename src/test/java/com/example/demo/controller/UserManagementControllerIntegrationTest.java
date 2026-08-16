@@ -67,15 +67,15 @@ class UserManagementControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        Role adminRole = roleRepository.findByName("PLATFORM_ADMIN").orElseThrow();
         Role managerRole = roleRepository.findByName("USER_MANAGER").orElseThrow();
-        Role userRole = roleRepository.findByName("USER").orElseThrow();
+        Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
 
         Tenant tenant = tenantRepository.save(Tenant.builder().name("Test Tenant").build());
 
         User admin = createUser("adminuser", "admin@example.com", adminRole, null);
         User manager = createUser("manager", "manager@example.com", managerRole, tenant);
-        User user = createUser("testuser", "test@example.com", userRole, tenant);
+        User user = createUser("testuser", "test@example.com", employeeRole, tenant);
         regularUserId = user.getId();
 
         adminToken = generateToken(admin.getUsername());
@@ -171,7 +171,6 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("Admin cannot delete last admin")
     void adminCannotDeleteLastAdmin() throws Exception {
-        // delete the other users so only admin remains
         userRepository.delete(userRepository.findByUsername("manager").orElseThrow());
         userRepository.delete(userRepository.findByUsername("testuser").orElseThrow());
 
@@ -203,8 +202,8 @@ class UserManagementControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("User manager can assign USER role to a user in their tenant")
-    void userManagerCanAssignUserRole() throws Exception {
+    @DisplayName("User manager can assign EMPLOYEE role to a user in their tenant")
+    void userManagerCanAssignEmployeeRole() throws Exception {
         Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
         User noRoleUser = User.builder()
                 .username("norole")
@@ -223,29 +222,29 @@ class UserManagementControllerIntegrationTest {
         mockMvc.perform(post("/api/management/users/{id}/roles", noRoleUser.getId())
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("roleName", "USER"))))
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.roles").isArray());
     }
 
     @Test
-    @DisplayName("User manager cannot assign ADMIN role")
+    @DisplayName("User manager cannot assign PLATFORM_ADMIN role")
     void userManagerCannotAssignAdminRole() throws Exception {
         mockMvc.perform(post("/api/management/users/{id}/roles", regularUserId)
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().is(400));
     }
 
     @Test
-    @DisplayName("Admin can assign ADMIN role")
+    @DisplayName("Admin can assign PLATFORM_ADMIN role")
     void adminCanAssignAdminRole() throws Exception {
-        User newUser = createUser("newuser", "new@example.com", roleRepository.findByName("USER").orElseThrow(), null);
+        User newUser = createUser("newuser", "new@example.com", roleRepository.findByName("EMPLOYEE").orElseThrow(), null);
         mockMvc.perform(post("/api/management/users/{id}/roles", newUser.getId())
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().isOk());
     }
 
@@ -294,7 +293,7 @@ class UserManagementControllerIntegrationTest {
         mockMvc.perform(delete("/api/management/users/{id}/roles", admin.getId())
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("roleName", "ADMIN"))))
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().is(400));
     }
 
@@ -335,7 +334,7 @@ class UserManagementControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value("createduser"))
-                .andExpect(jsonPath("$.data.roles[0]").value("USER"));
+                .andExpect(jsonPath("$.data.roles[0]").value("EMPLOYEE"));
     }
 
     @Test
@@ -345,7 +344,7 @@ class UserManagementControllerIntegrationTest {
                 "username", "createduser",
                 "email", "created@example.com",
                 "password", "SecurePass123!",
-                "roleName", "ADMIN");
+                "roleName", "PLATFORM_ADMIN");
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + managerToken)

@@ -23,7 +23,7 @@ public class AuthorizationService {
     }
 
     public boolean isSuperAdmin(User user) {
-        return user != null && user.getTenant() == null && hasRole(user, Roles.ADMIN);
+        return user != null && user.getTenant() == null && hasRole(user, Roles.PLATFORM_ADMIN);
     }
 
     public boolean belongsToTenant(User user, Tenant tenant) {
@@ -46,8 +46,8 @@ public class AuthorizationService {
     }
 
     public boolean isDepartmentManager(User user, Department department) {
-        return user != null && department != null && department.getManager() != null
-                && user.getId().equals(department.getManager().getId());
+        return user != null && department != null && department.getManagers() != null
+                && department.getManagers().contains(user);
     }
 
     public boolean managesDepartment(User user, Department department) {
