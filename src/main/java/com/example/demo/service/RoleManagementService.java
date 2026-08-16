@@ -46,7 +46,7 @@ public class RoleManagementService {
     }
 
     @Transactional
-    @PreAuthorize("hasAuthority('ROLE_WRITE')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public RoleResponse createRole(RoleCreateRequest request) {
         String roleName = request.getName().toUpperCase();
         if (roleRepository.existsByName(roleName)) {
@@ -67,7 +67,7 @@ public class RoleManagementService {
     }
 
     @Transactional
-    @PreAuthorize("hasAuthority('ROLE_WRITE')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public RoleResponse updateRole(Long id, RoleCreateRequest request) {
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -91,7 +91,7 @@ public class RoleManagementService {
     }
 
     @Transactional
-    @PreAuthorize("hasAuthority('ROLE_DELETE')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public void deleteRole(Long id) {
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -108,7 +108,7 @@ public class RoleManagementService {
     }
 
     @Transactional
-    @PreAuthorize("hasAuthority('ROLE_ASSIGN_PERMISSION')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public RoleResponse addPermission(Long id, RolePermissionRequest request) {
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
@@ -122,7 +122,7 @@ public class RoleManagementService {
     }
 
     @Transactional
-    @PreAuthorize("hasAuthority('ROLE_ASSIGN_PERMISSION')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public RoleResponse removePermission(Long id, RolePermissionRequest request) {
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
