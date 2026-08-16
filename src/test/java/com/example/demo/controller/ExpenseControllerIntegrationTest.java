@@ -281,4 +281,37 @@ class ExpenseControllerIntegrationTest {
                         .header("Authorization", "Bearer " + otherEmployeeToken))
                 .andExpect(status().is(400));
     }
+
+    @Test
+    @DisplayName("Manager managing multiple departments sees expenses from all managed departments")
+    void managerSeesExpensesFromAllManagedDepartments() throws Exception {
+        Department dept2 = departmentRepository.findByNameAndTenantId("Dept 2",
+                tenantRepository.findAll().stream().filter(t -> t.getName().equals("Tenant 1")).findFirst().orElseThrow().getId())
+                .orElseThrow();
+        User multiManager = userRepository.findByUsername("manager").orElseThrow();
+        dept2.getManagers().add(multiManager);
+        departmentRepository.save(dept2);
+
+        mockMvc.perform(get("/api/expenses")
+                        .header("Authorization", "Bearer " + managerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("Manager can approve expense in any of their managed departments")
+    void managerCanApproveExpenseInAnyManagedDepartment() throws Exception {
+        Department dept2 = departmentRepository.findByNameAndTenantId("Dept 2",
+                tenantRepository.findAll().stream().filter(t -> t.getName().equals("Tenant 1")).findFirst().orElseThrow().getId())
+                .orElseThrow();
+        User multiManager = userRepository.findByUsername("manager").orElseThrow();
+        dept2.getManagers().add(multiManager);
+        departmentRepository.save(dept2);
+
+        mockMvc.perform(post("/api/expenses/{id}/approve", otherDeptExpenseId)
+                        .header("Authorization", "Bearer " + managerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+    }
 }

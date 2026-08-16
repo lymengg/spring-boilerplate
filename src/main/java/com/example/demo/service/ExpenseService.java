@@ -9,6 +9,7 @@ import com.example.demo.entity.Expense;
 import com.example.demo.entity.ExpenseStatus;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.ExpenseMapper;
+import com.example.demo.repository.DepartmentRepository;
 import com.example.demo.repository.ExpenseRepository;
 import com.example.demo.constants.Authorities;
 import com.example.demo.security.service.AuthorizationService;
@@ -20,11 +21,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
+    private final DepartmentRepository departmentRepository;
     private final DepartmentManagementService departmentManagementService;
     private final UserService userService;
     private final AuthorizationService authorizationService;
@@ -45,10 +49,15 @@ public class ExpenseService {
         if (authorizationService.hasAuthority(currentUser, Authorities.AUDIT_LOG_READ)) {
             return expenseRepository.findAllByTenantId(tenantId, pageable).map(expenseMapper::toResponse);
         }
-        if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_APPROVE)
-                && currentUser.getDepartment() != null) {
-            return expenseRepository.findAllByDepartmentId(currentUser.getDepartment().getId(), pageable)
-                    .map(expenseMapper::toResponse);
+        if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_APPROVE)) {
+            List<Long> managedDeptIds = departmentRepository.findByManagersId(currentUser.getId())
+                    .stream()
+                    .map(Department::getId)
+                    .toList();
+            if (!managedDeptIds.isEmpty()) {
+                return expenseRepository.findAllByDepartmentIdIn(managedDeptIds, pageable)
+                        .map(expenseMapper::toResponse);
+            }
         }
         if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_PROCESS)) {
             return expenseRepository.findAllByTenantIdAndStatus(tenantId, ExpenseStatus.APPROVED, pageable)
