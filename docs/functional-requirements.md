@@ -244,7 +244,7 @@ This requirements document covers:
 - Password: required on creation, must meet complexity rules
 - Names: required, within length limits
 
-**Authorization:** USER_CREATE, USER_READ, USER_WRITE, USER_DELETE, USER_ENABLE, USER_ASSIGN_ROLE
+**Authorization:** USER_CREATE, USER_READ, USER_WRITE, USER_UPDATE, USER_DELETE, USER_ENABLE, USER_ASSIGN_ROLE
 
 **Business Rules:**
 - User manager can only manage users in their own tenant
@@ -777,7 +777,7 @@ This requirements document covers:
 | BR-006 | Processing Authority | Only users with EXPENSE_PROCESS permission can process approved expenses. |
 | BR-007 | Privilege Hierarchy | Users cannot manage other users with equal or higher permissions. |
 | BR-008 | Last Admin Protection | The last user with ADMIN role in a tenant cannot be deleted or disabled. |
-| BR-009 | Role Immutability | Built-in roles cannot be modified or deleted. |
+| BR-009 | Role Immutability | Built-in roles (ADMIN, USER, USER_MANAGER, MANAGER, EMPLOYEE, AUDITOR, FINANCE) cannot be modified or deleted. |
 | BR-010 | Role Assignment Restrictions | Only ADMIN can assign ADMIN or USER_MANAGER roles. |
 | BR-011 | Expense Editing | Only PENDING expenses can be edited or cancelled. |
 | BR-012 | Expense Ownership | Only the owner or authorized manager can edit PENDING expenses. |
@@ -886,7 +886,102 @@ This requirements document covers:
 
 ---
 
-## 15. Known Gaps
+## 15. API Endpoint Index
+
+Paths, HTTP methods, and required authorities are verified against the controller layer and the `@PreAuthorize` annotations on service methods.
+
+### Authentication (`/api/auth`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| POST | `/api/auth/login` | Public | FR-001 |
+| POST | `/api/auth/mfa/verify` | Public | FR-044 |
+| POST | `/api/auth/refresh` | Public | FR-002 |
+| POST | `/api/auth/logout` | Authenticated | FR-003 |
+| GET | `/api/auth/me` | Authenticated | FR-004 |
+| POST | `/api/auth/change-password` | Authenticated | FR-037 |
+| POST | `/api/auth/forgot-password` | Public (rate-limited per email) | FR-038 |
+| POST | `/api/auth/reset-password` | Public (rate-limited per user) | FR-039 |
+
+### MFA (`/api/mfa`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| POST | `/api/mfa/enable` | Authenticated | FR-040 |
+| POST | `/api/mfa/verify-setup` | Authenticated | FR-041 |
+| POST | `/api/mfa/disable` | Authenticated | FR-042 |
+| GET | `/api/mfa/status` | Authenticated | FR-043 |
+
+### User Management (`/api/management/users`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| POST | `/api/management/users` | USER_CREATE | FR-005 |
+| GET | `/api/management/users` | USER_READ | FR-011 |
+| GET | `/api/management/users/{id}` | USER_READ | FR-012 |
+| PUT | `/api/management/users/{id}` | USER_WRITE | FR-006 |
+| DELETE | `/api/management/users/{id}` | USER_DELETE | FR-007 |
+| POST | `/api/management/users/{id}/enable` | USER_ENABLE | FR-008 |
+| POST | `/api/management/users/{id}/roles` | USER_ASSIGN_ROLE | FR-009 |
+| DELETE | `/api/management/users/{id}/roles` | USER_ASSIGN_ROLE | FR-010 |
+
+### Tenant Management (`/api/management/tenants`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| POST | `/api/management/tenants` | TENANT_CREATE | FR-013 |
+| PUT | `/api/management/tenants/{id}` | TENANT_UPDATE | FR-014 |
+| DELETE | `/api/management/tenants/{id}` | TENANT_DELETE | FR-015 |
+| GET | `/api/management/tenants` | TENANT_READ | FR-016 |
+| GET | `/api/management/tenants/{id}` | TENANT_READ | FR-017 |
+
+### Department Management (`/api/management/departments`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| POST | `/api/management/departments` | DEPARTMENT_CREATE | FR-018 |
+| PUT | `/api/management/departments/{id}` | DEPARTMENT_UPDATE | FR-019 |
+| DELETE | `/api/management/departments/{id}` | DEPARTMENT_DELETE | FR-020 |
+| GET | `/api/management/departments` | DEPARTMENT_READ | FR-021 |
+| GET | `/api/management/departments/{id}` | DEPARTMENT_READ | - |
+
+### Role Management (`/api/management/roles`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| POST | `/api/management/roles` | ROLE_WRITE | FR-022 |
+| PUT | `/api/management/roles/{id}` | ROLE_WRITE | FR-023 |
+| DELETE | `/api/management/roles/{id}` | ROLE_DELETE | FR-024 |
+| POST | `/api/management/roles/{id}/permissions` | ROLE_ASSIGN_PERMISSION | FR-025 |
+| DELETE | `/api/management/roles/{id}/permissions` | ROLE_ASSIGN_PERMISSION | FR-026 |
+| GET | `/api/management/roles` | ROLE_READ | FR-027 |
+| GET | `/api/management/roles/{id}` | ROLE_READ | - |
+
+### Expense Management (`/api/expenses`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| POST | `/api/expenses` | EXPENSE_CREATE | FR-028 |
+| PUT | `/api/expenses/{id}` | EXPENSE_UPDATE | FR-029 |
+| POST | `/api/expenses/{id}/cancel` | EXPENSE_UPDATE | FR-030 |
+| POST | `/api/expenses/{id}/approve` | EXPENSE_APPROVE | FR-031 |
+| POST | `/api/expenses/{id}/reject` | EXPENSE_REJECT | FR-032 |
+| POST | `/api/expenses/{id}/process` | EXPENSE_PROCESS | FR-033 |
+| GET | `/api/expenses` | EXPENSE_READ | FR-034 |
+| GET | `/api/expenses/{id}` | EXPENSE_READ | FR-035 |
+
+### Audit Log (`/api/management/audit`)
+
+| Method | Path | Authority | FR |
+|--------|------|-----------|----|
+| GET | `/api/management/audit` | AUDIT_LOG_READ | FR-036 |
+| GET | `/api/management/audit/{id}` | AUDIT_LOG_READ | FR-036 |
+
+> **Note:** `GET .../{id}` endpoints for departments and roles share the module's read authority but have no dedicated FR catalog entry; they are covered by the module-level read requirement (FR-021 / FR-027).
+
+---
+
+## 16. Known Gaps
 
 ### Unimplemented Functionality
 1. **Email Verification:** An email verification endpoint exists but the full verification flow is not wired into the user creation process.
@@ -904,8 +999,72 @@ This requirements document covers:
 1. Whether the USER role is actively used or retained solely for backward compatibility.
 2. Whether tenant status (INACTIVE/SUSPENDED) should restrict user login or data access.
 3. Whether department manager assignment should affect expense visibility beyond the current model.
-4. Specific business justification for each of the 26 permissions.
+4. Specific business justification for each of the 28 permissions.
 5. Whether additional expense statuses or workflow transitions are planned.
 6. Data retention policies for audit logs and expense records.
 7. Whether the expense category field has a controlled vocabulary or is free-text.
 8. Whether multi-currency support is planned (amount field is a single BigDecimal without currency).
+
+---
+
+## 17. Constraints
+
+### Security Constraints
+- JWT secret key must be at least 32 characters (64+ bytes recommended for HS512)
+- All passwords must meet complexity requirements (8+ chars, mixed case, digit, special char)
+- Account lockout enforced after 5 failed attempts
+- Rate limiting applied to sensitive endpoints
+- HTTP security headers enforced (CSP, HSTS, X-Frame-Options, etc.)
+- CORS restricted to configured frontend URL
+- No sensitive data (passwords, tokens, secrets) is logged
+
+### User Constraints
+- Users must belong to a tenant (except super admins)
+- Users can have multiple roles
+- Users cannot modify accounts with higher privileges
+- The last admin in a tenant cannot be removed
+
+### Data Constraints
+- Tenant names must be unique
+- Department names must be unique within a tenant
+- Usernames and emails must be unique across the system
+- Expense amounts must be positive with up to 4 decimal places
+- All list endpoints use pagination (configurable page size)
+
+### Integration Constraints
+- Email delivery depends on SMTP server availability
+- Redis availability required for token storage, rate limiting, and caching
+- Database required for persistent storage (H2 for dev/test, PostgreSQL for production)
+- Password reset tokens expire after 15 minutes
+- Refresh tokens expire after 7 days
+
+### Operational Constraints
+- `ddl-auto=validate` in dev/test environments; `none` in production
+- Database migrations managed via Flyway
+- No hot-reload of security configuration
+- Audit logs are append-only (no update or delete operations exposed)
+
+---
+
+## 18. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Tenant** | An organization or business unit that uses the system. All data within a tenant is isolated from other tenants. |
+| **Super Admin** | A user with the ADMIN role and no tenant assignment. Has unrestricted cross-tenant access. |
+| **Tenant Admin** | A user with the ADMIN role assigned to a specific tenant. Scoped to their tenant's data. |
+| **JWT** | JSON Web Token — a compact, URL-safe token used for stateless authentication. Contains user identity and permission claims. |
+| **Access Token** | A short-lived JWT (15 minutes) used to authenticate API requests. |
+| **Refresh Token** | A longer-lived token (7 days) used to obtain new access tokens without re-authentication. |
+| **MFA** | Multi-Factor Authentication — an additional security layer requiring a second verification factor beyond password. |
+| **TOTP** | Time-based One-Time Password — an MFA method using authenticator apps like Google Authenticator. |
+| **OTP** | One-Time Password — a single-use code for authentication. |
+| **Authority** | A specific permission (e.g., EXPENSE_CREATE) that grants the ability to perform an operation. |
+| **Role** | A named collection of permissions assigned to users (e.g., ADMIN, EMPLOYEE, MANAGER). |
+| **Expense Lifecycle** | The progression of an expense through statuses: PENDING → APPROVED/REJECTED/CANCELLED → PROCESSED. |
+| **Rate Limiting** | Controlling the number of requests a user can make within a time window to prevent abuse. |
+| **Account Lockout** | Temporarily disabling an account after multiple failed login attempts. |
+| **Audit Log** | A permanent record of who did what, when, and on which resource. |
+| **Flyway** | A database migration tool that manages schema version control. |
+| **BCrypt** | A password hashing algorithm used to securely store passwords. |
+| **SHA-256** | A cryptographic hash function used for token hashing (refresh tokens, password reset tokens). |

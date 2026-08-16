@@ -45,7 +45,73 @@ The system is a **multi-tenant expense management application** that enables org
 
 ---
 
-## 3. Target Users
+## 3. Architecture
+
+### 3.1 Layered Architecture
+
+The application follows a strict layered architecture: `Controller → Service → Repository → Database`.
+
+- **Controllers** are thin — HTTP concerns only (path mapping, request/response DTOs, validation, `ResponseEntity<ApiResponse<T>>`). No business logic.
+- **Services** contain all business logic, enforce authorization and business rules, own transactions (`@Transactional` / `@Transactional(readOnly = true)`), and delegate cross-domain work to the owning domain's service.
+- **Repositories** are Spring Data JPA interfaces — persistence only.
+- **Mappers** (`@Component`) convert entities to DTOs; entities are never exposed through APIs.
+- **Security** is enforced at two layers: method-level `@PreAuthorize("hasAuthority(...)")` and service-layer checks (tenant isolation, ownership, privilege hierarchy).
+
+```mermaid
+flowchart LR
+    Client[REST Client] -->|HTTPS + JWT| Filter[JWT Authentication Filter]
+    Filter --> Controller[Controllers]
+    Controller --> Service[Services]
+    Service --> Repo[Repositories]
+    Repo --> DB[(PostgreSQL / H2)]
+    Service --> Redis[(Redis)]
+    Service --> SMTP[SMTP Server]
+    Prometheus -.->|scrape| Actuator[Actuator Metrics]
+    Actuator -.-> App[Spring Boot Application]
+```
+
+### 3.2 Package Structure
+
+```
+com.example.demo
+├── controller    — REST controllers (thin, HTTP only)
+├── service       — business logic, @Service
+├── repository    — Spring Data JPA repositories
+├── entity        — JPA entities (@Getter/@Setter/@Builder)
+├── dto           — request/response DTOs (validated at API boundary)
+├── mapper        — entity-to-DTO mappers (@Component)
+├── constants     — Authorities, Roles, UserPermission, AuditActions
+├── config        — SecurityConfig, GlobalExceptionHandler, CORS, @ConfigurationProperties
+├── security      — JWT, filters, auth services, audit logger, rate limiting
+└── validation    — custom validators (e.g., Password)
+```
+
+### 3.3 Technology Stack
+
+| Concern | Technology | Notes |
+|---------|------------|-------|
+| Language | Java 21 | |
+| Framework | Spring Boot 3.2.5 | Maven build |
+| Security | Spring Security + JWT (stateless) | Method-level authorization via `@PreAuthorize` |
+| Persistence | Spring Data JPA (Hibernate) | `ddl-auto=validate` (dev/test), `none` (prod) |
+| Database | H2 (dev/test), PostgreSQL (prod) | Schema managed by Flyway migrations |
+| Session/State | Redis | Refresh token hashes, rate-limit counters, MFA OTPs and pending sessions |
+| Validation | Jakarta Bean Validation | `@Valid` on every `@RequestBody` |
+| Observability | Spring Actuator, Micrometer, Prometheus | Scraped metrics and health endpoints |
+| Build | Maven + Lombok | |
+
+### 3.4 Deployment and Runtime Model
+
+- API-only backend; no frontend, no user interface.
+- Stateless JWT authentication; token revocation state (refresh tokens) is tracked in Redis.
+- Multi-profile configuration: `dev`/`test` use H2 with `ddl-auto=validate`; `prod` uses PostgreSQL with `ddl-auto=none`.
+- Flyway migrations run automatically on startup.
+- Email delivery is synchronous via SMTP; failures are logged as warnings and do not block the requesting operation.
+- Metrics are exposed through Actuator endpoints for Prometheus scraping.
+
+---
+
+## 4. Target Users
 
 | User Type | Who They Are | Why They Use the System | What They Can Do |
 |-----------|--------------|------------------------|------------------|
@@ -59,7 +125,7 @@ The system is a **multi-tenant expense management application** that enables org
 
 ---
 
-## 4. Roles and Responsibilities
+## 5. Roles and Responsibilities
 
 | Role | Business Purpose | Key Capabilities |
 |------|-----------------|------------------|
@@ -73,130 +139,91 @@ The system is a **multi-tenant expense management application** that enables org
 
 ---
 
-## 5. Major Functionalities
+## 6. Major Functionalities
 
-### 5.1 Authentication and Session Management
+### 6.1 Authentication and Session Management
 - **What:** User login with JWT-based stateless authentication
 - **Who:** All users
 - **Why:** Secure access to the system
 - **Key rules:** Access tokens expire in 15 minutes; refresh tokens in 7 days; tokens rotated on each refresh; all tokens revoked on logout or password change
 - **Dependencies:** Redis for token storage, email service for MFA codes
 
-### 5.2 Multi-Factor Authentication (MFA)
+### 6.2 Multi-Factor Authentication (MFA)
 - **What:** Additional security layer requiring a second verification factor
 - **Who:** Any authenticated user can enable; required per organizational policy (not determined from code)
 - **Why:** Strengthen account security
-- **Key rules:** Supports TOTP (authenticator apps) and EMAIL (one-time code); MFA setup requires code verification before activation; accounts locked after 5 failed MFA attempts
+- **Key rules:** Supports TOTP (authenticator apps) and EMAIL (one-time code); MFA setup requires code verification before activation; MFA verification is rate-limited to 10 attempts per 60-second window per user
 - **Dependencies:** Email service for EMAIL method; authenticator app for TOTP
 
-### 5.3 User Management
+### 6.3 User Management
 - **What:** CRUD operations on user accounts with role assignment
 - **Who:** ADMIN, USER_MANAGER
 - **Why:** Maintain the organization's workforce in the system
 - **Key rules:** No self-registration; user manager can only manage users in their own tenant; cannot delete last admin; cannot modify users with higher privileges
 - **Dependencies:** Role management, tenant management
 
-### 5.4 Tenant Management
+### 6.4 Tenant Management
 - **What:** CRUD operations on tenant (organization) records
 - **Who:** ADMIN (super admin)
 - **Why:** Onboard and manage organizations on the platform
 - **Key rules:** Each tenant has a unique name and status (ACTIVE/INACTIVE/SUSPENDED)
 - **Dependencies:** None (top-level entity)
 
-### 5.5 Department Management
+### 6.5 Department Management
 - **What:** CRUD operations on departments within a tenant
 - **Who:** ADMIN, USER_MANAGER (within their tenant)
 - **Why:** Organize users into functional units for expense routing and approval
 - **Key rules:** Departments are scoped to a tenant; each department has a manager; unique name per tenant
 - **Dependencies:** Tenant management, user management
 
-### 5.6 Role and Permission Management
+### 6.6 Role and Permission Management
 - **What:** Define and manage roles with associated permissions
 - **Who:** ADMIN
 - **Why:** Control what users can do in the system
 - **Key rules:** 7 built-in roles are immutable; custom roles can be created; roles assigned to users cannot be deleted; users cannot grant permissions they don't have
 - **Dependencies:** Permission definitions
 
-### 5.7 Expense Submission
+### 6.7 Expense Submission
 - **What:** Employees create expense requests with title, description, amount, and category
 - **Who:** EMPLOYEE, MANAGER, ADMIN, or any user with EXPENSE_CREATE permission
 - **Why:** Initiate the reimbursement process
 - **Key rules:** User must belong to a tenant; department defaults to user's department; status starts as PENDING
 - **Dependencies:** Tenant and department assignment
 
-### 5.8 Expense Approval Workflow
+### 6.8 Expense Approval Workflow
 - **What:** Managerial review and decision on pending expenses
 - **Who:** MANAGER, ADMIN (with EXPENSE_APPROVE/EXPENSE_REJECT permissions)
 - **Why:** Ensure expenses comply with organizational policies before payment
 - **Key rules:** Only PENDING expenses can be approved/rejected; approver must be a tenant manager or department manager; records approver identity and decision date
 - **Dependencies:** Expense submission
 
-### 5.9 Expense Payment Processing
+### 6.9 Expense Payment Processing
 - **What:** Finance marks approved expenses as processed for payment
 - **Who:** FINANCE, ADMIN (with EXPENSE_PROCESS permission)
 - **Why:** Complete the expense reimbursement lifecycle
 - **Key rules:** Only APPROVED expenses can be processed; processor must be in the same tenant; records processor identity and processing date
 - **Dependencies:** Expense approval
 
-### 5.10 Audit Logging
+### 6.10 Audit Logging
 - **What:** Persistent record of all security and business events
 - **Who:** AUDITOR, ADMIN (viewing); system (writing)
 - **Why:** Compliance, troubleshooting, and security monitoring
 - **Key rules:** Each log entry includes actor, tenant, action, resource type/id, details, and timestamp; super admins see all logs; others see only their tenant's logs
 - **Dependencies:** All system operations
 
-### 5.11 Password Management
+### 6.11 Password Management
 - **What:** Password change, reset, and policy enforcement
 - **Who:** All authenticated users (change); unauthenticated users (reset via email)
 - **Why:** Account security and self-service recovery
 - **Key rules:** Minimum 8 characters with complexity requirements; BCrypt hashing; current password required for change; reset tokens expire in 15 minutes and are single-use
 - **Dependencies:** Email service for reset links
 
-### 5.12 Account Security
+### 6.12 Account Security
 - **What:** Account lockout, rate limiting, and security headers
 - **Who:** System (enforcement); all users (affected)
 - **Why:** Protect against brute force and unauthorized access
 - **Key rules:** 5 failed attempts trigger 15-minute lockout; rate limiting on sensitive endpoints; HTTP security headers enforced
 - **Dependencies:** Redis for rate limiting counters
-
----
-
-## 6. Typical User Workflows
-
-### 6.1 User Login (without MFA)
-```
-User → Enter credentials → System validates → Account locked? → No → Issue JWT tokens → Return tokens → User accesses API
-```
-
-### 6.2 User Login (with MFA enabled)
-```
-User → Enter credentials → System validates → MFA enabled? → Yes → Return MFA session token → User enters OTP code → System verifies → Issue JWT tokens → User accesses API
-```
-
-### 6.3 Expense Submission
-```
-Employee → Create expense (title, amount, category) → System validates → Assign tenant and department → Save as PENDING → Audit log created
-```
-
-### 6.4 Expense Approval
-```
-Manager → View pending expenses → Select expense → Approve → System validates authority → Update status to APPROVED → Record approver and date → Audit log created
-```
-
-### 6.5 Expense Processing (Payment)
-```
-Finance → View approved expenses → Select expense → Process → System validates authority → Update status to PROCESSED → Record processor and date → Audit log created
-```
-
-### 6.6 User Creation
-```
-Admin/User Manager → Create user (username, email, name, role) → System validates uniqueness and authority → Create user with tenant assignment → Audit log created
-```
-
-### 6.7 Password Reset
-```
-User → Forgot password → Enter email → System sends reset link (rate-limited) → User clicks link → Enter new password → System validates token and password → Update password → Revoke all refresh tokens → Audit log created
-```
 
 ---
 
@@ -248,7 +275,7 @@ Individuals who have accounts in the system. Each user belongs to one tenant and
 Named collections of permissions. The system has 7 built-in roles (ADMIN, USER_MANAGER, MANAGER, EMPLOYEE, AUDITOR, FINANCE, USER) that cannot be modified. Custom roles can be created by administrators.
 
 ### Permissions
-26 granular access rights (e.g., EXPENSE_CREATE, USER_READ, TENANT_UPDATE) that control what operations a user can perform.
+28 granular access rights (e.g., EXPENSE_CREATE, USER_READ, TENANT_UPDATE) that control what operations a user can perform.
 
 ### Departments
 Organizational units within a tenant. Each department has a name (unique within the tenant) and a designated manager. Departments group users and are used for expense routing and approval.
@@ -283,26 +310,7 @@ Single-use tokens for password recovery. Stored as one-way hashes with 15-minute
 
 ---
 
-## 11. Business Rules
-
-1. **No Self-Registration:** Users cannot register themselves; all accounts must be created by an administrator or user manager.
-2. **Tenant Isolation:** All data queries are scoped to the user's tenant unless they are a super admin (ADMIN role with no tenant assignment).
-3. **Expense Lifecycle:** Expenses must follow the status progression: PENDING → APPROVED/REJECTED/CANCELLED → PROCESSED. Status cannot be skipped or reversed.
-4. **Approval Authority:** Only managers (tenant or department level) with EXPENSE_APPROVE permission can approve expenses.
-5. **Processing Authority:** Only users with EXPENSE_PROCESS permission (FINANCE role) can process approved expenses for payment.
-6. **Privilege Hierarchy:** Users cannot manage other users who have equal or higher permissions.
-7. **Last Admin Protection:** The last user with the ADMIN role in a tenant cannot be deleted or disabled.
-8. **Role Immutability:** Built-in roles (ADMIN, USER, USER_MANAGER, MANAGER, EMPLOYEE, AUDITOR, USER) cannot be modified or deleted.
-9. **Role Assignment Restrictions:** Only administrators can assign the ADMIN or USER_MANAGER roles. Users cannot grant permissions they do not possess.
-10. **Expense Editing:** Only PENDING expenses can be edited or cancelled, and only by the owner or an authorized manager.
-11. **Password Complexity:** Passwords must be at least 8 characters and include uppercase, lowercase, digit, and special characters.
-12. **Account Lockout:** Accounts are locked after 5 consecutive failed login attempts for 15 minutes.
-13. **Token Rotation:** Refresh tokens are rotated on each use; old tokens are revoked.
-14. **MFA Verification:** MFA codes are rate-limited to 10 attempts per 60-second window per user.
-
----
-
-## 12. System Boundaries
+## 11. System Boundaries
 
 ### Inside the Application
 - User authentication and JWT token management
@@ -331,71 +339,22 @@ Single-use tokens for password recovery. Stored as one-way hashes with 15-minute
 
 ---
 
-## 13. Important Constraints
+## 12. Related Documents
 
-### Security Constraints
-- JWT secret key must be at least 32 characters (64+ bytes recommended for HS512)
-- All passwords must meet complexity requirements (8+ chars, mixed case, digit, special char)
-- Account lockout enforced after 5 failed attempts
-- Rate limiting applied to sensitive endpoints
-- HTTP security headers enforced (CSP, HSTS, X-Frame-Options, etc.)
-- CORS restricted to configured frontend URL
-- No sensitive data (passwords, tokens, secrets) is logged
+The detailed behavioral content that previously lived in this overview is maintained in `functional-requirements.md` to avoid duplication:
 
-### User Constraints
-- Users must belong to a tenant (except super admins)
-- Users can have multiple roles
-- Users cannot modify accounts with higher privileges
-- The last admin in a tenant cannot be removed
-
-### Data Constraints
-- Tenant names must be unique
-- Department names must be unique within a tenant
-- Usernames and emails must be unique across the system
-- Expense amounts must be positive with up to 4 decimal places
-- All list endpoints use pagination (configurable page size)
-
-### Integration Constraints
-- Email delivery depends on SMTP server availability
-- Redis availability required for token storage, rate limiting, and caching
-- Database required for persistent storage (H2 for dev/test, PostgreSQL for production)
-- Password reset tokens expire after 15 minutes
-- Refresh tokens expire after 7 days
-
-### Operational Constraints
-- `ddl-auto=validate` in dev/test environments; `none` in production
-- Database migrations managed via Flyway
-- No hot-reload of security configuration
-- Audit logs are append-only (no update or delete operations exposed)
+| Topic | Location |
+|-------|----------|
+| End-to-end user workflows (login, MFA, expenses, password reset) | `functional-requirements.md` §7 Business Processes |
+| Business rules catalog (BR-001 – BR-020) | `functional-requirements.md` §12 Business Rules Catalog |
+| Requirements catalog and traceability (FR-001 – FR-044) | `functional-requirements.md` §13 – §14 |
+| API endpoint index (method, path, authority, FR mapping) | `functional-requirements.md` §15 API Endpoint Index |
+| Important constraints (security, data, integration, operations) | `functional-requirements.md` §17 Constraints |
+| Glossary of domain and technical terms | `functional-requirements.md` §18 Glossary |
 
 ---
 
-## 14. Glossary
-
-| Term | Definition |
-|------|-----------|
-| **Tenant** | An organization or business unit that uses the system. All data within a tenant is isolated from other tenants. |
-| **Super Admin** | A user with the ADMIN role and no tenant assignment. Has unrestricted cross-tenant access. |
-| **Tenant Admin** | A user with the ADMIN role assigned to a specific tenant. Scoped to their tenant's data. |
-| **JWT** | JSON Web Token — a compact, URL-safe token used for stateless authentication. Contains user identity and permission claims. |
-| **Access Token** | A short-lived JWT (15 minutes) used to authenticate API requests. |
-| **Refresh Token** | A longer-lived token (7 days) used to obtain new access tokens without re-authentication. |
-| **MFA** | Multi-Factor Authentication — an additional security layer requiring a second verification factor beyond password. |
-| **TOTP** | Time-based One-Time Password — an MFA method using authenticator apps like Google Authenticator. |
-| **OTP** | One-Time Password — a single-use code for authentication. |
-| **Authority** | A specific permission (e.g., EXPENSE_CREATE) that grants the ability to perform an operation. |
-| **Role** | A named collection of permissions assigned to users (e.g., ADMIN, EMPLOYEE, MANAGER). |
-| **Expense Lifecycle** | The progression of an expense through statuses: PENDING → APPROVED/REJECTED/CANCELLED → PROCESSED. |
-| **Rate Limiting** | Controlling the number of requests a user can make within a time window to prevent abuse. |
-| **Account Lockout** | Temporarily disabling an account after multiple failed login attempts. |
-| **Audit Log** | A permanent record of who did what, when, and on which resource. |
-| **Flyway** | A database migration tool that manages schema version control. |
-| **BCrypt** | A password hashing algorithm used to securely store passwords. |
-| **SHA-256** | A cryptographic hash function used for token hashing (refresh tokens, password reset tokens). |
-
----
-
-## 15. Document Accuracy
+## 13. Document Accuracy
 
 ### Documentation Notes
 
@@ -406,8 +365,8 @@ Single-use tokens for password recovery. Stored as one-way hashes with 15-minute
 - Complete expense lifecycle (PENDING → APPROVED/REJECTED/CANCELLED → PROCESSED)
 - JWT authentication flow including access/refresh token rotation
 - MFA setup and verification flow (TOTP and EMAIL methods)
-- Account lockout after 5 failed attempts
-- Rate limiting on sensitive endpoints
+- Account lockout after 5 failed login attempts
+- Rate limiting on sensitive endpoints (including MFA verification: 10 attempts per 60-second window per user)
 - Password complexity requirements and hashing (BCrypt strength 12)
 - Password reset flow with 15-minute token expiry
 - Tenant isolation across all data queries
@@ -426,7 +385,7 @@ Single-use tokens for password recovery. Stored as one-way hashes with 15-minute
 - Organization-wide MFA policy enforcement (individual users can enable/disable MFA, but no tenant-level MFA requirement is enforced in the current implementation)
 
 **Areas that require confirmation from business stakeholders:**
-- Specific business justification for each of the 26 permissions
+- Specific business justification for each of the 28 permissions
 - Whether additional expense statuses or workflow transitions are planned
 - Whether file attachment support for expenses is planned
 - Whether integration with external accounting/payment systems is planned
