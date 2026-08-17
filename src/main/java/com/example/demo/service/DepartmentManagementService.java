@@ -102,6 +102,11 @@ public class DepartmentManagementService {
                 .orElseThrow(() -> new IllegalArgumentException("Department not found"));
     }
 
+    @Transactional(readOnly = true)
+    public List<Department> findByManagersId(Long userId) {
+        return departmentRepository.findByManagersId(userId);
+    }
+
     private Department findAccessibleDepartment(Long id, User user) {
         if (authorizationService.isSuperAdmin(user)) {
             return departmentRepository.findById(id)
