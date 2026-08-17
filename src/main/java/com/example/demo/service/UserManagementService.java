@@ -14,6 +14,7 @@ import com.example.demo.entity.User;
 import com.example.demo.mapper.UserManagementMapper;
 import com.example.demo.security.service.AuthorizationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -49,7 +49,7 @@ public class UserManagementService {
         User currentUser = userService.getByUsername(currentUsername);
 
         String username = request.getUsername().trim();
-        String email = request.getEmail().trim();
+        String email = request.getEmail().trim().toLowerCase();
 
         if (userService.existsByUsername(username)) {
             throw new IllegalArgumentException("Username already exists");
@@ -76,7 +76,12 @@ public class UserManagementService {
                 .build();
         user.getRoles().add(role);
 
-        User saved = userService.save(user);
+        User saved;
+        try {
+            saved = userService.save(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Username or email already exists");
+        }
         auditLogService.record(AuditActions.USER_CREATED, AuditActions.RESOURCE_USER,
                 String.valueOf(saved.getId()), "User created with role " + roleName, currentUsername);
         return userManagementMapper.toResponse(saved);
@@ -206,6 +211,9 @@ public class UserManagementService {
         if (!canAssignBuiltInRole(currentUser, role)) {
             throw new IllegalArgumentException("Only admin can remove this role");
         }
+        if (!UserManagementMapper.getAllPermissions(currentUser).containsAll(role.getPermissions())) {
+            throw new IllegalArgumentException("Cannot remove a role with permissions you do not have");
+        }
         if ((Roles.PLATFORM_ADMIN.equals(role.getName()) || Roles.TENANT_ADMIN.equals(role.getName()))
                 && isLastAdmin(user)) {
             throw new IllegalArgumentException("Cannot remove the last admin");
@@ -224,7 +232,7 @@ public class UserManagementService {
         if (!canAssignBuiltInRole(granter, role)) {
             throw new IllegalArgumentException("Only admin can assign this role");
         }
-        if (!getAllPermissions(granter).containsAll(role.getPermissions())) {
+        if (!UserManagementMapper.getAllPermissions(granter).containsAll(role.getPermissions())) {
             throw new IllegalArgumentException("Cannot assign a role with permissions you do not have");
         }
     }
@@ -258,15 +266,22 @@ public class UserManagementService {
         boolean isAdmin = user.getRoles().stream()
                 .anyMatch(role -> Roles.PLATFORM_ADMIN.equals(role.getName())
                         || Roles.TENANT_ADMIN.equals(role.getName()));
-        return isAdmin && (userService.countByRoleName(Roles.PLATFORM_ADMIN)
+        if (!isAdmin) {
+            return false;
+        }
+        if (user.getTenant() == null) {
+            return (userService.countByRoleName(Roles.PLATFORM_ADMIN)
                     + userService.countByRoleName(Roles.TENANT_ADMIN)) <= 1;
+        }
+        return (userService.countByRoleNameAndTenantId(Roles.PLATFORM_ADMIN, user.getTenant().getId())
+                + userService.countByRoleNameAndTenantId(Roles.TENANT_ADMIN, user.getTenant().getId())) <= 1;
     }
 
     private boolean canManage(User granter, User target) {
         if (!authorizationService.canAccessTenant(granter, target.getTenant())) {
             return false;
         }
-        return getAllPermissions(granter).containsAll(getAllPermissions(target));
+        return UserManagementMapper.getAllPermissions(granter).containsAll(UserManagementMapper.getAllPermissions(target));
     }
 
     private boolean canAssignBuiltInRole(User granter, Role role) {
@@ -278,11 +293,5 @@ public class UserManagementService {
         return granter.getRoles().stream()
                 .anyMatch(r -> Roles.PLATFORM_ADMIN.equals(r.getName())
                         || Roles.TENANT_ADMIN.equals(r.getName()));
-    }
-
-    private Set<UserPermission> getAllPermissions(User user) {
-        return user.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .collect(Collectors.toSet());
     }
 }

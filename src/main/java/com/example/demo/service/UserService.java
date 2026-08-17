@@ -6,6 +6,7 @@ import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.audit.SecurityAuditLogger;
+import com.example.demo.security.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -14,7 +15,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -31,6 +31,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
     private final SecurityAuditLogger securityAuditLogger;
+    private final RefreshTokenService refreshTokenService;
 
     /**
      * Checks whether a username is already taken. Exposed for management
@@ -78,15 +79,6 @@ public class UserService {
     public User getById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-    }
-
-    /**
-     * Returns all users. Delegated to by management services that need to list
-     * user accounts.
-     */
-    @Transactional(readOnly = true)
-    public List<User> findAll() {
-        return userRepository.findAll();
     }
 
     /**
@@ -150,6 +142,7 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
+        refreshTokenService.revokeAllUserRefreshTokens(user.getUsername());
         securityAuditLogger.logPasswordChanged(user.getUsername(), ipAddress);
     }
 
@@ -177,5 +170,13 @@ public class UserService {
     @Transactional(readOnly = true)
     public long countByRoleName(String roleName) {
         return userRepository.countByRolesName(roleName);
+    }
+
+    /**
+     * Returns the number of users with the given role within a specific tenant.
+     */
+    @Transactional(readOnly = true)
+    public long countByRoleNameAndTenantId(String roleName, Long tenantId) {
+        return userRepository.countByRolesNameAndTenantId(roleName, tenantId);
     }
 }

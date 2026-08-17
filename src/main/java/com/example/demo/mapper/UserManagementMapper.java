@@ -27,7 +27,7 @@ public class UserManagementMapper {
                 .build();
     }
 
-    private Set<com.example.demo.constants.UserPermission> getAllPermissions(User user) {
+    public static Set<com.example.demo.constants.UserPermission> getAllPermissions(User user) {
         return user.getRoles().stream()
                 .flatMap(role -> role.getPermissions().stream())
                 .collect(Collectors.toSet());
