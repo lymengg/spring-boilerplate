@@ -1,94 +1,33 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.*;
-import com.example.demo.security.service.ClientIpResolver;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
-/**
- * Orchestrates authentication and authorization use cases by delegating to
- * focused domain services. It contains no business logic; its only responsibility
- * is HTTP-context wiring (client IP) and dispatching to the correct domain service.
- */
-@Service
-@RequiredArgsConstructor
-public class AuthService {
+public interface AuthService {
 
-    private final UserService userService;
-    private final LoginService loginService;
-    private final TokenService tokenService;
-    private final PasswordResetService passwordResetService;
-    private final MfaSetupService mfaSetupService;
-    private final ClientIpResolver clientIpResolver;
+    Object login(LoginRequest request);
 
-    public Object login(LoginRequest request) {
-        return loginService.login(request, getClientIp());
-    }
+    TokenResponse verifyMfa(MfaVerifyRequest request);
 
-    public TokenResponse verifyMfa(MfaVerifyRequest request) {
-        return loginService.verifyMfa(request, getClientIp());
-    }
+    TokenResponse refreshToken(RefreshTokenRequest request);
 
-    public TokenResponse refreshToken(RefreshTokenRequest request) {
-        return tokenService.refreshToken(request, getClientIp());
-    }
+    void logout(Authentication authentication);
 
-    public void logout(Authentication authentication) {
-        tokenService.logout(authentication.getName(), getClientIp());
-    }
+    UserProfileResponse getCurrentUser(Authentication authentication);
 
-    public UserProfileResponse getCurrentUser(Authentication authentication) {
-        return userService.getCurrentUser(authentication.getName());
-    }
+    MfaSetupResponse enableMfa(Authentication authentication, MfaEnableRequest request);
 
-    public MfaSetupResponse enableMfa(Authentication authentication, MfaEnableRequest request) {
-        return mfaSetupService.enableMfa(authentication.getName(), request, getClientIp());
-    }
+    void verifyMfaSetup(Authentication authentication, MfaVerifySetupRequest request);
 
-    public void verifyMfaSetup(Authentication authentication, MfaVerifySetupRequest request) {
-        mfaSetupService.verifyMfaSetup(authentication.getName(), request, getClientIp());
-    }
+    void disableMfa(Authentication authentication, MfaDisableRequest request);
 
-    public void disableMfa(Authentication authentication, MfaDisableRequest request) {
-        mfaSetupService.disableMfa(authentication.getName(), request, getClientIp());
-    }
+    MfaStatusResponse getMfaStatus(Authentication authentication);
 
-    public MfaStatusResponse getMfaStatus(Authentication authentication) {
-        return mfaSetupService.getMfaStatus(authentication.getName());
-    }
+    void changePassword(Authentication authentication, ChangePasswordRequest request);
 
-    public void changePassword(Authentication authentication, ChangePasswordRequest request) {
-        String ipAddress = getClientIp();
-        userService.changePassword(authentication.getName(), request, ipAddress);
-        tokenService.revokeAllUserRefreshTokens(authentication.getName());
-    }
+    void forgotPassword(ForgotPasswordRequest request);
 
-    public void forgotPassword(ForgotPasswordRequest request) {
-        passwordResetService.forgotPassword(request, getClientIp());
-    }
+    void resetPassword(ResetPasswordRequest request);
 
-    public void resetPassword(ResetPasswordRequest request) {
-        passwordResetService.resetPassword(request, getClientIp());
-    }
-
-    public void cleanupExpiredPasswordResetTokens() {
-        passwordResetService.cleanupExpiredTokens();
-    }
-
-    /**
-     * Resolves the client IP from the current HTTP request so domain services can
-     * audit and rate-limit without accessing the servlet layer themselves. Falls
-     * back to "unknown" when called outside a request (e.g., scheduled cleanup).
-     */
-    private String getClientIp() {
-        try {
-            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
-            return clientIpResolver.resolveClientIp(attrs.getRequest());
-        } catch (Exception e) {
-            return "unknown";
-        }
-    }
+    void cleanupExpiredPasswordResetTokens();
 }

@@ -1,126 +1,24 @@
 package com.example.demo.service;
 
-import com.example.demo.config.MfaProperties;
-import com.example.demo.security.service.TokenHashingService;
-import dev.samstevens.totp.code.*;
-import dev.samstevens.totp.exceptions.QrGenerationException;
-import dev.samstevens.totp.qr.QrData;
-import dev.samstevens.totp.qr.QrGenerator;
-import dev.samstevens.totp.qr.ZxingPngQrGenerator;
-import dev.samstevens.totp.secret.DefaultSecretGenerator;
-import dev.samstevens.totp.secret.SecretGenerator;
-import dev.samstevens.totp.time.SystemTimeProvider;
-import dev.samstevens.totp.time.TimeProvider;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
+public interface MfaService {
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.time.Duration;
+    String generateTotpSecret();
 
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class MfaService {
+    String generateQrUri(String username, String secret);
 
-    private final MfaProperties mfaProperties;
-    private final RedisTemplate<String, String> redisTemplate;
-    private final TokenHashingService tokenHashingService;
+    String generateOtpAuthUri(String username, String secret);
 
-    private final SecretGenerator secretGenerator = new DefaultSecretGenerator();
-    private final TimeProvider timeProvider = new SystemTimeProvider();
-    private final CodeGenerator codeGenerator = new DefaultCodeGenerator();
-    private final CodeVerifier codeVerifier = new DefaultCodeVerifier(codeGenerator, timeProvider);
+    boolean verifyTotpCode(String secret, String code);
 
-    private static final String MFA_OTP_PREFIX = "mfa_otp:";
-    private static final String MFA_PENDING_PREFIX = "mfa_pending:";
+    String generateEmailOtp();
 
-    public String generateTotpSecret() {
-        return secretGenerator.generate();
-    }
+    void storeEmailOtp(String username, String code);
 
-    public String generateQrUri(String username, String secret) {
-        QrData data = new QrData.Builder()
-                .label(username)
-                .secret(secret)
-                .issuer(mfaProperties.getIssuer())
-                .algorithm(HashingAlgorithm.SHA1)
-                .digits(mfaProperties.getOtpDigits())
-                .period(30)
-                .build();
+    boolean verifyEmailOtp(String username, String code);
 
-        QrGenerator qrGenerator = new ZxingPngQrGenerator();
-        try {
-            byte[] qrImage = qrGenerator.generate(data);
-            String base64 = java.util.Base64.getEncoder().encodeToString(qrImage);
-            return "data:image/png;base64," + base64;
-        } catch (QrGenerationException e) {
-            log.error("Failed to generate QR code: {}", e.getMessage());
-            return buildOtpAuthUri(username, secret);
-        }
-    }
+    String storeMfaPendingSession(String username);
 
-    public String generateOtpAuthUri(String username, String secret) {
-        return buildOtpAuthUri(username, secret);
-    }
+    String validateMfaPendingSession(String token);
 
-    private String buildOtpAuthUri(String username, String secret) {
-        String label = URLEncoder.encode(mfaProperties.getIssuer() + ":" + username, StandardCharsets.UTF_8);
-        return String.format("otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=%d&period=30",
-                label, secret,
-                URLEncoder.encode(mfaProperties.getIssuer(), StandardCharsets.UTF_8),
-                mfaProperties.getOtpDigits());
-    }
-
-    public boolean verifyTotpCode(String secret, String code) {
-        return codeVerifier.isValidCode(secret, code);
-    }
-
-    public String generateEmailOtp() {
-        SecureRandom random = new SecureRandom();
-        int digits = mfaProperties.getOtpDigits();
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < digits; i++) {
-            sb.append(random.nextInt(10));
-        }
-        return sb.toString();
-    }
-
-    public void storeEmailOtp(String username, String code) {
-        String key = MFA_OTP_PREFIX + username;
-        redisTemplate.opsForValue().set(key, code, Duration.ofSeconds(mfaProperties.getOtpExpirationSeconds()));
-        log.debug("Stored MFA email OTP for user: {}", username);
-    }
-
-    public boolean verifyEmailOtp(String username, String code) {
-        String key = MFA_OTP_PREFIX + username;
-        String storedCode = redisTemplate.opsForValue().get(key);
-        if (storedCode != null && storedCode.equals(code)) {
-            redisTemplate.delete(key);
-            log.debug("Verified MFA email OTP for user: {}", username);
-            return true;
-        }
-        return false;
-    }
-
-    public String storeMfaPendingSession(String username) {
-        String token = tokenHashingService.generateSecureToken();
-        String key = MFA_PENDING_PREFIX + token;
-        redisTemplate.opsForValue().set(key, username, Duration.ofMillis(mfaProperties.getPendingTokenExpiration()));
-        log.debug("Stored MFA pending session for user: {}", username);
-        return token;
-    }
-
-    public String validateMfaPendingSession(String token) {
-        String key = MFA_PENDING_PREFIX + token;
-        return redisTemplate.opsForValue().get(key);
-    }
-
-    public void revokeMfaPendingSession(String token) {
-        String key = MFA_PENDING_PREFIX + token;
-        redisTemplate.delete(key);
-    }
+    void revokeMfaPendingSession(String token);
 }

@@ -12,6 +12,7 @@ import com.example.demo.entity.User;
 import com.example.demo.mapper.ExpenseMapper;
 import com.example.demo.repository.ExpenseRepository;
 import com.example.demo.security.service.AuthorizationService;
+import com.example.demo.service.impl.ExpenseServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ class ExpenseServiceTest {
     private AuditLogService auditLogService;
 
     @InjectMocks
-    private ExpenseService expenseService;
+    private ExpenseServiceImpl expenseService;
 
     private Tenant tenant;
     private Department department;

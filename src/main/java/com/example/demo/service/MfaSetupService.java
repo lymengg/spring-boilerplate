@@ -5,122 +5,14 @@ import com.example.demo.dto.MfaEnableRequest;
 import com.example.demo.dto.MfaSetupResponse;
 import com.example.demo.dto.MfaStatusResponse;
 import com.example.demo.dto.MfaVerifySetupRequest;
-import com.example.demo.entity.MfaMethod;
-import com.example.demo.entity.User;
-import com.example.demo.security.audit.SecurityAuditLogger;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Owns the MFA lifecycle (enable, verify setup, disable, status). Isolating this
- * keeps TOTP/EMAIL specifics out of the auth orchestrator and out of LoginService.
- */
-@Service
-@RequiredArgsConstructor
-public class MfaSetupService {
+public interface MfaSetupService {
 
-    private final UserService userService;
-    private final MfaService mfaService;
-    private final EmailService emailService;
-    private final PasswordEncoder passwordEncoder;
-    private final SecurityAuditLogger securityAuditLogger;
+    MfaSetupResponse enableMfa(String username, MfaEnableRequest request, String ipAddress);
 
-    /**
-     * Initiates MFA setup for the chosen method. TOTP stores a secret that will
-     * only be marked as active after verification; EMAIL sends an OTP for setup.
-     */
-    @Transactional
-    public MfaSetupResponse enableMfa(String username, MfaEnableRequest request, String ipAddress) {
-        User user = userService.getByUsername(username);
+    void verifyMfaSetup(String username, MfaVerifySetupRequest request, String ipAddress);
 
-        if (request.getMethod() == MfaMethod.TOTP) {
-            String secret = mfaService.generateTotpSecret();
-            user.setMfaSecret(secret);
-            user.setMfaMethod(MfaMethod.TOTP);
-            userService.save(user);
+    void disableMfa(String username, MfaDisableRequest request, String ipAddress);
 
-            String qrUri = mfaService.generateOtpAuthUri(user.getUsername(), secret);
-            return MfaSetupResponse.builder()
-                    .qrUri(qrUri)
-                    .secret(secret)
-                    .method(MfaMethod.TOTP.name())
-                    .build();
-        } else if (request.getMethod() == MfaMethod.EMAIL) {
-            user.setMfaMethod(MfaMethod.EMAIL);
-            userService.save(user);
-
-            String otp = mfaService.generateEmailOtp();
-            mfaService.storeEmailOtp(user.getUsername(), otp);
-            emailService.sendMfaCodeEmail(user.getEmail(), otp);
-
-            return MfaSetupResponse.builder()
-                    .method(MfaMethod.EMAIL.name())
-                    .build();
-        }
-
-        throw new IllegalArgumentException("Invalid MFA method");
-    }
-
-    /**
-     * Enables MFA only after the user proves they can generate a valid code with
-     * the configured method, preventing half-configured or broken MFA state.
-     */
-    @Transactional
-    public void verifyMfaSetup(String username, MfaVerifySetupRequest request, String ipAddress) {
-        User user = userService.getByUsername(username);
-
-        if (user.getMfaMethod() == MfaMethod.NONE || (user.getMfaSecret() == null && user.getMfaMethod() == MfaMethod.TOTP)) {
-            throw new IllegalStateException("MFA setup not initiated");
-        }
-
-        if (user.getMfaMethod() == MfaMethod.TOTP) {
-            if (!mfaService.verifyTotpCode(user.getMfaSecret(), request.getCode())) {
-                throw new BadCredentialsException("Invalid MFA code");
-            }
-        } else if (user.getMfaMethod() == MfaMethod.EMAIL) {
-            if (!mfaService.verifyEmailOtp(user.getUsername(), request.getCode())) {
-                throw new BadCredentialsException("Invalid MFA code");
-            }
-        }
-
-        user.setMfaEnabled(true);
-        userService.save(user);
-        securityAuditLogger.logMfaEnabled(user.getUsername(), user.getMfaMethod().name(), ipAddress);
-    }
-
-    /**
-     * Requires the current password before disabling MFA, reducing the impact of
-     * a hijacked but authenticated session removing the second factor.
-     */
-    @Transactional
-    public void disableMfa(String username, MfaDisableRequest request, String ipAddress) {
-        User user = userService.getByUsername(username);
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new BadCredentialsException("Current password is incorrect");
-        }
-
-        user.setMfaEnabled(false);
-        user.setMfaMethod(MfaMethod.NONE);
-        user.setMfaSecret(null);
-        userService.save(user);
-
-        securityAuditLogger.logMfaDisabled(user.getUsername(), ipAddress);
-    }
-
-    /**
-     * Returns the user's MFA configuration as a DTO, avoiding direct entity
-     * exposure through the API.
-     */
-    @Transactional(readOnly = true)
-    public MfaStatusResponse getMfaStatus(String username) {
-        User user = userService.getByUsername(username);
-        return MfaStatusResponse.builder()
-                .mfaEnabled(user.getMfaEnabled())
-                .method(user.getMfaMethod())
-                .build();
-    }
+    MfaStatusResponse getMfaStatus(String username);
 }
