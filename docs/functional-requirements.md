@@ -835,10 +835,10 @@ This requirements document covers:
 | FR-037 | Change password | Authenticated User | User is authenticated; current password verified | System updates password; revokes all tokens | BR-013, BR-015 |
 | FR-038 | Request password reset | Unauthenticated User | Rate limit not exceeded | System sends reset email | BR-017 |
 | FR-039 | Reset password with token | Unauthenticated User | Valid, unused, unexpired token | System updates password; revokes all tokens | BR-013, BR-017 |
-| FR-040 | Enable MFA | Authenticated User | MFA not already enabled | System initiates MFA setup | - |
-| FR-041 | Verify MFA setup | Authenticated User | MFA setup initiated | System activates MFA | - |
-| FR-042 | Disable MFA | Authenticated User | MFA enabled; current password verified | System disables MFA | - |
-| FR-043 | Get MFA status | Authenticated User | User is authenticated | System returns MFA configuration status | - |
+| FR-040 | Enable MFA | Admin User | MFA not already enabled | System initiates MFA setup | - |
+| FR-041 | Verify MFA setup | Admin User | MFA setup initiated | System activates MFA | - |
+| FR-042 | Disable MFA | Admin User | MFA enabled; current password verified | System disables MFA | - |
+| FR-043 | Get MFA status | User/Admin | User is authenticated | MFA status returned in profile responses | - |
 | FR-044 | Verify MFA during login | Unauthenticated User | MFA session token provided | System verifies OTP code | BR-016 |
 
 ---
@@ -856,7 +856,7 @@ This requirements document covers:
 | FR-028 to FR-035 | Expense Management Module |
 | FR-036 | Audit Logging Module |
 | FR-037 to FR-039 | Password Management Module |
-| FR-040 to FR-044 | Multi-Factor Authentication Module |
+| FR-040 to FR-044 | Multi-Factor Authentication Module (admin-only management, status in profile) |
 
 ### Requirements to Business Rules
 | Requirement | Business Rules |
@@ -907,10 +907,9 @@ Paths, HTTP methods, and required authorities are verified against the controlle
 
 | Method | Path | Authority | FR |
 |--------|------|-----------|----|
-| POST | `/api/mfa/enable` | Authenticated | FR-040 |
-| POST | `/api/mfa/verify-setup` | Authenticated | FR-041 |
-| POST | `/api/mfa/disable` | Authenticated | FR-042 |
-| GET | `/api/mfa/status` | Authenticated | FR-043 |
+| POST | `/api/mfa/enable` | MFA_MANAGE | FR-040 |
+| POST | `/api/mfa/verify-setup` | MFA_MANAGE | FR-041 |
+| POST | `/api/mfa/disable` | MFA_MANAGE | FR-042 |
 
 ### User Management (`/api/management/users`)
 

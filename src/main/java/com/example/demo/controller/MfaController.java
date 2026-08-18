@@ -1,10 +1,12 @@
 package com.example.demo.controller;
 
+import com.example.demo.constants.Authorities;
 import com.example.demo.dto.*;
 import com.example.demo.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +18,7 @@ public class MfaController {
     private final AuthService authService;
 
     @PostMapping("/enable")
+    @PreAuthorize("hasAuthority('" + Authorities.MFA_MANAGE + "')")
     public ResponseEntity<ApiResponse<MfaSetupResponse>> enableMfa(
             @Valid @RequestBody MfaEnableRequest request,
             Authentication authentication) {
@@ -24,6 +27,7 @@ public class MfaController {
     }
 
     @PostMapping("/verify-setup")
+    @PreAuthorize("hasAuthority('" + Authorities.MFA_MANAGE + "')")
     public ResponseEntity<ApiResponse<Void>> verifyMfaSetup(
             @Valid @RequestBody MfaVerifySetupRequest request,
             Authentication authentication) {
@@ -32,16 +36,11 @@ public class MfaController {
     }
 
     @PostMapping("/disable")
+    @PreAuthorize("hasAuthority('" + Authorities.MFA_MANAGE + "')")
     public ResponseEntity<ApiResponse<Void>> disableMfa(
             @Valid @RequestBody MfaDisableRequest request,
             Authentication authentication) {
         authService.disableMfa(authentication, request);
         return ResponseEntity.ok(ApiResponse.success("MFA disabled successfully", null));
-    }
-
-    @GetMapping("/status")
-    public ResponseEntity<ApiResponse<MfaStatusResponse>> getMfaStatus(Authentication authentication) {
-        MfaStatusResponse response = authService.getMfaStatus(authentication);
-        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

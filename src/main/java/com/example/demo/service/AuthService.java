@@ -21,8 +21,6 @@ public interface AuthService {
 
     void disableMfa(Authentication authentication, MfaDisableRequest request);
 
-    MfaStatusResponse getMfaStatus(Authentication authentication);
-
     void changePassword(Authentication authentication, ChangePasswordRequest request);
 
     void forgotPassword(ForgotPasswordRequest request);

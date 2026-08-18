@@ -66,11 +66,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public MfaStatusResponse getMfaStatus(Authentication authentication) {
-        return mfaSetupService.getMfaStatus(authentication.getName());
-    }
-
-    @Override
     public void changePassword(Authentication authentication, ChangePasswordRequest request) {
         String ipAddress = getClientIp();
         userService.changePassword(authentication.getName(), request, ipAddress);

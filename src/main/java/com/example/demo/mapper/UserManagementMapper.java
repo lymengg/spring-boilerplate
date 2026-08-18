@@ -22,6 +22,8 @@ public class UserManagementMapper {
                 .accountNonLocked(user.getAccountNonLocked())
                 .roles(user.getRoles().stream().map(Role::getName).collect(Collectors.toSet()))
                 .permissions(getAllPermissions(user).stream().map(Enum::name).collect(Collectors.toSet()))
+                .mfaEnabled(user.getMfaEnabled())
+                .mfaMethod(user.getMfaMethod() != null ? user.getMfaMethod().name() : null)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

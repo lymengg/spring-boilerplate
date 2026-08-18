@@ -23,6 +23,8 @@ public class UserResponse {
     private Boolean accountNonLocked;
     private Set<String> roles;
     private Set<String> permissions;
+    private Boolean mfaEnabled;
+    private String mfaMethod;
     private Instant createdAt;
     private Instant updatedAt;
 }
