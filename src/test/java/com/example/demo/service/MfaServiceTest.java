@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.config.MfaProperties;
 import com.example.demo.security.service.TokenHashingService;
+import com.example.demo.service.impl.MfaServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,7 @@ class MfaServiceTest {
     @Mock
     private TokenHashingService tokenHashingService;
 
-    private MfaService mfaService;
+    private MfaServiceImpl mfaService;
 
     @BeforeEach
     void setUp() {
@@ -45,7 +46,7 @@ class MfaServiceTest {
         when(mfaProperties.getOtpDigits()).thenReturn(6);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
-        mfaService = new MfaService(mfaProperties, redisTemplate, tokenHashingService);
+        mfaService = new MfaServiceImpl(mfaProperties, redisTemplate, tokenHashingService);
     }
 
     @Test
