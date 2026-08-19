@@ -74,4 +74,12 @@ public class SecurityAuditLogger {
     public void logMfaFailure(String username, String ipAddress, String reason) {
         log.warn("SECURITY_AUDIT: mfa_failure username={} ip={} reason={} timestamp={}", username, ipAddress, reason, java.time.Instant.now());
     }
+
+    public void logMfaReset(String username, String method, String ipAddress) {
+        log.info("SECURITY_AUDIT: mfa_reset username={} method={} ip={} timestamp={}", username, method, ipAddress, java.time.Instant.now());
+    }
+
+    public void logMfaDisabledByAdmin(String targetUsername, String adminUsername, String ipAddress) {
+        log.info("SECURITY_AUDIT: mfa_disabled_by_admin target={} admin={} ip={} timestamp={}", targetUsername, adminUsername, ipAddress, java.time.Instant.now());
+    }
 }

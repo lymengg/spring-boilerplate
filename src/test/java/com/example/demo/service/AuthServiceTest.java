@@ -16,7 +16,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -119,6 +118,44 @@ class AuthServiceTest {
         MfaSetupResponse result = authService.enableMfa(auth(), request);
 
         assertThat(result).isEqualTo(response);
+    }
+
+    @Test
+    @DisplayName("Should delegate enable MFA for user to MfaSetupService")
+    void shouldDelegateEnableMfaForUser() {
+        AdminMfaEnableRequest request = AdminMfaEnableRequest.builder().targetUserId(2L).method(MfaMethod.TOTP).build();
+        MfaSetupResponse response = MfaSetupResponse.builder().method("TOTP").build();
+
+        when(mfaSetupService.enableMfaForUser("testuser", request, "unknown")).thenReturn(response);
+
+        MfaSetupResponse result = authService.enableMfaForUser(auth(), request);
+
+        assertThat(result).isEqualTo(response);
+        verify(mfaSetupService).enableMfaForUser("testuser", request, "unknown");
+    }
+
+    @Test
+    @DisplayName("Should delegate reset MFA to MfaSetupService")
+    void shouldDelegateResetMfa() {
+        AdminMfaResetRequest request = AdminMfaResetRequest.builder().targetUserId(2L).method(MfaMethod.TOTP).build();
+        MfaSetupResponse response = MfaSetupResponse.builder().method("TOTP").build();
+
+        when(mfaSetupService.resetMfa("testuser", request, "unknown")).thenReturn(response);
+
+        MfaSetupResponse result = authService.resetMfa(auth(), request);
+
+        assertThat(result).isEqualTo(response);
+        verify(mfaSetupService).resetMfa("testuser", request, "unknown");
+    }
+
+    @Test
+    @DisplayName("Should delegate disable MFA for user to MfaSetupService")
+    void shouldDelegateDisableMfaForUser() {
+        AdminMfaDisableRequest request = AdminMfaDisableRequest.builder().targetUserId(2L).build();
+
+        authService.disableMfaForUser(auth(), request);
+
+        verify(mfaSetupService).disableMfaForUser("testuser", request, "unknown");
     }
 
     @Test

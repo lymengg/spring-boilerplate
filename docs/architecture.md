@@ -109,7 +109,7 @@ com.example.demo
 
 ### DTO Layer
 - Request DTOs: `LoginRequest`, `ExpenseCreateRequest`, `UserCreateRequest`, `RoleCreateRequest`, `TenantCreateRequest`, `DepartmentCreateRequest`, etc.
-- Response DTOs: `TokenResponse`, `ExpenseResponse`, `UserResponse`, `RoleResponse`, `TenantResponse`, `DepartmentResponse`, `AuditLogResponse`, `UserProfileResponse`, `MfaSetupResponse`, `MfaStatusResponse`, `MfaLoginResponse`.
+- Response DTOs: `TokenResponse`, `ExpenseResponse`, `UserResponse`, `RoleResponse`, `TenantResponse`, `DepartmentResponse`, `AuditLogResponse`, `UserProfileResponse`, `MfaSetupResponse`, `MfaLoginResponse`.
 - Entities are **never** exposed directly through API responses.
 
 ### Service Layer
@@ -304,7 +304,7 @@ Custom roles can be created but cannot modify built-in roles.
 
 ### API Organization
 - **Authentication**: `/api/auth/*` — Login, refresh, logout, password management, MFA verification.
-- **MFA Management**: `/api/mfa/*` — Enable, verify setup, disable, status.
+- **MFA Management**: `/api/mfa/*` — Enable (self-service), admin enable, admin reset, admin disable.
 - **Expenses**: `/api/expenses/*` — CRUD, approve, reject, process.
 - **User Management**: `/api/management/users/*` — CRUD, role assignment, enable/disable.
 - **Role Management**: `/api/management/roles/*` — CRUD, permission management.

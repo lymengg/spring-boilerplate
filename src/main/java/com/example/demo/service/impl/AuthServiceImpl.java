@@ -56,18 +56,18 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void verifyMfaSetup(Authentication authentication, MfaVerifySetupRequest request) {
-        mfaSetupService.verifyMfaSetup(authentication.getName(), request, getClientIp());
+    public MfaSetupResponse enableMfaForUser(Authentication authentication, AdminMfaEnableRequest request) {
+        return mfaSetupService.enableMfaForUser(authentication.getName(), request, getClientIp());
     }
 
     @Override
-    public void disableMfa(Authentication authentication, MfaDisableRequest request) {
-        mfaSetupService.disableMfa(authentication.getName(), request, getClientIp());
+    public MfaSetupResponse resetMfa(Authentication authentication, AdminMfaResetRequest request) {
+        return mfaSetupService.resetMfa(authentication.getName(), request, getClientIp());
     }
 
     @Override
-    public MfaStatusResponse getMfaStatus(Authentication authentication) {
-        return mfaSetupService.getMfaStatus(authentication.getName());
+    public void disableMfaForUser(Authentication authentication, AdminMfaDisableRequest request) {
+        mfaSetupService.disableMfaForUser(authentication.getName(), request, getClientIp());
     }
 
     @Override

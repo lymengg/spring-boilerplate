@@ -21,6 +21,8 @@ public class UserResponse {
     private String lastName;
     private Boolean enabled;
     private Boolean accountNonLocked;
+    private Boolean mfaEnabled;
+    private String mfaMethod;
     private Set<String> roles;
     private Set<String> permissions;
     private Instant createdAt;

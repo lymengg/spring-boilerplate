@@ -17,11 +17,11 @@ public interface AuthService {
 
     MfaSetupResponse enableMfa(Authentication authentication, MfaEnableRequest request);
 
-    void verifyMfaSetup(Authentication authentication, MfaVerifySetupRequest request);
+    MfaSetupResponse enableMfaForUser(Authentication authentication, AdminMfaEnableRequest request);
 
-    void disableMfa(Authentication authentication, MfaDisableRequest request);
+    MfaSetupResponse resetMfa(Authentication authentication, AdminMfaResetRequest request);
 
-    MfaStatusResponse getMfaStatus(Authentication authentication);
+    void disableMfaForUser(Authentication authentication, AdminMfaDisableRequest request);
 
     void changePassword(Authentication authentication, ChangePasswordRequest request);
 

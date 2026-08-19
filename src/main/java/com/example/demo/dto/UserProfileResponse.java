@@ -17,4 +17,6 @@ public class UserProfileResponse {
     private String lastName;
     private String[] roles;
     private Boolean enabled;
+    private Boolean mfaEnabled;
+    private String mfaMethod;
 }
