@@ -10,6 +10,7 @@ import com.example.demo.security.audit.SecurityAuditLogger;
 import com.example.demo.service.EmailService;
 import com.example.demo.service.MfaService;
 import com.example.demo.service.MfaSetupService;
+import com.example.demo.service.TokenService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -30,6 +31,7 @@ public class MfaSetupServiceImpl implements MfaSetupService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final SecurityAuditLogger securityAuditLogger;
+    private final TokenService tokenService;
 
     @Override
     @Transactional
@@ -89,6 +91,7 @@ public class MfaSetupServiceImpl implements MfaSetupService {
 
         user.setMfaEnabled(true);
         userService.save(user);
+        tokenService.revokeAllUserRefreshTokens(username);
         securityAuditLogger.logMfaEnabled(user.getUsername(), user.getMfaMethod().name(), ipAddress);
     }
 
@@ -105,6 +108,7 @@ public class MfaSetupServiceImpl implements MfaSetupService {
         user.setMfaMethod(MfaMethod.NONE);
         user.setMfaSecret(null);
         userService.save(user);
+        tokenService.revokeAllUserRefreshTokens(username);
 
         securityAuditLogger.logMfaDisabled(user.getUsername(), ipAddress);
     }
