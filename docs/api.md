@@ -405,13 +405,15 @@ All list endpoints support pagination via query parameters:
 
 ### MFA Management
 
+All MFA management endpoints require `MFA_MANAGE` authority (PLATFORM_ADMIN or TENANT_ADMIN only). MFA status is included in user management responses and `GET /api/auth/me`.
+
 ---
 
 #### POST /api/mfa/enable
 
 **Purpose**: Initiate MFA setup for the authenticated user.
 
-**Authentication**: Required.
+**Authorization**: `MFA_MANAGE` authority required.
 
 **Request Body:**
 ```json
@@ -452,7 +454,7 @@ All list endpoints support pagination via query parameters:
 
 **Purpose**: Verify and activate MFA after initial setup.
 
-**Authentication**: Required.
+**Authorization**: `MFA_MANAGE` authority required.
 
 **Request Body:**
 ```json
@@ -480,7 +482,7 @@ All list endpoints support pagination via query parameters:
 
 **Purpose**: Disable MFA for the authenticated user.
 
-**Authentication**: Required.
+**Authorization**: `MFA_MANAGE` authority required.
 
 **Request Body:**
 ```json
@@ -500,26 +502,6 @@ All list endpoints support pagination via query parameters:
 
 **Errors:**
 - `401`: Current password is incorrect
-
----
-
-#### GET /api/mfa/status
-
-**Purpose**: Get the current MFA configuration for the authenticated user.
-
-**Authentication**: Required.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": null,
-  "data": {
-    "mfaEnabled": true,
-    "method": "TOTP"
-  }
-}
-```
 
 ---
 
@@ -1410,11 +1392,10 @@ All list endpoints support pagination via query parameters:
 - `POST /api/auth/forgot-password` — Password reset request
 - `POST /api/auth/reset-password` — Password reset
 
-### MFA Management
+### MFA Management (Admin-only)
 - `POST /api/mfa/enable` — Initiate MFA setup
 - `POST /api/mfa/verify-setup` — Verify MFA setup
 - `POST /api/mfa/disable` — Disable MFA
-- `GET /api/mfa/status` — MFA status
 
 ### Expenses
 - `GET /api/expenses` — List expenses

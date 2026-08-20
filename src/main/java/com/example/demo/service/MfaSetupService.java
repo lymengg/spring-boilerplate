@@ -3,7 +3,6 @@ package com.example.demo.service;
 import com.example.demo.dto.MfaDisableRequest;
 import com.example.demo.dto.MfaEnableRequest;
 import com.example.demo.dto.MfaSetupResponse;
-import com.example.demo.dto.MfaStatusResponse;
 import com.example.demo.dto.MfaVerifySetupRequest;
 
 public interface MfaSetupService {
@@ -13,6 +12,4 @@ public interface MfaSetupService {
     void verifyMfaSetup(String username, MfaVerifySetupRequest request, String ipAddress);
 
     void disableMfa(String username, MfaDisableRequest request, String ipAddress);
-
-    MfaStatusResponse getMfaStatus(String username);
 }

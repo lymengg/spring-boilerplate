@@ -38,6 +38,9 @@ public final class Authorities {
     public static final String EXPENSE_REJECT = "EXPENSE_REJECT";
     public static final String EXPENSE_PROCESS = "EXPENSE_PROCESS";
 
+    // MFA management
+    public static final String MFA_MANAGE = "MFA_MANAGE";
+
     // Reporting and audit
     public static final String REPORT_READ = "REPORT_READ";
     public static final String AUDIT_LOG_READ = "AUDIT_LOG_READ";

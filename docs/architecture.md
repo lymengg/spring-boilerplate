@@ -109,7 +109,7 @@ com.example.demo
 
 ### DTO Layer
 - Request DTOs: `LoginRequest`, `ExpenseCreateRequest`, `UserCreateRequest`, `RoleCreateRequest`, `TenantCreateRequest`, `DepartmentCreateRequest`, etc.
-- Response DTOs: `TokenResponse`, `ExpenseResponse`, `UserResponse`, `RoleResponse`, `TenantResponse`, `DepartmentResponse`, `AuditLogResponse`, `UserProfileResponse`, `MfaSetupResponse`, `MfaStatusResponse`, `MfaLoginResponse`.
+- Response DTOs: `TokenResponse`, `ExpenseResponse`, `UserResponse`, `RoleResponse`, `TenantResponse`, `DepartmentResponse`, `AuditLogResponse`, `UserProfileResponse`, `MfaSetupResponse`, `MfaLoginResponse`.
 - Entities are **never** exposed directly through API responses.
 
 ### Service Layer
@@ -227,12 +227,13 @@ Seven built-in roles: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `USER_MANAGER`, `DEPARTM
 Custom roles can be created but cannot modify built-in roles.
 
 ### Authorities
-29 permission constants defined in `Authorities`:
+30 permission constants defined in `Authorities`:
 - **Tenant**: `TENANT_READ`, `TENANT_CREATE`, `TENANT_UPDATE`, `TENANT_DELETE`
 - **User**: `USER_READ`, `USER_WRITE`, `USER_CREATE`, `USER_UPDATE`, `USER_DELETE`, `USER_ENABLE`, `USER_ASSIGN_ROLE`
 - **Role**: `ROLE_READ`, `ROLE_WRITE`, `ROLE_DELETE`, `ROLE_ASSIGN_PERMISSION`
 - **Department**: `DEPARTMENT_READ`, `DEPARTMENT_CREATE`, `DEPARTMENT_UPDATE`, `DEPARTMENT_DELETE`
 - **Expense**: `EXPENSE_READ`, `EXPENSE_CREATE`, `EXPENSE_UPDATE`, `EXPENSE_DELETE`, `EXPENSE_APPROVE`, `EXPENSE_REJECT`, `EXPENSE_PROCESS`
+- **MFA**: `MFA_MANAGE`
 - **Reporting**: `REPORT_READ`, `AUDIT_LOG_READ`
 
 ### Request-Level Authorization
@@ -304,7 +305,7 @@ Custom roles can be created but cannot modify built-in roles.
 
 ### API Organization
 - **Authentication**: `/api/auth/*` — Login, refresh, logout, password management, MFA verification.
-- **MFA Management**: `/api/mfa/*` — Enable, verify setup, disable, status.
+- **MFA Management**: `/api/mfa/*` — Enable, verify setup, disable (admin-only).
 - **Expenses**: `/api/expenses/*` — CRUD, approve, reject, process.
 - **User Management**: `/api/management/users/*` — CRUD, role assignment, enable/disable.
 - **Role Management**: `/api/management/roles/*` — CRUD, permission management.

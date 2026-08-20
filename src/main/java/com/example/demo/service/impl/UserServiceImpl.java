@@ -98,6 +98,8 @@ public class UserServiceImpl implements UserService {
         User user = getByUsername(username);
         UserProfileResponse response = modelMapper.map(user, UserProfileResponse.class);
         response.setRoles(user.getRoles().stream().map(Role::getName).toArray(String[]::new));
+        response.setMfaEnabled(user.getMfaEnabled());
+        response.setMfaMethod(user.getMfaMethod() != null ? user.getMfaMethod().name() : null);
         return response;
     }
 

@@ -3,7 +3,6 @@ package com.example.demo.service.impl;
 import com.example.demo.dto.MfaDisableRequest;
 import com.example.demo.dto.MfaEnableRequest;
 import com.example.demo.dto.MfaSetupResponse;
-import com.example.demo.dto.MfaStatusResponse;
 import com.example.demo.dto.MfaVerifySetupRequest;
 import com.example.demo.entity.MfaMethod;
 import com.example.demo.entity.User;
@@ -11,6 +10,7 @@ import com.example.demo.security.audit.SecurityAuditLogger;
 import com.example.demo.service.EmailService;
 import com.example.demo.service.MfaService;
 import com.example.demo.service.MfaSetupService;
+import com.example.demo.service.TokenService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Owns the MFA lifecycle (enable, verify setup, disable, status). Isolating this
+ * Owns the MFA lifecycle (enable, verify setup, disable). Isolating this
  * keeps TOTP/EMAIL specifics out of the auth orchestrator and out of LoginService.
  */
 @Service
@@ -31,11 +31,16 @@ public class MfaSetupServiceImpl implements MfaSetupService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final SecurityAuditLogger securityAuditLogger;
+    private final TokenService tokenService;
 
     @Override
     @Transactional
     public MfaSetupResponse enableMfa(String username, MfaEnableRequest request, String ipAddress) {
         User user = userService.getByUsername(username);
+
+        if (user.getMfaEnabled() && user.getMfaMethod() == MfaMethod.TOTP) {
+            throw new IllegalStateException("MFA is already enabled. Disable it first to reconfigure.");
+        }
 
         if (request.getMethod() == MfaMethod.TOTP) {
             String secret = mfaService.generateTotpSecret();
@@ -86,6 +91,7 @@ public class MfaSetupServiceImpl implements MfaSetupService {
 
         user.setMfaEnabled(true);
         userService.save(user);
+        tokenService.revokeAllUserRefreshTokens(username);
         securityAuditLogger.logMfaEnabled(user.getUsername(), user.getMfaMethod().name(), ipAddress);
     }
 
@@ -102,17 +108,8 @@ public class MfaSetupServiceImpl implements MfaSetupService {
         user.setMfaMethod(MfaMethod.NONE);
         user.setMfaSecret(null);
         userService.save(user);
+        tokenService.revokeAllUserRefreshTokens(username);
 
         securityAuditLogger.logMfaDisabled(user.getUsername(), ipAddress);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public MfaStatusResponse getMfaStatus(String username) {
-        User user = userService.getByUsername(username);
-        return MfaStatusResponse.builder()
-                .mfaEnabled(user.getMfaEnabled())
-                .method(user.getMfaMethod())
-                .build();
     }
 }

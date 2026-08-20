@@ -37,6 +37,9 @@ public enum UserPermission {
     EXPENSE_REJECT,
     EXPENSE_PROCESS,
 
+    // MFA management
+    MFA_MANAGE,
+
     // Reporting and audit
     REPORT_READ,
     AUDIT_LOG_READ
