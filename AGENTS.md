@@ -226,6 +226,7 @@ mvnw.cmd clean test
 ### 1. Understand
 - Read this file. Inspect existing code, tests, and migrations. Do not immediately start coding.
 - Search for existing classes that may already solve part of the task.
+- Review the `docs/` directory for broader system context: `system-overview.md`, `architecture.md`, `functional-requirements.md`, `security.md`, and `api.md` provide detailed information about the system design, requirements, and API contracts.
 
 ### 2. Plan — Impact List
 Before writing code, enumerate every file affected:

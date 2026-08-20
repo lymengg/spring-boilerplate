@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MfaEnableRequest {
+public class UserMfaToggleRequest {
 
     @NotNull(message = "MFA method is required")
     private MfaMethod method;

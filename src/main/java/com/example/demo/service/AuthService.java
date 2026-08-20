@@ -15,12 +15,6 @@ public interface AuthService {
 
     UserProfileResponse getCurrentUser(Authentication authentication);
 
-    MfaSetupResponse enableMfa(Authentication authentication, MfaEnableRequest request);
-
-    void verifyMfaSetup(Authentication authentication, MfaVerifySetupRequest request);
-
-    void disableMfa(Authentication authentication, MfaDisableRequest request);
-
     void changePassword(Authentication authentication, ChangePasswordRequest request);
 
     void forgotPassword(ForgotPasswordRequest request);

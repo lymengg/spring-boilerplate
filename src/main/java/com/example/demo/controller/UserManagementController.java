@@ -1,8 +1,10 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.ApiResponse;
+import com.example.demo.dto.MfaSetupResponse;
 import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
+import com.example.demo.dto.UserMfaToggleRequest;
 import com.example.demo.dto.UserResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
@@ -84,5 +86,31 @@ public class UserManagementController {
             Authentication authentication) {
         UserResponse user = userManagementService.removeRole(id, request, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Role removed successfully", user));
+    }
+
+    @PostMapping("/{id}/mfa/enable")
+    public ResponseEntity<ApiResponse<MfaSetupResponse>> enableMfa(
+            @PathVariable Long id,
+            @Valid @RequestBody UserMfaToggleRequest request,
+            Authentication authentication) {
+        MfaSetupResponse response = userManagementService.enableMfa(id, request, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("MFA enabled successfully", response));
+    }
+
+    @PostMapping("/{id}/mfa/disable")
+    public ResponseEntity<ApiResponse<Void>> disableMfa(
+            @PathVariable Long id,
+            Authentication authentication) {
+        userManagementService.disableMfa(id, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("MFA disabled successfully", null));
+    }
+
+    @PostMapping("/{id}/mfa/reset")
+    public ResponseEntity<ApiResponse<MfaSetupResponse>> resetMfa(
+            @PathVariable Long id,
+            @Valid @RequestBody UserMfaToggleRequest request,
+            Authentication authentication) {
+        MfaSetupResponse response = userManagementService.resetMfa(id, request, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("MFA reset successfully", response));
     }
 }

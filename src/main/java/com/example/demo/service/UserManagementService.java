@@ -1,7 +1,9 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.MfaSetupResponse;
 import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
+import com.example.demo.dto.UserMfaToggleRequest;
 import com.example.demo.dto.UserResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
@@ -25,4 +27,10 @@ public interface UserManagementService {
     UserResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentUsername);
 
     UserResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentUsername);
+
+    MfaSetupResponse enableMfa(Long id, UserMfaToggleRequest request, String currentUsername);
+
+    void disableMfa(Long id, String currentUsername);
+
+    MfaSetupResponse resetMfa(Long id, UserMfaToggleRequest request, String currentUsername);
 }

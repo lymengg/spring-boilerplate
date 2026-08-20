@@ -2,8 +2,10 @@ package com.example.demo.service.impl;
 
 import com.example.demo.constants.AuditActions;
 import com.example.demo.constants.Roles;
+import com.example.demo.dto.MfaSetupResponse;
 import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
+import com.example.demo.dto.UserMfaToggleRequest;
 import com.example.demo.dto.UserResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
@@ -12,10 +14,12 @@ import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.UserManagementMapper;
 import com.example.demo.security.service.AuthorizationService;
+import com.example.demo.security.service.ClientIpResolver;
 import com.example.demo.service.AuditLogService;
 import com.example.demo.service.RoleManagementService;
 import com.example.demo.service.TenantManagementService;
 import com.example.demo.service.UserManagementService;
+import com.example.demo.service.MfaSetupService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,6 +42,8 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final AuditLogService auditLogService;
     private final UserManagementMapper userManagementMapper;
     private final PasswordEncoder passwordEncoder;
+    private final MfaSetupService mfaSetupService;
+    private final ClientIpResolver clientIpResolver;
 
     @Override
     @Transactional
@@ -281,6 +287,66 @@ public class UserManagementServiceImpl implements UserManagementService {
             return false;
         }
         return UserManagementMapper.getAllPermissions(granter).containsAll(UserManagementMapper.getAllPermissions(target));
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("hasAuthority('USER_WRITE')")
+    public MfaSetupResponse enableMfa(Long id, UserMfaToggleRequest request, String currentUsername) {
+        User currentUser = userService.getByUsername(currentUsername);
+        User targetUser = findAccessibleUser(id, currentUser);
+
+        if (!canManage(currentUser, targetUser)) {
+            throw new IllegalArgumentException("Cannot manage MFA for a user with more privileges");
+        }
+
+        MfaSetupResponse response = mfaSetupService.enableMfa(targetUser, request.getMethod(), getClientIp());
+        auditLogService.record(AuditActions.USER_MFA_ENABLED, AuditActions.RESOURCE_USER,
+                String.valueOf(targetUser.getId()), "MFA enabled with method " + request.getMethod(), currentUsername);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("hasAuthority('USER_WRITE')")
+    public void disableMfa(Long id, String currentUsername) {
+        User currentUser = userService.getByUsername(currentUsername);
+        User targetUser = findAccessibleUser(id, currentUser);
+
+        if (!canManage(currentUser, targetUser)) {
+            throw new IllegalArgumentException("Cannot manage MFA for a user with more privileges");
+        }
+
+        mfaSetupService.disableMfa(targetUser, getClientIp());
+        auditLogService.record(AuditActions.USER_MFA_DISABLED, AuditActions.RESOURCE_USER,
+                String.valueOf(targetUser.getId()), "MFA disabled", currentUsername);
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("hasAuthority('USER_WRITE')")
+    public MfaSetupResponse resetMfa(Long id, UserMfaToggleRequest request, String currentUsername) {
+        User currentUser = userService.getByUsername(currentUsername);
+        User targetUser = findAccessibleUser(id, currentUser);
+
+        if (!canManage(currentUser, targetUser)) {
+            throw new IllegalArgumentException("Cannot manage MFA for a user with more privileges");
+        }
+
+        MfaSetupResponse response = mfaSetupService.resetMfa(targetUser, request.getMethod(), getClientIp());
+        auditLogService.record(AuditActions.USER_MFA_RESET, AuditActions.RESOURCE_USER,
+                String.valueOf(targetUser.getId()), "MFA reset with method " + request.getMethod(), currentUsername);
+        return response;
+    }
+
+    private String getClientIp() {
+        try {
+            var attrs = (org.springframework.web.context.request.ServletRequestAttributes)
+                    org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes();
+            return clientIpResolver.resolveClientIp(attrs.getRequest());
+        } catch (Exception e) {
+            return "unknown";
+        }
     }
 
     private boolean canAssignBuiltInRole(User granter, Role role) {

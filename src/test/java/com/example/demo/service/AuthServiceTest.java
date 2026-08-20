@@ -1,7 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.*;
-import com.example.demo.entity.MfaMethod;
 import com.example.demo.security.service.ClientIpResolver;
 import com.example.demo.service.impl.AuthServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,8 +25,7 @@ class AuthServiceTest {
     @Mock private LoginService loginService;
     @Mock private TokenService tokenService;
     @Mock private PasswordResetService passwordResetService;
-    @Mock private MfaSetupService mfaSetupService;
-    @Mock private ClientIpResolver clientIpResolver;
+        @Mock private ClientIpResolver clientIpResolver;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -106,19 +104,6 @@ class AuthServiceTest {
         UserProfileResponse result = authService.getCurrentUser(auth());
 
         assertThat(result).isEqualTo(userProfileResponse);
-    }
-
-    @Test
-    @DisplayName("Should delegate enable MFA to MfaSetupService")
-    void shouldDelegateEnableMfa() {
-        MfaEnableRequest request = MfaEnableRequest.builder().method(MfaMethod.TOTP).build();
-        MfaSetupResponse response = MfaSetupResponse.builder().method("TOTP").build();
-
-        when(mfaSetupService.enableMfa("testuser", request, "unknown")).thenReturn(response);
-
-        MfaSetupResponse result = authService.enableMfa(auth(), request);
-
-        assertThat(result).isEqualTo(response);
     }
 
     @Test

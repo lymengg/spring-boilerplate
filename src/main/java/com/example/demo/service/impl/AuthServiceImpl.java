@@ -22,7 +22,6 @@ public class AuthServiceImpl implements AuthService {
     private final LoginService loginService;
     private final TokenService tokenService;
     private final PasswordResetService passwordResetService;
-    private final MfaSetupService mfaSetupService;
     private final ClientIpResolver clientIpResolver;
 
     @Override
@@ -48,21 +47,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public UserProfileResponse getCurrentUser(Authentication authentication) {
         return userService.getCurrentUser(authentication.getName());
-    }
-
-    @Override
-    public MfaSetupResponse enableMfa(Authentication authentication, MfaEnableRequest request) {
-        return mfaSetupService.enableMfa(authentication.getName(), request, getClientIp());
-    }
-
-    @Override
-    public void verifyMfaSetup(Authentication authentication, MfaVerifySetupRequest request) {
-        mfaSetupService.verifyMfaSetup(authentication.getName(), request, getClientIp());
-    }
-
-    @Override
-    public void disableMfa(Authentication authentication, MfaDisableRequest request) {
-        mfaSetupService.disableMfa(authentication.getName(), request, getClientIp());
     }
 
     @Override

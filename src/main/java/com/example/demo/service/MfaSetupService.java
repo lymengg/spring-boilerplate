@@ -1,15 +1,14 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.MfaDisableRequest;
-import com.example.demo.dto.MfaEnableRequest;
 import com.example.demo.dto.MfaSetupResponse;
-import com.example.demo.dto.MfaVerifySetupRequest;
+import com.example.demo.entity.MfaMethod;
+import com.example.demo.entity.User;
 
 public interface MfaSetupService {
 
-    MfaSetupResponse enableMfa(String username, MfaEnableRequest request, String ipAddress);
+    MfaSetupResponse enableMfa(User targetUser, MfaMethod method, String ipAddress);
 
-    void verifyMfaSetup(String username, MfaVerifySetupRequest request, String ipAddress);
+    void disableMfa(User targetUser, String ipAddress);
 
-    void disableMfa(String username, MfaDisableRequest request, String ipAddress);
+    MfaSetupResponse resetMfa(User targetUser, MfaMethod method, String ipAddress);
 }

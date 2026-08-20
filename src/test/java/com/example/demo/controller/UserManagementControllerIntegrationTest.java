@@ -8,6 +8,7 @@ import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
+import com.example.demo.service.TokenService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -59,6 +62,9 @@ class UserManagementControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockBean
+    private TokenService tokenService;
 
     private String adminToken;
     private String managerToken;
@@ -427,5 +433,98 @@ class UserManagementControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Admin can enable TOTP MFA for a user")
+    void adminCanEnableMfa() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.method").value("TOTP"))
+                .andExpect(jsonPath("$.data.qrUri").isNotEmpty())
+                .andExpect(jsonPath("$.data.secret").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("Admin can disable MFA for a user")
+    void adminCanDisableMfa() throws Exception {
+        User user = userRepository.findById(regularUserId).orElseThrow();
+        user.setMfaEnabled(true);
+        user.setMfaMethod(com.example.demo.entity.MfaMethod.TOTP);
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.save(user);
+
+        mockMvc.perform(post("/api/management/users/{id}/mfa/disable", regularUserId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        User updated = userRepository.findById(regularUserId).orElseThrow();
+        assertThat(updated.getMfaEnabled()).isFalse();
+        assertThat(updated.getMfaMethod()).isEqualTo(com.example.demo.entity.MfaMethod.NONE);
+        assertThat(updated.getMfaSecret()).isNull();
+    }
+
+    @Test
+    @DisplayName("Admin can reset MFA for a user with TOTP")
+    void adminCanResetMfa() throws Exception {
+        User user = userRepository.findById(regularUserId).orElseThrow();
+        user.setMfaEnabled(true);
+        user.setMfaMethod(com.example.demo.entity.MfaMethod.TOTP);
+        user.setMfaSecret("OLDSECRET1234567890");
+        userRepository.save(user);
+
+        mockMvc.perform(post("/api/management/users/{id}/mfa/reset", regularUserId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.method").value("TOTP"))
+                .andExpect(jsonPath("$.data.secret").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("Regular user cannot manage MFA")
+    void regularUserCannotManageMfa() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Enabling MFA on already-enabled user returns 409")
+    void enableMfaWhenAlreadyEnabledReturns409() throws Exception {
+        User user = userRepository.findById(regularUserId).orElseThrow();
+        user.setMfaEnabled(true);
+        user.setMfaMethod(com.example.demo.entity.MfaMethod.TOTP);
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.save(user);
+
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().is(409));
+    }
+
+    @Test
+    @DisplayName("Disabling MFA when not enabled returns 409")
+    void disableMfaWhenNotEnabledReturns409() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/disable", regularUserId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().is(409));
+    }
+
+    @Test
+    @DisplayName("Unauthenticated cannot manage MFA")
+    void unauthenticatedCannotManageMfa() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().is(401));
     }
 }

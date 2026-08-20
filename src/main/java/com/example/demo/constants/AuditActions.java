@@ -10,6 +10,9 @@ public final class AuditActions {
     public static final String USER_DISABLED = "USER_DISABLED";
     public static final String USER_ROLE_ASSIGNED = "USER_ROLE_ASSIGNED";
     public static final String USER_ROLE_REMOVED = "USER_ROLE_REMOVED";
+    public static final String USER_MFA_ENABLED = "USER_MFA_ENABLED";
+    public static final String USER_MFA_DISABLED = "USER_MFA_DISABLED";
+    public static final String USER_MFA_RESET = "USER_MFA_RESET";
 
     // Expense management
     public static final String EXPENSE_CREATED = "EXPENSE_CREATED";
