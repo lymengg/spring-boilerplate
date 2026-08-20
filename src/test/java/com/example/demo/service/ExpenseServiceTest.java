@@ -34,6 +34,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -124,22 +125,68 @@ class ExpenseServiceTest {
     }
 
     @Test
-    @DisplayName("Tenant-scoped employee only sees their own expenses")
-    void getExpensesFiltersByOwnerForEmployee() {
+    @DisplayName("Tenant-scoped employee sees their department (team) expenses")
+    void getExpensesShowsDepartmentExpensesForEmployee() {
         when(userService.getByUsername("employee")).thenReturn(employee);
         when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
-        when(authorizationService.hasAuthority(employee, "AUDIT_LOG_READ")).thenReturn(false);
-        when(authorizationService.hasAuthority(employee, "EXPENSE_APPROVE")).thenReturn(false);
-        when(authorizationService.hasAuthority(employee, "EXPENSE_PROCESS")).thenReturn(false);
+        when(authorizationService.hasAuthority(employee, "EXPENSE_READ_ALL")).thenReturn(false);
 
         PageRequest pageable = PageRequest.of(0, 10);
-        when(expenseRepository.findAllByOwnerId(employee.getId(), pageable))
+        when(expenseRepository.findByDepartmentIdWithStatus(department.getId(), null, pageable))
                 .thenReturn(new PageImpl<>(Collections.emptyList(), pageable, 0));
 
-        Page<?> result = expenseService.getExpenses(pageable, "employee");
+        Page<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
 
         assertThat(result).isEmpty();
-        verify(expenseRepository).findAllByOwnerId(employee.getId(), pageable);
+        verify(expenseRepository).findByDepartmentIdWithStatus(department.getId(), null, pageable);
+    }
+
+    @Test
+    @DisplayName("Super admin sees all expenses without a tenant filter")
+    void superAdminSeesAllExpenses() {
+        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(authorizationService.isSuperAdmin(employee)).thenReturn(true);
+
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(expenseRepository.findAllWithFilters(null, null, null, pageable))
+                .thenReturn(new PageImpl<>(Collections.emptyList(), pageable, 0));
+
+        Page<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
+
+        assertThat(result).isEmpty();
+        verify(expenseRepository).findAllWithFilters(null, null, null, pageable);
+    }
+
+    @Test
+    @DisplayName("EXPENSE_READ_ALL user sees all tenant expenses with department and status filters")
+    void readAllUserSeesTenantExpensesWithFilters() {
+        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
+        when(authorizationService.hasAuthority(employee, "EXPENSE_READ_ALL")).thenReturn(true);
+
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(expenseRepository.findAllWithFilters(tenant.getId(), department.getId(), ExpenseStatus.PENDING, pageable))
+                .thenReturn(new PageImpl<>(Collections.emptyList(), pageable, 0));
+
+        Page<?> result = expenseService.getExpenses(pageable, ExpenseStatus.PENDING, null, department.getId(), "employee");
+
+        assertThat(result).isEmpty();
+        verify(expenseRepository).findAllWithFilters(tenant.getId(), department.getId(), ExpenseStatus.PENDING, pageable);
+    }
+
+    @Test
+    @DisplayName("User without a department gets an empty page instead of an error")
+    void userWithoutDepartmentGetsEmptyPage() {
+        employee.setDepartment(null);
+        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
+        when(authorizationService.hasAuthority(employee, "EXPENSE_READ_ALL")).thenReturn(false);
+
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
+
+        assertThat(result).isEmpty();
+        verify(expenseRepository, never()).findByDepartmentIdWithStatus(any(), any(), any());
     }
 
     @Test
@@ -183,7 +230,4 @@ class ExpenseServiceTest {
         return user;
     }
 
-    private Long nullableLong() {
-        return null;
-    }
 }

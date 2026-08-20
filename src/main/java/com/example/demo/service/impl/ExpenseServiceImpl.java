@@ -1,6 +1,7 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.constants.AuditActions;
+import com.example.demo.constants.UserPermission;
 import com.example.demo.dto.ExpenseCreateRequest;
 import com.example.demo.dto.ExpenseResponse;
 import com.example.demo.dto.ExpenseUpdateRequest;
@@ -23,8 +24,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class ExpenseServiceImpl implements ExpenseService {
@@ -39,33 +38,30 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('EXPENSE_READ')")
-    public Page<ExpenseResponse> getExpenses(Pageable pageable, String currentUsername) {
+    public Page<ExpenseResponse> getExpenses(Pageable pageable, ExpenseStatus status, Long filterTenantId, Long filterDepartmentId, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
+
         if (authorizationService.isSuperAdmin(currentUser)) {
-            return expenseRepository.findAll(pageable).map(expenseMapper::toResponse);
+            return expenseRepository.findAllWithFilters(filterTenantId, filterDepartmentId, status, pageable)
+                    .map(expenseMapper::toResponse);
         }
+
         if (currentUser.getTenant() == null) {
             return Page.empty(pageable);
         }
+
         Long tenantId = currentUser.getTenant().getId();
-        if (authorizationService.hasAuthority(currentUser, "AUDIT_LOG_READ")) {
-            return expenseRepository.findAllByTenantId(tenantId, pageable).map(expenseMapper::toResponse);
-        }
-        if (authorizationService.hasAuthority(currentUser, "EXPENSE_APPROVE")) {
-            List<Long> managedDeptIds = departmentManagementService.findByManagersId(currentUser.getId())
-                    .stream()
-                    .map(Department::getId)
-                    .toList();
-            if (!managedDeptIds.isEmpty()) {
-                return expenseRepository.findAllByDepartmentIdIn(managedDeptIds, pageable)
-                        .map(expenseMapper::toResponse);
-            }
-        }
-        if (authorizationService.hasAuthority(currentUser, "EXPENSE_PROCESS")) {
-            return expenseRepository.findAllByTenantIdAndStatus(tenantId, ExpenseStatus.APPROVED, pageable)
+
+        if (authorizationService.hasAuthority(currentUser, UserPermission.EXPENSE_READ_ALL.name())) {
+            return expenseRepository.findAllWithFilters(tenantId, filterDepartmentId, status, pageable)
                     .map(expenseMapper::toResponse);
         }
-        return expenseRepository.findAllByOwnerId(currentUser.getId(), pageable)
+
+        if (currentUser.getDepartment() == null) {
+            return Page.empty(pageable);
+        }
+
+        return expenseRepository.findByDepartmentIdWithStatus(currentUser.getDepartment().getId(), status, pageable)
                 .map(expenseMapper::toResponse);
     }
 

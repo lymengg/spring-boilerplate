@@ -20,6 +20,8 @@ public class UserManagementMapper {
                 .lastName(user.getLastName())
                 .enabled(user.getEnabled())
                 .accountNonLocked(user.getAccountNonLocked())
+                .departmentId(user.getDepartment() != null ? user.getDepartment().getId() : null)
+                .departmentName(user.getDepartment() != null ? user.getDepartment().getName() : null)
                 .roles(user.getRoles().stream().map(Role::getName).collect(Collectors.toSet()))
                 .permissions(getAllPermissions(user).stream().map(Enum::name).collect(Collectors.toSet()))
                 .mfaEnabled(user.getMfaEnabled())

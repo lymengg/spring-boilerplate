@@ -1,8 +1,10 @@
 package com.example.demo.controller;
 
+import com.example.demo.entity.Department;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
+import com.example.demo.repository.DepartmentRepository;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
@@ -52,6 +54,9 @@ class UserManagementControllerIntegrationTest {
     private TenantRepository tenantRepository;
 
     @Autowired
+    private DepartmentRepository departmentRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -78,6 +83,7 @@ class UserManagementControllerIntegrationTest {
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
 
         Tenant tenant = tenantRepository.save(Tenant.builder().name("Test Tenant").build());
+        Department dept = departmentRepository.save(Department.builder().name("Test Dept").tenant(tenant).build());
 
         User admin = createUser("adminuser", "admin@example.com", adminRole, null);
         User manager = createUser("manager", "manager@example.com", managerRole, tenant);
@@ -198,6 +204,34 @@ class UserManagementControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Admin can reassign user to a different department in the same tenant")
+    void adminCanReassignDepartment() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+        Department newDept = departmentRepository.save(Department.builder().name("New Dept").tenant(tenant).build());
+
+        mockMvc.perform(put("/api/management/users/{id}", regularUserId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("departmentId", newDept.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.departmentId").value(newDept.getId()))
+                .andExpect(jsonPath("$.data.departmentName").value("New Dept"));
+    }
+
+    @Test
+    @DisplayName("Cannot reassign user to a department in a different tenant")
+    void cannotReassignToOtherTenantDepartment() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant 2").build());
+        Department otherDept = departmentRepository.save(Department.builder().name("Other Dept 2").tenant(otherTenant).build());
+
+        mockMvc.perform(put("/api/management/users/{id}", regularUserId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("departmentId", otherDept.getId()))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
     @DisplayName("Regular user cannot update other user")
     void regularUserCannotUpdate() throws Exception {
         mockMvc.perform(put("/api/management/users/{id}", regularUserId)
@@ -307,6 +341,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("Admin can create a user with role and tenant")
     void adminCanCreateUser() throws Exception {
         Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept", tenant.getId()).orElseThrow();
         Map<String, Object> body = Map.of(
                 "username", "createduser",
                 "email", "created@example.com",
@@ -314,7 +349,8 @@ class UserManagementControllerIntegrationTest {
                 "firstName", "Created",
                 "lastName", "User",
                 "roleName", "EMPLOYEE",
-                "tenantId", tenant.getId());
+                "tenantId", tenant.getId(),
+                "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + adminToken)
@@ -329,10 +365,13 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("User manager can create a user in their tenant with default role")
     void userManagerCanCreateUserInTenant() throws Exception {
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept",
+                tenantRepository.findByName("Test Tenant").orElseThrow().getId()).orElseThrow();
         Map<String, Object> body = Map.of(
                 "username", "createduser",
                 "email", "created@example.com",
-                "password", "SecurePass123!");
+                "password", "SecurePass123!",
+                "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + managerToken)
@@ -346,11 +385,14 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("User manager cannot create a user with ADMIN role")
     void userManagerCannotCreateAdmin() throws Exception {
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept",
+                tenantRepository.findByName("Test Tenant").orElseThrow().getId()).orElseThrow();
         Map<String, Object> body = Map.of(
                 "username", "createduser",
                 "email", "created@example.com",
                 "password", "SecurePass123!",
-                "roleName", "PLATFORM_ADMIN");
+                "roleName", "PLATFORM_ADMIN",
+                "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + managerToken)
@@ -363,11 +405,13 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("User manager cannot create a user in a different tenant")
     void userManagerCannotCreateUserInOtherTenant() throws Exception {
         Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant").build());
+        Department otherDept = departmentRepository.save(Department.builder().name("Other Dept").tenant(otherTenant).build());
         Map<String, Object> body = Map.of(
                 "username", "createduser",
                 "email", "created@example.com",
                 "password", "SecurePass123!",
-                "tenantId", otherTenant.getId());
+                "tenantId", otherTenant.getId(),
+                "departmentId", otherDept.getId());
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + managerToken)
@@ -379,10 +423,13 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("Regular user cannot create a user")
     void regularUserCannotCreateUser() throws Exception {
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept",
+                tenantRepository.findByName("Test Tenant").orElseThrow().getId()).orElseThrow();
         Map<String, Object> body = Map.of(
                 "username", "createduser",
                 "email", "created@example.com",
-                "password", "SecurePass123!");
+                "password", "SecurePass123!",
+                "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + userToken)
@@ -408,10 +455,13 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("Creating a user with a duplicate username returns 400")
     void duplicateUsernameReturns400() throws Exception {
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept",
+                tenantRepository.findByName("Test Tenant").orElseThrow().getId()).orElseThrow();
         Map<String, Object> body = Map.of(
                 "username", "testuser",
                 "email", "unique@example.com",
-                "password", "SecurePass123!");
+                "password", "SecurePass123!",
+                "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + adminToken)
@@ -423,10 +473,13 @@ class UserManagementControllerIntegrationTest {
     @Test
     @DisplayName("Weak password on user creation returns 400")
     void weakPasswordReturns400() throws Exception {
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept",
+                tenantRepository.findByName("Test Tenant").orElseThrow().getId()).orElseThrow();
         Map<String, Object> body = Map.of(
                 "username", "createduser",
                 "email", "created@example.com",
-                "password", "weak");
+                "password", "weak",
+                "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
                         .header("Authorization", "Bearer " + adminToken)

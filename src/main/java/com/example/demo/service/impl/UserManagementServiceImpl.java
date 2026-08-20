@@ -9,6 +9,7 @@ import com.example.demo.dto.UserMfaToggleRequest;
 import com.example.demo.dto.UserResponse;
 import com.example.demo.dto.UserRoleAssignmentRequest;
 import com.example.demo.dto.UserUpdateRequest;
+import com.example.demo.entity.Department;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
@@ -16,6 +17,7 @@ import com.example.demo.mapper.UserManagementMapper;
 import com.example.demo.security.service.AuthorizationService;
 import com.example.demo.security.service.ClientIpResolver;
 import com.example.demo.service.AuditLogService;
+import com.example.demo.service.DepartmentManagementService;
 import com.example.demo.service.RoleManagementService;
 import com.example.demo.service.TenantManagementService;
 import com.example.demo.service.UserManagementService;
@@ -38,6 +40,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final UserService userService;
     private final RoleManagementService roleManagementService;
     private final TenantManagementService tenantManagementService;
+    private final DepartmentManagementService departmentManagementService;
     private final AuthorizationService authorizationService;
     private final AuditLogService auditLogService;
     private final UserManagementMapper userManagementMapper;
@@ -62,6 +65,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
 
         Tenant tenant = resolveTenantForCreation(currentUser, request.getTenantId());
+        Department department = resolveDepartmentForCreation(currentUser, tenant, request.getDepartmentId());
 
         String roleName = request.getRoleName() == null || request.getRoleName().isBlank()
                 ? Roles.EMPLOYEE : request.getRoleName().toUpperCase();
@@ -76,6 +80,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .tenant(tenant)
+                .department(department)
                 .build();
         user.getRoles().add(role);
 
@@ -130,6 +135,13 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
         if (request.getLastName() != null) {
             user.setLastName(request.getLastName());
+        }
+        if (request.getDepartmentId() != null) {
+            Department department = departmentManagementService.findById(request.getDepartmentId());
+            if (user.getTenant() == null || !user.getTenant().getId().equals(department.getTenant().getId())) {
+                throw new IllegalArgumentException("Department must belong to the same tenant");
+            }
+            user.setDepartment(department);
         }
 
         User updated = userService.save(user);
@@ -255,6 +267,14 @@ public class UserManagementServiceImpl implements UserManagementService {
             throw new AccessDeniedException("Cannot create user in a different tenant");
         }
         return tenantManagementService.findById(tenantId);
+    }
+
+    private Department resolveDepartmentForCreation(User creator, Tenant tenant, Long departmentId) {
+        Department department = departmentManagementService.findById(departmentId);
+        if (tenant == null || !tenant.getId().equals(department.getTenant().getId())) {
+            throw new IllegalArgumentException("Department must belong to the same tenant");
+        }
+        return department;
     }
 
     private User findAccessibleUser(Long id, User currentUser) {

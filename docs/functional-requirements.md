@@ -118,13 +118,13 @@ This requirements document covers:
 | Delete role | Yes | No | No | No | No | No |
 | Assign permission | Yes | No | No | No | No | No |
 | **Expense Management** |
-| List expenses | Yes (all) | Yes (tenant) | Yes (dept) | Yes (own) | Yes (all tenant) | Yes (approved) |
-| Create expense | Yes | Yes | Yes | Yes | No | No |
+| List expenses | Yes (all) | Yes (tenant) | Yes (dept) | Yes (dept) | Yes (all tenant) | Yes (all tenant) |
+| Create expense | No | Yes | Yes | Yes | No | No |
 | Update expense | Yes | Yes | Yes (dept) | Yes (own, PENDING) | No | No |
 | Cancel expense | Yes | Yes | Yes (dept) | Yes (own, PENDING) | No | No |
-| Approve expense | Yes | No | Yes (dept) | No | No | No |
-| Reject expense | Yes | No | Yes (dept) | No | No | No |
-| Process expense | Yes | No | No | No | No | Yes |
+| Approve expense | Yes | Yes | Yes (dept) | No | No | No |
+| Reject expense | Yes | Yes | Yes (dept) | No | No | No |
+| Process expense | Yes | Yes | No | No | No | Yes |
 | **Audit Log** |
 | View audit logs | Yes (all) | No | No | No | Yes (tenant) | No |
 
@@ -386,11 +386,12 @@ This requirements document covers:
 - Owner or authorized manager can edit PENDING expenses
 
 **Viewing Scope by Role:**
-- Super admin: all expenses across all tenants
-- AUDITOR: all expenses in their tenant
-- DEPARTMENT_MANAGER: expenses in all departments they manage
-- FINANCE: approved expenses in their tenant
-- EMPLOYEE: only their own expenses
+- Super admin: all expenses across all tenants (filterable by tenant, department, status)
+- TENANT_ADMIN: all expenses in their tenant (filterable by department, status)
+- AUDITOR: all expenses in their tenant (filterable by department, status)
+- DEPARTMENT_MANAGER: expenses in their own department (approval/rejection still allowed in any managed department)
+- FINANCE: all expenses in their tenant (filterable by department, status)
+- EMPLOYEE: expenses in their department
 
 **Error Conditions:**
 - Invalid status transition → 409

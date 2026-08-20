@@ -68,6 +68,7 @@ class ExpenseControllerIntegrationTest {
     private String otherEmployeeToken;
     private String managerToken;
     private String financeToken;
+    private String auditorToken;
     private String adminToken;
     private Long expenseId;
     private Long otherDeptExpenseId;
@@ -86,13 +87,15 @@ class ExpenseControllerIntegrationTest {
         Role managerRole = roleRepository.findByName("DEPARTMENT_MANAGER").orElseThrow();
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
         Role financeRole = roleRepository.findByName("FINANCE").orElseThrow();
+        Role auditorRole = roleRepository.findByName("AUDITOR").orElseThrow();
 
         User employee = createUser("employee", "employee@example.com", employeeRole, tenant1, dept1);
         User otherDeptEmployee = createUser("otherdeptemp", "otherdeptemp@example.com", employeeRole, tenant1, dept2);
         User otherEmployee = createUser("otheremp", "otheremp@example.com", employeeRole, tenant2, otherDept);
         User manager = createUser("manager", "manager@example.com", managerRole, tenant1, dept1);
-        User finance = createUser("finance", "finance@example.com", financeRole, tenant1, null);
-        User admin = createUser("adminexp", "adminexp@example.com", adminRole, tenant1, null);
+        User finance = createUser("finance", "finance@example.com", financeRole, tenant1, dept1);
+        User auditor = createUser("auditor", "auditor@example.com", auditorRole, tenant1, dept1);
+        User admin = createUser("adminexp", "adminexp@example.com", adminRole, null, null);
 
         dept1.getManagers().add(manager);
         departmentRepository.save(dept1);
@@ -102,6 +105,7 @@ class ExpenseControllerIntegrationTest {
         otherEmployeeToken = generateToken(otherEmployee.getUsername());
         managerToken = generateToken(manager.getUsername());
         financeToken = generateToken(finance.getUsername());
+        auditorToken = generateToken(auditor.getUsername());
         adminToken = generateToken(admin.getUsername());
 
         Expense expense = Expense.builder()
@@ -205,6 +209,35 @@ class ExpenseControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Employee can view a teammate's expense in the same department")
+    void employeeCanViewTeammateExpense() throws Exception {
+        User teammate = createUser("teammate", "teammate@example.com",
+                roleRepository.findByName("EMPLOYEE").orElseThrow(),
+                tenantRepository.findByName("Tenant 1").orElseThrow(),
+                departmentRepository.findByNameAndTenantId("Dept 1",
+                        tenantRepository.findAll().stream().filter(t -> t.getName().equals("Tenant 1")).findFirst().orElseThrow().getId())
+                        .orElseThrow());
+        Expense teammateExpense = Expense.builder()
+                .title("Team lunch")
+                .description("Team lunch")
+                .amount(BigDecimal.valueOf(15.00))
+                .category("Food")
+                .status(ExpenseStatus.PENDING)
+                .owner(teammate)
+                .department(departmentRepository.findByNameAndTenantId("Dept 1",
+                        tenantRepository.findAll().stream().filter(t -> t.getName().equals("Tenant 1")).findFirst().orElseThrow().getId())
+                        .orElseThrow())
+                .tenant(tenantRepository.findByName("Tenant 1").orElseThrow())
+                .build();
+        teammateExpense = expenseRepository.save(teammateExpense);
+
+        mockMvc.perform(get("/api/expenses/{id}", teammateExpense.getId())
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(teammateExpense.getId()));
+    }
+
+    @Test
     @DisplayName("Manager can approve an expense in their department")
     void managerCanApproveDepartmentExpense() throws Exception {
         mockMvc.perform(post("/api/expenses/{id}/approve", expenseId)
@@ -283,20 +316,76 @@ class ExpenseControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Manager managing multiple departments sees expenses from all managed departments")
-    void managerSeesExpensesFromAllManagedDepartments() throws Exception {
+    @DisplayName("Super admin sees all expenses across tenants without a tenant filter")
+    void superAdminSeesAllExpensesAcrossTenants() throws Exception {
+        mockMvc.perform(get("/api/expenses")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(3));
+    }
+
+    @Test
+    @DisplayName("Super admin can filter expenses by tenant")
+    void superAdminCanFilterByTenant() throws Exception {
+        Tenant tenant1 = tenantRepository.findByName("Tenant 1").orElseThrow();
+        mockMvc.perform(get("/api/expenses")
+                        .param("tenantId", String.valueOf(tenant1.getId()))
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("Finance sees all expenses in their tenant across departments")
+    void financeSeesAllTenantExpenses() throws Exception {
+        mockMvc.perform(get("/api/expenses")
+                        .header("Authorization", "Bearer " + financeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("Finance can filter tenant expenses by department")
+    void financeCanFilterByDepartment() throws Exception {
         Department dept2 = departmentRepository.findByNameAndTenantId("Dept 2",
                 tenantRepository.findAll().stream().filter(t -> t.getName().equals("Tenant 1")).findFirst().orElseThrow().getId())
                 .orElseThrow();
-        User multiManager = userRepository.findByUsername("manager").orElseThrow();
-        dept2.getManagers().add(multiManager);
-        departmentRepository.save(dept2);
+        mockMvc.perform(get("/api/expenses")
+                        .param("departmentId", String.valueOf(dept2.getId()))
+                        .header("Authorization", "Bearer " + financeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+    }
 
+    @Test
+    @DisplayName("Employee sees only their department expenses")
+    void employeeSeesOnlyDepartmentExpenses() throws Exception {
+        mockMvc.perform(get("/api/expenses")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("Auditor cannot process an expense")
+    void auditorCannotProcessExpense() throws Exception {
+        Expense expense = expenseRepository.findById(expenseId).orElseThrow();
+        expense.setStatus(ExpenseStatus.APPROVED);
+        expenseRepository.save(expense);
+
+        mockMvc.perform(post("/api/expenses/{id}/process", expenseId)
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Manager sees expenses from their department")
+    void managerSeesDepartmentExpenses() throws Exception {
         mockMvc.perform(get("/api/expenses")
                         .header("Authorization", "Bearer " + managerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray())
-                .andExpect(jsonPath("$.data.content.length()").value(2));
+                .andExpect(jsonPath("$.data.content.length()").value(1));
     }
 
     @Test

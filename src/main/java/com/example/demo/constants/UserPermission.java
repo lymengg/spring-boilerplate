@@ -30,6 +30,7 @@ public enum UserPermission {
 
     // Expense management
     EXPENSE_READ,
+    EXPENSE_READ_ALL,
     EXPENSE_CREATE,
     EXPENSE_UPDATE,
     EXPENSE_DELETE,

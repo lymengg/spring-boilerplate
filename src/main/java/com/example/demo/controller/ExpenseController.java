@@ -4,6 +4,7 @@ import com.example.demo.dto.ApiResponse;
 import com.example.demo.dto.ExpenseCreateRequest;
 import com.example.demo.dto.ExpenseResponse;
 import com.example.demo.dto.ExpenseUpdateRequest;
+import com.example.demo.entity.ExpenseStatus;
 import com.example.demo.service.ApprovalService;
 import com.example.demo.service.ExpenseService;
 import com.example.demo.service.FinanceProcessingService;
@@ -25,8 +26,14 @@ public class ExpenseController {
     private final FinanceProcessingService financeProcessingService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<ExpenseResponse>>> getExpenses(Pageable pageable, Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.success("Expenses retrieved", expenseService.getExpenses(pageable, authentication.getName())));
+    public ResponseEntity<ApiResponse<Page<ExpenseResponse>>> getExpenses(
+            Pageable pageable,
+            @RequestParam(required = false) ExpenseStatus status,
+            @RequestParam(required = false) Long tenantId,
+            @RequestParam(required = false) Long departmentId,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("Expenses retrieved",
+                expenseService.getExpenses(pageable, status, tenantId, departmentId, authentication.getName())));
     }
 
     @GetMapping("/{id}")

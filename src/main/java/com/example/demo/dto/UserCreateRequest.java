@@ -3,6 +3,7 @@ package com.example.demo.dto;
 import com.example.demo.validation.Password;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,4 +39,7 @@ public class UserCreateRequest {
     private String roleName;
 
     private Long tenantId;
+
+    @NotNull(message = "Department is required")
+    private Long departmentId;
 }

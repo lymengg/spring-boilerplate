@@ -80,7 +80,10 @@ public class AuthorizationService {
         if (!canAccessTenant(user, expense.getTenant())) {
             return false;
         }
-        if (hasAuthority(user, "EXPENSE_PROCESS") || hasAuthority(user, "AUDIT_LOG_READ")) {
+        if (hasAuthority(user, "EXPENSE_PROCESS") || hasAuthority(user, "EXPENSE_READ_ALL")) {
+            return true;
+        }
+        if (belongsToDepartment(user, expense.getDepartment())) {
             return true;
         }
         return (hasAuthority(user, "EXPENSE_APPROVE") || hasAuthority(user, "EXPENSE_REJECT"))
