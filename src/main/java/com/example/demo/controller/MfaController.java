@@ -1,6 +1,5 @@
 package com.example.demo.controller;
 
-import com.example.demo.constants.Authorities;
 import com.example.demo.dto.*;
 import com.example.demo.service.AuthService;
 import jakarta.validation.Valid;
@@ -18,7 +17,7 @@ public class MfaController {
     private final AuthService authService;
 
     @PostMapping("/enable")
-    @PreAuthorize("hasAuthority('" + Authorities.MFA_MANAGE + "')")
+    @PreAuthorize("hasAuthority('MFA_MANAGE')")
     public ResponseEntity<ApiResponse<MfaSetupResponse>> enableMfa(
             @Valid @RequestBody MfaEnableRequest request,
             Authentication authentication) {
@@ -27,7 +26,7 @@ public class MfaController {
     }
 
     @PostMapping("/verify-setup")
-    @PreAuthorize("hasAuthority('" + Authorities.MFA_MANAGE + "')")
+    @PreAuthorize("hasAuthority('MFA_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> verifyMfaSetup(
             @Valid @RequestBody MfaVerifySetupRequest request,
             Authentication authentication) {
@@ -36,7 +35,7 @@ public class MfaController {
     }
 
     @PostMapping("/disable")
-    @PreAuthorize("hasAuthority('" + Authorities.MFA_MANAGE + "')")
+    @PreAuthorize("hasAuthority('MFA_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> disableMfa(
             @Valid @RequestBody MfaDisableRequest request,
             Authentication authentication) {

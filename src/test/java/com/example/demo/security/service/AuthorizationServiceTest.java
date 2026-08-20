@@ -1,6 +1,5 @@
 package com.example.demo.security.service;
 
-import com.example.demo.constants.Authorities;
 import com.example.demo.constants.Roles;
 import com.example.demo.constants.UserPermission;
 import com.example.demo.entity.Department;

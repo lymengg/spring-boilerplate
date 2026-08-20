@@ -128,9 +128,9 @@ class ExpenseServiceTest {
     void getExpensesFiltersByOwnerForEmployee() {
         when(userService.getByUsername("employee")).thenReturn(employee);
         when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
-        when(authorizationService.hasAuthority(employee, com.example.demo.constants.Authorities.AUDIT_LOG_READ)).thenReturn(false);
-        when(authorizationService.hasAuthority(employee, com.example.demo.constants.Authorities.EXPENSE_APPROVE)).thenReturn(false);
-        when(authorizationService.hasAuthority(employee, com.example.demo.constants.Authorities.EXPENSE_PROCESS)).thenReturn(false);
+        when(authorizationService.hasAuthority(employee, "AUDIT_LOG_READ")).thenReturn(false);
+        when(authorizationService.hasAuthority(employee, "EXPENSE_APPROVE")).thenReturn(false);
+        when(authorizationService.hasAuthority(employee, "EXPENSE_PROCESS")).thenReturn(false);
 
         PageRequest pageable = PageRequest.of(0, 10);
         when(expenseRepository.findAllByOwnerId(employee.getId(), pageable))

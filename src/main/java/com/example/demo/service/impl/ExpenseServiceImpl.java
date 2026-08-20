@@ -10,7 +10,6 @@ import com.example.demo.entity.ExpenseStatus;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.ExpenseMapper;
 import com.example.demo.repository.ExpenseRepository;
-import com.example.demo.constants.Authorities;
 import com.example.demo.security.service.AuthorizationService;
 import com.example.demo.service.AuditLogService;
 import com.example.demo.service.DepartmentManagementService;
@@ -49,10 +48,10 @@ public class ExpenseServiceImpl implements ExpenseService {
             return Page.empty(pageable);
         }
         Long tenantId = currentUser.getTenant().getId();
-        if (authorizationService.hasAuthority(currentUser, Authorities.AUDIT_LOG_READ)) {
+        if (authorizationService.hasAuthority(currentUser, "AUDIT_LOG_READ")) {
             return expenseRepository.findAllByTenantId(tenantId, pageable).map(expenseMapper::toResponse);
         }
-        if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_APPROVE)) {
+        if (authorizationService.hasAuthority(currentUser, "EXPENSE_APPROVE")) {
             List<Long> managedDeptIds = departmentManagementService.findByManagersId(currentUser.getId())
                     .stream()
                     .map(Department::getId)
@@ -62,7 +61,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                         .map(expenseMapper::toResponse);
             }
         }
-        if (authorizationService.hasAuthority(currentUser, Authorities.EXPENSE_PROCESS)) {
+        if (authorizationService.hasAuthority(currentUser, "EXPENSE_PROCESS")) {
             return expenseRepository.findAllByTenantIdAndStatus(tenantId, ExpenseStatus.APPROVED, pageable)
                     .map(expenseMapper::toResponse);
         }
