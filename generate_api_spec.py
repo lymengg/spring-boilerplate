@@ -155,7 +155,7 @@ def generate_pdf():
     story.append(Paragraph("Authentication: JWT Bearer Token", body_style))
     story.append(Paragraph("Content-Type: application/json", body_style))
     story.append(Spacer(1, 30))
-    story.append(Paragraph("Total Endpoints: 48 (7 public + 41 authenticated)", body_style))
+    story.append(Paragraph("Total Endpoints: 46 (5 public + 41 authenticated)", body_style))
     story.append(PageBreak())
 
     # ══════════════════════════════════════════════════════════════

@@ -1396,6 +1396,16 @@ All list endpoints support pagination via query parameters:
 - `POST /api/auth/forgot-password` — Password reset request
 - `POST /api/auth/reset-password` — Password reset
 
+### Expenses
+- `GET /api/expenses` — List expenses (paginated, filtered)
+- `GET /api/expenses/{id}` — Get expense by ID
+- `POST /api/expenses` — Create expense
+- `PUT /api/expenses/{id}` — Update expense
+- `POST /api/expenses/{id}/cancel` — Cancel expense
+- `POST /api/expenses/{id}/approve` — Approve expense
+- `POST /api/expenses/{id}/reject` — Reject expense
+- `POST /api/expenses/{id}/process` — Process for payment
+
 ### User Management
 - `GET /api/management/users` — List users
 - `GET /api/management/users/{id}` — Get user
