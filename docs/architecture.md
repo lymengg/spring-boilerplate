@@ -199,8 +199,8 @@ Response → ApiResponse<T>       ← Standardized JSON response envelope
 - Passwords are hashed with **BCrypt** (strength 12).
 
 ### Token/Session Mechanism
-- **Access token**: Short-lived (15 minutes), contains `sub`, `roles`, `userId`, `tenantId`, `departmentId`.
-- **Refresh token**: Long-lived (7 days), stored in Redis as SHA-256 hash. Rotated on every refresh.
+- **Access token**: Short-lived (15 minutes), contains `jti`, `sub`, `roles`, `userId`, `tenantId`, `departmentId`. Blacklistable via Redis (JTI-based).
+- **Refresh token**: Long-lived (7 days), stored in HTTP-only, Secure, SameSite=Strict cookie + Redis (SHA-256 hash). Rotated on every refresh.
 - **MFA pending token**: Temporary token issued after credential verification but before MFA completion (5 minutes).
 
 ### Authentication Filters
@@ -385,6 +385,12 @@ Custom roles can be created but cannot modify built-in roles.
 - BCrypt password hashing (strength 12).
 - MFA support: TOTP (authenticator apps) and Email OTP.
 
+### Token Management
+- **Access tokens**: Short-lived (15 min), JWT with `jti` claim for blacklisting.
+- **Refresh tokens**: Long-lived (7 days), stored in HTTP-only, Secure, SameSite=Strict cookie + Redis (SHA-256 hash).
+- **Token blacklisting**: On logout, the access token's JTI is stored in Redis with TTL matching remaining lifetime.
+- **Refresh token rotation**: Old refresh token revoked on every refresh; new one issued.
+
 ### Authorization
 - Role-based with fine-grained permissions.
 - `@PreAuthorize` on service methods.
@@ -489,6 +495,8 @@ Custom roles can be created but cannot modify built-in roles.
 |----------|--------|-------------|--------|
 | Stateless JWT | Scalability, no server-side session storage | Refresh token rotation required for security | Active |
 | Redis for token storage | Fast lookups, TTL support, shared across instances | Additional infrastructure dependency | Active |
+| Access token blacklisting | Enable immediate token revocation on logout | Redis dependency for blacklist; fail-open if Redis unavailable | Active |
+| Refresh token in HTTP-only cookie | Prevent XSS attacks from stealing refresh tokens | Requires HTTPS; cookie-based flow for frontend | Active |
 | Multi-tenancy via tenant_id | Data isolation, single database simplicity | All queries must be tenant-scoped | Active |
 | Separate MFA service | Clean separation of TOTP/Email logic | Additional service class | Active |
 | BCrypt strength 12 | Strong password hashing | Higher CPU cost per login | Active |

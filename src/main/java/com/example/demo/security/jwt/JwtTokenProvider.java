@@ -18,6 +18,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -68,6 +69,7 @@ public class JwtTokenProvider {
         Date expiry = new Date(now.getTime() + jwtConfig.getAccessTokenExpiration());
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(userDetails.getUsername())
                 .claim("roles", roles)
                 .claim("userId", userId)
@@ -165,6 +167,16 @@ public class JwtTokenProvider {
 
     public Long getDepartmentIdFromToken(String token) {
         return parseClaims(token).get("departmentId", Long.class);
+    }
+
+    public String getIdFromToken(String token) {
+        return parseClaims(token).getId();
+    }
+
+    public long getRemainingExpiration(String token) {
+        Claims claims = parseClaims(token);
+        Date expiration = claims.getExpiration();
+        return expiration.getTime() - System.currentTimeMillis();
     }
 
     public String generateMfaPendingToken(String username) {

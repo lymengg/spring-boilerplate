@@ -49,8 +49,8 @@ The application implements a multi-layered security model based on **Spring Secu
 
 | Token Type | Purpose | Expiration | Storage |
 |-----------|---------|------------|---------|
-| Access Token | API authentication | 15 minutes | Client-side only |
-| Refresh Token | Token renewal | 7 days | Redis (SHA-256 hash) |
+| Access Token | API authentication | 15 minutes | Client-side only; blacklistable via Redis (JTI) |
+| Refresh Token | Token renewal | 7 days | HTTP-only, Secure, SameSite=Strict cookie + Redis (SHA-256 hash) |
 | MFA Pending Token | Pre-MFA session | 5 minutes | Redis |
 
 ### Login Flow
@@ -58,13 +58,17 @@ The application implements a multi-layered security model based on **Spring Secu
 2. `LoginService.login()` checks account lockout state.
 3. `AuthenticationManager.authenticate()` verifies credentials via BCrypt.
 4. On success: if MFA is enabled, returns `MfaLoginResponse` with `mfaSessionToken`; otherwise, issues access + refresh tokens.
-5. On failure: increments `failedAttempts`, potentially locks the account.
-6. Refresh tokens are stored in Redis as SHA-256 hashes (never stored in plaintext).
+5. The `refreshToken` is set as an HTTP-only, Secure, SameSite=Strict cookie (not returned in response body).
+6. The `accessToken` is returned in the response body for the client to store and use in `Authorization: Bearer` header.
+7. On failure: increments `failedAttempts`, potentially locks the account.
+8. Refresh tokens are stored in Redis as SHA-256 hashes (never stored in plaintext).
 
 ### Logout Flow
 1. Client sends `POST /api/auth/logout` with `Authorization` header.
-2. `TokenService.logout()` revokes all refresh tokens for the user in Redis.
-3. Access token expires naturally (no server-side revocation needed for stateless JWT).
+2. `TokenService.logout()` blacklists the current access token's JTI in Redis (TTL = remaining token lifetime).
+3. `TokenService.logout()` revokes all refresh tokens for the user in Redis.
+4. The `refresh_token` cookie is cleared (max-age=0).
+5. The access token becomes unusable immediately (blacklisted), though it would otherwise expire in up to 15 minutes.
 
 ### Refresh Token Rotation
 - On every refresh, the old refresh token is revoked and a new one is issued.
@@ -192,8 +196,8 @@ Built-in roles are **immutable** — they cannot be updated, deleted, or have th
 - **MFA Pending Token**: JWT with HS512 signature. Claims: `sub` (username), `type`="mfa_pending".
 
 ### Token Storage
-- Access tokens: Client-side only (no server-side storage).
-- Refresh tokens: Redis (SHA-256 hash).
+- Access tokens: Client-side only. Blacklist (JTI + TTL) stored in Redis for revocation.
+- Refresh tokens: HTTP-only, Secure, SameSite=Strict cookie + Redis (SHA-256 hash).
 - MFA pending tokens: Redis (plaintext username mapping).
 
 ### Expiration
@@ -207,10 +211,10 @@ Built-in roles are **immutable** — they cannot be updated, deleted, or have th
 - All user refresh tokens revoked on password change/reset.
 
 ### Revocation
-- **Logout**: All refresh tokens revoked for the user.
-- **Password change**: All refresh tokens revoked.
-- **Password reset**: All refresh tokens revoked.
-- **Access tokens**: Not revocable (stateless); rely on short expiration.
+- **Logout**: Access token blacklisted (JTI stored in Redis with TTL). All refresh tokens revoked.
+- **Password change**: All refresh tokens revoked. Access token remains valid until expiration.
+- **Password reset**: All refresh tokens revoked. Access token remains valid until expiration.
+- **Access tokens**: Blacklistable via JTI-based Redis blacklist. Blacklisted tokens are rejected by `JwtAuthenticationFilter`.
 
 ### Concurrent Sessions
 - Single-session enforcement: Login revokes all existing refresh tokens.
@@ -241,7 +245,8 @@ Built-in roles are **immutable** — they cannot be updated, deleted, or have th
 - Configured with allowed origin from `AppProperties.frontendUrl`.
 - Allowed methods: GET, POST, PUT, PATCH, DELETE, OPTIONS.
 - Allowed headers: Authorization, Content-Type, X-Requested-With, Accept, Origin.
-- Credentials allowed. Max age: 3600 seconds.
+- Credentials allowed (required for refresh token cookie). Max age: 3600 seconds.
+- Frontend must configure `withCredentials: true` (fetch) or `credentials: 'include'` (axios) for cookie-based refresh token.
 
 ### CSRF
 - **Disabled** (stateless API with JWT tokens).
@@ -415,7 +420,7 @@ Built-in roles are **immutable** — they cannot be updated, deleted, or have th
 | ID | Severity | Area | Finding | Evidence | Recommendation |
 |----|----------|------|---------|----------|----------------|
 | SF-01 | Medium | Infrastructure | Redis has no authentication configured | `application.properties` and `docker-compose.yml` have no Redis password | Configure Redis AUTH in production |
-| SF-02 | Medium | Token Security | Access tokens are not server-side revocable | Stateless JWT design; logout only revokes refresh tokens | Accept short expiration (15 min) or implement token blacklist |
+| SF-02 | Low | Token Security | ~~Access tokens are not server-side revocable~~ | Stateless JWT design; logout only revokes refresh tokens | **Resolved**: Access tokens now have JTI claims and are blacklistable via Redis on logout |
 | SF-03 | Low | Testing | Integration tests require running Redis | `application-test.properties` configures Redis on localhost | Use embedded Redis for tests |
 | SF-04 | Low | Configuration | H2 console enabled in dev profile | `spring.h2.console.enabled` not explicitly disabled | Disable H2 console or restrict access |
 | SF-05 | Low | Architecture | `RefreshToken` entity and repository exist but are unused | `RefreshTokenRepository` exists but is not injected by any service | Remove unused entity/repository or document intended use |

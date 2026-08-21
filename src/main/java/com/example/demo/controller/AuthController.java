@@ -2,8 +2,12 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.*;
 import com.example.demo.service.AuthService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -15,27 +19,54 @@ public class AuthController {
 
     private final AuthService authService;
 
+    private static final String REFRESH_TOKEN_COOKIE = "refresh_token";
+    private static final long REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
+
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<Object>> login(@Valid @RequestBody LoginRequest request) {
-        Object response = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+    public ResponseEntity<ApiResponse<Object>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletResponse response) {
+        Object loginResult = authService.login(request);
+
+        if (loginResult instanceof TokenResponse tokenResponse) {
+            addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
+            return ResponseEntity.ok(ApiResponse.success("Login successful", sanitizeTokenResponse(tokenResponse)));
+        }
+
+        return ResponseEntity.ok(ApiResponse.success("Login successful", loginResult));
     }
 
     @PostMapping("/mfa/verify")
-    public ResponseEntity<ApiResponse<TokenResponse>> verifyMfa(@Valid @RequestBody MfaVerifyRequest request) {
+    public ResponseEntity<ApiResponse<TokenResponse>> verifyMfa(
+            @Valid @RequestBody MfaVerifyRequest request,
+            HttpServletResponse response) {
         TokenResponse tokenResponse = authService.verifyMfa(request);
-        return ResponseEntity.ok(ApiResponse.success("MFA verification successful", tokenResponse));
+        addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
+        return ResponseEntity.ok(ApiResponse.success("MFA verification successful", sanitizeTokenResponse(tokenResponse)));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
-        TokenResponse tokenResponse = authService.refreshToken(request);
-        return ResponseEntity.ok(ApiResponse.success("Token refreshed", tokenResponse));
+    public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        String refreshToken = extractRefreshTokenFromCookie(request);
+        if (refreshToken == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Refresh token not found in cookie"));
+        }
+
+        TokenResponse tokenResponse = authService.refreshToken(refreshToken);
+        addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed", sanitizeTokenResponse(tokenResponse)));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(Authentication authentication) {
-        authService.logout(authentication);
+    public ResponseEntity<ApiResponse<Void>> logout(
+            Authentication authentication,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        String accessToken = extractAccessToken(request);
+        authService.logout(authentication, accessToken);
+        clearRefreshTokenCookie(response);
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
 
@@ -48,8 +79,10 @@ public class AuthController {
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
-            Authentication authentication) {
+            Authentication authentication,
+            HttpServletResponse response) {
         authService.changePassword(authentication, request);
+        clearRefreshTokenCookie(response);
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }
 
@@ -63,5 +96,60 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.<Void>success("Password reset successfully", null));
+    }
+
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(REFRESH_TOKEN_MAX_AGE)
+                .sameSite("Strict")
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    private void clearRefreshTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Strict")
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    private String extractRefreshTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (REFRESH_TOKEN_COOKIE.equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    private String extractAccessToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    /**
+     * Removes the refresh token from the response body since it's now in a cookie.
+     */
+    private TokenResponse sanitizeTokenResponse(TokenResponse tokenResponse) {
+        return TokenResponse.builder()
+                .accessToken(tokenResponse.getAccessToken())
+                .tokenType(tokenResponse.getTokenType())
+                .expiresIn(tokenResponse.getExpiresIn())
+                .username(tokenResponse.getUsername())
+                .roles(tokenResponse.getRoles())
+                .build();
     }
 }

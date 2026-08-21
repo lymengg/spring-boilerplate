@@ -9,9 +9,9 @@ public interface AuthService {
 
     TokenResponse verifyMfa(MfaVerifyRequest request);
 
-    TokenResponse refreshToken(RefreshTokenRequest request);
+    TokenResponse refreshToken(String refreshToken);
 
-    void logout(Authentication authentication);
+    void logout(Authentication authentication, String accessToken);
 
     UserProfileResponse getCurrentUser(Authentication authentication);
 
