@@ -75,23 +75,22 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should delegate refresh token to TokenService")
     void shouldDelegateRefreshToken() {
-        RefreshTokenRequest request = RefreshTokenRequest.builder().refreshToken("refresh").build();
         TokenResponse tokenResponse = TokenResponse.builder().accessToken("new").build();
 
-        when(tokenService.refreshToken(request, "unknown")).thenReturn(tokenResponse);
+        when(tokenService.refreshToken("refresh", "unknown")).thenReturn(tokenResponse);
 
-        TokenResponse result = authService.refreshToken(request);
+        TokenResponse result = authService.refreshToken("refresh");
 
         assertThat(result).isEqualTo(tokenResponse);
-        verify(tokenService).refreshToken(request, "unknown");
+        verify(tokenService).refreshToken("refresh", "unknown");
     }
 
     @Test
     @DisplayName("Should delegate logout to TokenService")
     void shouldDelegateLogout() {
-        authService.logout(auth());
+        authService.logout(auth(), "access-token");
 
-        verify(tokenService).logout("testuser", "unknown");
+        verify(tokenService).logout("testuser", "access-token", "unknown");
     }
 
     @Test

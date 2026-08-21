@@ -41,7 +41,7 @@ The system is a **multi-tenant expense management application** that enables org
 - The system operates as a REST API backend
 - All tenant data is logically isolated via tenant ID filtering
 - Authentication is stateless via JWT tokens
-- Session management is handled via Redis-backed refresh tokens
+- Session management is handled via Redis-backed refresh tokens in HTTP-only cookies
 
 ---
 
@@ -231,9 +231,10 @@ com.example.demo
 
 ### Authentication
 - Users authenticate using a username (or email) and password
-- Upon successful verification, the system issues a short-lived JWT access token (15 minutes) and a longer-lived refresh token (7 days)
+- Upon successful verification, the system issues a short-lived JWT access token (15 minutes) and sets a refresh token (7 days) as an HTTP-only cookie
 - If multi-factor authentication is enabled, the user must also provide a one-time code after password verification
 - Refresh tokens are stored securely as SHA-256 hashes in Redis and are rotated on each use
+- Access tokens are blacklisted on logout via JTI-based Redis blacklist
 - All tokens are revoked on logout or password change
 
 ### Authorization

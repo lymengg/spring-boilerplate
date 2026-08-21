@@ -149,4 +149,28 @@ class JwtTokenProviderTest {
 
         assertThat(userId).isNull();
     }
+
+    @Test
+    @DisplayName("Should extract JTI from access token")
+    void shouldExtractJtiFromToken() {
+        Authentication auth = createAuthentication();
+        String token = jwtTokenProvider.generateAccessToken(auth);
+
+        String jti = jwtTokenProvider.getIdFromToken(token);
+
+        assertThat(jti).isNotNull();
+        assertThat(jti).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("Should calculate remaining expiration for access token")
+    void shouldCalculateRemainingExpiration() {
+        Authentication auth = createAuthentication();
+        String token = jwtTokenProvider.generateAccessToken(auth);
+
+        long remaining = jwtTokenProvider.getRemainingExpiration(token);
+
+        assertThat(remaining).isGreaterThan(0);
+        assertThat(remaining).isLessThanOrEqualTo(900000L);
+    }
 }

@@ -35,13 +35,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public TokenResponse refreshToken(RefreshTokenRequest request) {
-        return tokenService.refreshToken(request, getClientIp());
+    public TokenResponse refreshToken(String refreshToken) {
+        return tokenService.refreshToken(refreshToken, getClientIp());
     }
 
     @Override
-    public void logout(Authentication authentication) {
-        tokenService.logout(authentication.getName(), getClientIp());
+    public void logout(Authentication authentication, String accessToken) {
+        tokenService.logout(authentication.getName(), accessToken, getClientIp());
     }
 
     @Override

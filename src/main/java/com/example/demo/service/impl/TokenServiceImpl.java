@@ -1,7 +1,6 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.config.JwtConfig;
-import com.example.demo.dto.RefreshTokenRequest;
 import com.example.demo.dto.TokenResponse;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
@@ -9,6 +8,7 @@ import com.example.demo.security.audit.SecurityAuditLogger;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.example.demo.security.service.RefreshTokenService;
+import com.example.demo.security.service.TokenBlacklistService;
 import com.example.demo.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -16,6 +16,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
 
 /**
  * Single owner of the JWT lifecycle (creation, refresh, revocation). Centralizing
@@ -31,6 +33,7 @@ public class TokenServiceImpl implements TokenService {
     private final RefreshTokenService refreshTokenService;
     private final CustomUserDetailsService customUserDetailsService;
     private final SecurityAuditLogger securityAuditLogger;
+    private final TokenBlacklistService tokenBlacklistService;
 
     /**
      * Reuses Spring Security UserDetails to build the authentication object, so
@@ -59,9 +62,7 @@ public class TokenServiceImpl implements TokenService {
      */
     @Override
     @Transactional
-    public TokenResponse refreshToken(RefreshTokenRequest request, String ipAddress) {
-        String refreshToken = request.getRefreshToken();
-
+    public TokenResponse refreshToken(String refreshToken, String ipAddress) {
         if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
             throw new org.springframework.security.authentication.BadCredentialsException("Invalid refresh token");
         }
@@ -87,11 +88,24 @@ public class TokenServiceImpl implements TokenService {
     }
 
     /**
-     * Revokes all refresh tokens for the user, terminating any active sessions.
+     * Revokes the current access token (via blacklist) and all refresh tokens for the user,
+     * terminating any active sessions.
      */
     @Override
     @Transactional
-    public void logout(String username, String ipAddress) {
+    public void logout(String username, String accessToken, String ipAddress) {
+        if (accessToken != null) {
+            try {
+                String jti = jwtTokenProvider.getIdFromToken(accessToken);
+                long remainingMs = jwtTokenProvider.getRemainingExpiration(accessToken);
+                if (remainingMs > 0) {
+                    tokenBlacklistService.blacklistToken(jti, Duration.ofMillis(remainingMs));
+                }
+            } catch (Exception e) {
+                // Token may already be expired or malformed; continue with refresh token revocation
+            }
+        }
+
         refreshTokenService.revokeAllUserRefreshTokens(username);
         securityAuditLogger.logLogout(username, ipAddress);
     }

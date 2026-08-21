@@ -41,9 +41,9 @@ The application exposes a **RESTful API** for a multi-tenant expense management 
 
 1. **Authenticate**: `POST /api/auth/login` with credentials.
 2. **MFA** (if enabled): Use the `mfaSessionToken` from the login response to call `POST /api/auth/mfa/verify`.
-3. **Use Token**: Include the `accessToken` in the `Authorization: Bearer <token>` header for subsequent requests.
-4. **Refresh**: When the access token expires, call `POST /api/auth/refresh` with the `refreshToken`.
-5. **Logout**: Call `POST /api/auth/logout` to revoke all refresh tokens.
+3. **Use Token**: Include the `accessToken` in the `Authorization: Bearer <token>` header for subsequent requests. The `refreshToken` is automatically stored in an HTTP-only cookie.
+4. **Refresh**: When the access token expires, call `POST /api/auth/refresh` — the refresh token is sent automatically via cookie.
+5. **Logout**: Call `POST /api/auth/logout` to revoke the access token (blacklisted) and all refresh tokens, and clear the cookie.
 
 ### Required Headers
 
@@ -54,11 +54,11 @@ The application exposes a **RESTful API** for a multi-tenant expense management 
 
 ### Token Expiration
 
-| Token | Expiration |
-|-------|------------|
-| Access Token | 15 minutes |
-| Refresh Token | 7 days |
-| MFA Pending Token | 5 minutes |
+| Token | Expiration | Storage |
+|-------|------------|---------|
+| Access Token | 15 minutes | Client-side (memory/localStorage) |
+| Refresh Token | 7 days | HTTP-only, Secure, SameSite=Strict cookie |
+| MFA Pending Token | 5 minutes | Client-side (temporary) |
 
 ## 3. Authorization
 
@@ -173,12 +173,15 @@ All list endpoints support pagination via query parameters:
   "message": "Login successful",
   "data": {
     "accessToken": "eyJ...",
-    "refreshToken": "eyJ...",
+    "tokenType": "Bearer",
     "expiresIn": 900,
     "username": "john.doe",
     "roles": ["EMPLOYEE"]
   }
 }
+```
+
+**Note:** The `refreshToken` is set as an HTTP-only, Secure, SameSite=Strict cookie named `refresh_token`. It is not included in the response body.
 ```
 
 **Response (MFA required):**
@@ -223,12 +226,15 @@ All list endpoints support pagination via query parameters:
   "message": "MFA verification successful",
   "data": {
     "accessToken": "eyJ...",
-    "refreshToken": "eyJ...",
+    "tokenType": "Bearer",
     "expiresIn": 900,
     "username": "john.doe",
     "roles": ["EMPLOYEE"]
   }
 }
+```
+
+**Note:** The `refreshToken` is set as an HTTP-only cookie. It is not included in the response body.
 ```
 
 **Errors:**
@@ -240,16 +246,11 @@ All list endpoints support pagination via query parameters:
 
 #### POST /api/auth/refresh
 
-**Purpose**: Exchange a refresh token for a new access token and refresh token.
+**Purpose**: Exchange the refresh token (from cookie) for a new access token and refresh token.
 
-**Authentication**: Not required.
+**Authentication**: Not required (refresh token is sent via HTTP-only cookie).
 
-**Request Body:**
-```json
-{
-  "refreshToken": "string (required)"
-}
-```
+**Request Body:** None — the refresh token is read from the `refresh_token` cookie.
 
 **Response:**
 ```json
@@ -258,7 +259,7 @@ All list endpoints support pagination via query parameters:
   "message": "Token refreshed",
   "data": {
     "accessToken": "eyJ...",
-    "refreshToken": "eyJ...",
+    "tokenType": "Bearer",
     "expiresIn": 900,
     "username": "john.doe",
     "roles": ["EMPLOYEE"]
@@ -266,15 +267,17 @@ All list endpoints support pagination via query parameters:
 }
 ```
 
+**Note:** A new `refreshToken` is set as an HTTP-only cookie with the response.
+
 **Errors:**
-- `400`: Validation failed
+- `400`: Refresh token not found in cookie
 - `401`: Invalid or revoked refresh token
 
 ---
 
 #### POST /api/auth/logout
 
-**Purpose**: Revoke all refresh tokens for the authenticated user.
+**Purpose**: Revoke the current access token (blacklisted) and all refresh tokens for the authenticated user. Clears the refresh token cookie.
 
 **Authentication**: Required.
 
@@ -286,6 +289,8 @@ All list endpoints support pagination via query parameters:
   "data": null
 }
 ```
+
+**Note:** The `refresh_token` cookie is cleared (max-age=0). The access token is blacklisted in Redis until its natural expiration.
 
 ---
 
@@ -1594,7 +1599,7 @@ GET /api/expenses?sort=createdAt,asc&sort=title,desc
 
 ### Sensitive Response Fields
 - Passwords and MFA secrets are never included in API responses.
-- Refresh tokens are only returned immediately after issuance.
+- Refresh tokens are only stored in HTTP-only cookies, never returned in response bodies.
 
 ## 12. Integration Examples
 

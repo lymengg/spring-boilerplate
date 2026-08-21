@@ -1,6 +1,7 @@
 package com.example.demo.security.filter;
 
 import com.example.demo.security.jwt.JwtTokenProvider;
+import com.example.demo.security.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +26,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(
@@ -34,10 +36,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         try {
             String token = jwtTokenProvider.resolveToken(request);
-            
+
             if (StringUtils.hasText(token) && jwtTokenProvider.validateAccessToken(token)) {
+                String jti = jwtTokenProvider.getIdFromToken(token);
+
+                if (tokenBlacklistService.isTokenBlacklisted(jti)) {
+                    log.debug("Access token has been revoked (blacklisted jti: {})", jti);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 String username = jwtTokenProvider.getUsernameFromToken(token);
-                
+
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     var authentication = jwtTokenProvider.getAuthentication(token);
                     if (authentication instanceof UsernamePasswordAuthenticationToken authToken) {
@@ -49,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             log.error("Cannot set user authentication: {}", e.getMessage());
         }
-        
+
         filterChain.doFilter(request, response);
     }
 
