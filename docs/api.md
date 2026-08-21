@@ -408,108 +408,6 @@ All list endpoints support pagination via query parameters:
 
 ---
 
-### MFA Management
-
-All MFA management endpoints require `MFA_MANAGE` authority (PLATFORM_ADMIN or TENANT_ADMIN only). MFA status is included in user management responses and `GET /api/auth/me`.
-
----
-
-#### POST /api/mfa/enable
-
-**Purpose**: Initiate MFA setup for the authenticated user.
-
-**Authorization**: `MFA_MANAGE` authority required.
-
-**Request Body:**
-```json
-{
-  "method": "TOTP | EMAIL"
-}
-```
-
-**Response (TOTP):**
-```json
-{
-  "success": true,
-  "message": "MFA setup initiated",
-  "data": {
-    "qrUri": "otpauth://totp/...",
-    "secret": "JBSWY3DPEHPK3PXP",
-    "method": "TOTP"
-  }
-}
-```
-
-**Response (EMAIL):**
-```json
-{
-  "success": true,
-  "message": "MFA setup initiated",
-  "data": {
-    "qrUri": null,
-    "secret": null,
-    "method": "EMAIL"
-  }
-}
-```
-
----
-
-#### POST /api/mfa/verify-setup
-
-**Purpose**: Verify and activate MFA after initial setup.
-
-**Authorization**: `MFA_MANAGE` authority required.
-
-**Request Body:**
-```json
-{
-  "code": "string (required)"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "MFA enabled successfully",
-  "data": null
-}
-```
-
-**Errors:**
-- `400`: MFA setup not initiated
-- `401`: Invalid MFA code
-
----
-
-#### POST /api/mfa/disable
-
-**Purpose**: Disable MFA for the authenticated user.
-
-**Authorization**: `MFA_MANAGE` authority required.
-
-**Request Body:**
-```json
-{
-  "password": "string (required)"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "MFA disabled successfully",
-  "data": null
-}
-```
-
-**Errors:**
-- `401`: Current password is incorrect
-
----
-
 ### Expenses
 
 ---
@@ -1015,6 +913,107 @@ All MFA management endpoints require `MFA_MANAGE` authority (PLATFORM_ADMIN or T
 
 ---
 
+#### POST /api/management/users/{id}/mfa/enable
+
+**Purpose**: Enable MFA for a user. Returns the MFA secret and QR code URI for TOTP setup.
+
+**Authentication**: Required.  
+**Authority**: `USER_WRITE`
+
+**Request Body:**
+```json
+{
+  "method": "TOTP | EMAIL"
+}
+```
+
+**Response (TOTP):**
+```json
+{
+  "success": true,
+  "message": "MFA enabled successfully",
+  "data": {
+    "qrUri": "otpauth://totp/...",
+    "secret": "JBSWY3DPEHPK3PXP",
+    "method": "TOTP"
+  }
+}
+```
+
+**Response (EMAIL):**
+```json
+{
+  "success": true,
+  "message": "MFA enabled successfully",
+  "data": {
+    "qrUri": null,
+    "secret": null,
+    "method": "EMAIL"
+  }
+}
+```
+
+**Errors:**
+- `400`: MFA is already enabled for this user
+- `403`: Insufficient permissions
+
+---
+
+#### POST /api/management/users/{id}/mfa/disable
+
+**Purpose**: Disable MFA for a user.
+
+**Authentication**: Required.  
+**Authority**: `USER_WRITE`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "MFA disabled successfully",
+  "data": null
+}
+```
+
+**Errors:**
+- `400`: MFA is not enabled for this user
+- `403`: Insufficient permissions
+
+---
+
+#### POST /api/management/users/{id}/mfa/reset
+
+**Purpose**: Reset MFA for a user. Invalidates the old secret and generates a new one.
+
+**Authentication**: Required.  
+**Authority**: `USER_WRITE`
+
+**Request Body:**
+```json
+{
+  "method": "TOTP | EMAIL"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "MFA reset successfully",
+  "data": {
+    "qrUri": "otpauth://totp/...",
+    "secret": "JBSWY3DPEHPK3PXP",
+    "method": "TOTP"
+  }
+}
+```
+
+**Errors:**
+- `400`: MFA is not enabled for this user
+- `403`: Insufficient permissions
+
+---
+
 ### Role Management
 
 ---
@@ -1397,21 +1396,6 @@ All MFA management endpoints require `MFA_MANAGE` authority (PLATFORM_ADMIN or T
 - `POST /api/auth/forgot-password` — Password reset request
 - `POST /api/auth/reset-password` — Password reset
 
-### MFA Management (Admin-only)
-- `POST /api/mfa/enable` — Initiate MFA setup
-- `POST /api/mfa/verify-setup` — Verify MFA setup
-- `POST /api/mfa/disable` — Disable MFA
-
-### Expenses
-- `GET /api/expenses` — List expenses
-- `GET /api/expenses/{id}` — Get expense
-- `POST /api/expenses` — Create expense
-- `PUT /api/expenses/{id}` — Update expense
-- `POST /api/expenses/{id}/cancel` — Cancel expense
-- `POST /api/expenses/{id}/approve` — Approve expense
-- `POST /api/expenses/{id}/reject` — Reject expense
-- `POST /api/expenses/{id}/process` — Process expense
-
 ### User Management
 - `GET /api/management/users` — List users
 - `GET /api/management/users/{id}` — Get user
@@ -1421,6 +1405,9 @@ All MFA management endpoints require `MFA_MANAGE` authority (PLATFORM_ADMIN or T
 - `POST /api/management/users/{id}/enable` — Enable/disable user
 - `POST /api/management/users/{id}/roles` — Assign role
 - `DELETE /api/management/users/{id}/roles` — Remove role
+- `POST /api/management/users/{id}/mfa/enable` — Enable MFA
+- `POST /api/management/users/{id}/mfa/disable` — Disable MFA
+- `POST /api/management/users/{id}/mfa/reset` — Reset MFA
 
 ### Role Management
 - `GET /api/management/roles` — List roles

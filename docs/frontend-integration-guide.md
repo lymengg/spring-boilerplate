@@ -440,27 +440,6 @@ const changePassword = async (currentPassword, newPassword, confirmPassword) => 
 | POST | `/api/auth/forgot-password` | No | Request password reset |
 | POST | `/api/auth/reset-password` | No | Reset password |
 
-### MFA Management (Admin)
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/mfa/enable` | Yes | Initiate MFA setup |
-| POST | `/api/mfa/verify-setup` | Yes | Verify MFA setup |
-| POST | `/api/mfa/disable` | Yes | Disable MFA |
-
-### Expenses
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/expenses` | Yes | List expenses (role-scoped) |
-| GET | `/api/expenses/{id}` | Yes | Get expense |
-| POST | `/api/expenses` | Yes | Create expense |
-| PUT | `/api/expenses/{id}` | Yes | Update expense |
-| POST | `/api/expenses/{id}/cancel` | Yes | Cancel expense |
-| POST | `/api/expenses/{id}/approve` | Yes | Approve expense |
-| POST | `/api/expenses/{id}/reject` | Yes | Reject expense |
-| POST | `/api/expenses/{id}/process` | Yes | Process expense |
-
 ### User Management
 
 | Method | Endpoint | Auth | Description |
@@ -473,6 +452,9 @@ const changePassword = async (currentPassword, newPassword, confirmPassword) => 
 | POST | `/api/management/users/{id}/enable` | Yes | Enable/disable user |
 | POST | `/api/management/users/{id}/roles` | Yes | Assign role |
 | DELETE | `/api/management/users/{id}/roles` | Yes | Remove role |
+| POST | `/api/management/users/{id}/mfa/enable` | Yes | Enable MFA |
+| POST | `/api/management/users/{id}/mfa/disable` | Yes | Disable MFA |
+| POST | `/api/management/users/{id}/mfa/reset` | Yes | Reset MFA |
 
 ### Role Management
 
