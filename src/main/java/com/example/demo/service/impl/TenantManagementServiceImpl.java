@@ -1,5 +1,6 @@
 package com.example.demo.service.impl;
 
+import com.example.demo.constants.AuditActions;
 import com.example.demo.dto.TenantCreateRequest;
 import com.example.demo.dto.TenantResponse;
 import com.example.demo.dto.TenantUpdateRequest;
@@ -8,18 +9,16 @@ import com.example.demo.entity.User;
 import com.example.demo.mapper.TenantMapper;
 import com.example.demo.repository.TenantRepository;
 import com.example.demo.security.service.AuthorizationService;
+import com.example.demo.service.AuditLogService;
 import com.example.demo.service.TenantManagementService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -29,21 +28,21 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     private final UserService userService;
     private final AuthorizationService authorizationService;
     private final TenantMapper tenantMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_READ')")
-    public Page<TenantResponse> getTenants(Pageable pageable, String currentUsername) {
+    public Page<TenantResponse> getTenants(Pageable pageable, String name, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
-        if (authorizationService.isSuperAdmin(currentUser)) {
-            return tenantRepository.findAll(pageable).map(tenantMapper::toResponse);
+        if (!authorizationService.isSuperAdmin(currentUser)) {
+            throw new AccessDeniedException("Only platform administrators can list tenants");
         }
-        if (currentUser.getTenant() == null) {
-            return Page.empty(pageable);
+        if (name != null && !name.isBlank()) {
+            return tenantRepository.findByNameContainingIgnoreCase(name.trim(), pageable)
+                    .map(tenantMapper::toResponse);
         }
-        return tenantRepository.findById(currentUser.getTenant().getId())
-                .map(tenant -> (Page<TenantResponse>) new PageImpl<>(List.of(tenantMapper.toResponse(tenant)), pageable, 1))
-                .orElseGet(() -> Page.empty(pageable));
+        return tenantRepository.findAll(pageable).map(tenantMapper::toResponse);
     }
 
     @Override
@@ -77,7 +76,10 @@ public class TenantManagementServiceImpl implements TenantManagementService {
                 .name(request.getName())
                 .status(request.getStatus())
                 .build();
-        return tenantMapper.toResponse(tenantRepository.save(tenant));
+        Tenant saved = tenantRepository.save(tenant);
+        auditLogService.record(AuditActions.TENANT_CREATED, AuditActions.RESOURCE_TENANT,
+                String.valueOf(saved.getId()), "Tenant created: " + saved.getName(), null);
+        return tenantMapper.toResponse(saved);
     }
 
     @Override
@@ -97,7 +99,10 @@ public class TenantManagementServiceImpl implements TenantManagementService {
         });
         tenant.setName(request.getName());
         tenant.setStatus(request.getStatus());
-        return tenantMapper.toResponse(tenantRepository.save(tenant));
+        Tenant updated = tenantRepository.save(tenant);
+        auditLogService.record(AuditActions.TENANT_UPDATED, AuditActions.RESOURCE_TENANT,
+                String.valueOf(updated.getId()), "Tenant updated: " + updated.getName(), currentUsername);
+        return tenantMapper.toResponse(updated);
     }
 
     @Override
@@ -110,6 +115,9 @@ public class TenantManagementServiceImpl implements TenantManagementService {
         if (!authorizationService.canManageTenant(currentUser, tenant)) {
             throw new AccessDeniedException("Cannot delete this tenant");
         }
+        String tenantName = tenant.getName();
         tenantRepository.delete(tenant);
+        auditLogService.record(AuditActions.TENANT_DELETED, AuditActions.RESOURCE_TENANT,
+                String.valueOf(id), "Tenant deleted: " + tenantName, currentUsername);
     }
 }
