@@ -22,9 +22,15 @@ public final class AuditActions {
     public static final String EXPENSE_REJECTED = "EXPENSE_REJECTED";
     public static final String EXPENSE_PROCESSED = "EXPENSE_PROCESSED";
 
+    // Tenant management
+    public static final String TENANT_CREATED = "TENANT_CREATED";
+    public static final String TENANT_UPDATED = "TENANT_UPDATED";
+    public static final String TENANT_DELETED = "TENANT_DELETED";
+
     // Resource types
     public static final String RESOURCE_USER = "USER";
     public static final String RESOURCE_EXPENSE = "EXPENSE";
+    public static final String RESOURCE_TENANT = "TENANT";
 
     private AuditActions() {
     }

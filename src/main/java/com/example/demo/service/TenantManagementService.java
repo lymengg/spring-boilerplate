@@ -9,7 +9,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface TenantManagementService {
 
-    Page<TenantResponse> getTenants(Pageable pageable, String currentUsername);
+    Page<TenantResponse> getTenants(Pageable pageable, String name, String currentUsername);
 
     TenantResponse getTenantById(Long id, String currentUsername);
 

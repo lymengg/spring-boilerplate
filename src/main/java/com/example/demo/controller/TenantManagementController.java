@@ -24,8 +24,9 @@ public class TenantManagementController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<TenantResponse>>> getTenants(
             @PageableDefault Pageable pageable,
+            @RequestParam(required = false) String name,
             Authentication authentication) {
-        Page<TenantResponse> tenants = tenantManagementService.getTenants(pageable, authentication.getName());
+        Page<TenantResponse> tenants = tenantManagementService.getTenants(pageable, name, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Tenants retrieved successfully", tenants));
     }
 
