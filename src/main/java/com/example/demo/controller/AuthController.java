@@ -30,7 +30,7 @@ public class AuthController {
 
         if (loginResult instanceof TokenResponse tokenResponse) {
             addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
-            return ResponseEntity.ok(ApiResponse.success("Login successful", sanitizeTokenResponse(tokenResponse)));
+            return ResponseEntity.ok(ApiResponse.success("Login successful", tokenResponse));
         }
 
         return ResponseEntity.ok(ApiResponse.success("Login successful", loginResult));
@@ -42,21 +42,26 @@ public class AuthController {
             HttpServletResponse response) {
         TokenResponse tokenResponse = authService.verifyMfa(request);
         addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
-        return ResponseEntity.ok(ApiResponse.success("MFA verification successful", sanitizeTokenResponse(tokenResponse)));
+        return ResponseEntity.ok(ApiResponse.success("MFA verification successful", tokenResponse));
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
+            @Valid @RequestBody(required = false) RefreshTokenRequest body,
             HttpServletRequest request,
             HttpServletResponse response) {
-        String refreshToken = extractRefreshTokenFromCookie(request);
+        // BFF sends the refresh token in the body; direct browser clients rely on
+        // the httpOnly cookie. Body takes precedence so the BFF flow works cleanly.
+        String refreshToken = body != null && body.getRefreshToken() != null
+                ? body.getRefreshToken()
+                : extractRefreshTokenFromCookie(request);
         if (refreshToken == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Refresh token not found in cookie"));
+            return ResponseEntity.badRequest().body(ApiResponse.error("Refresh token not provided"));
         }
 
         TokenResponse tokenResponse = authService.refreshToken(refreshToken);
         addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
-        return ResponseEntity.ok(ApiResponse.success("Token refreshed", sanitizeTokenResponse(tokenResponse)));
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed", tokenResponse));
     }
 
     @PostMapping("/logout")
@@ -140,16 +145,4 @@ public class AuthController {
         return null;
     }
 
-    /**
-     * Removes the refresh token from the response body since it's now in a cookie.
-     */
-    private TokenResponse sanitizeTokenResponse(TokenResponse tokenResponse) {
-        return TokenResponse.builder()
-                .accessToken(tokenResponse.getAccessToken())
-                .tokenType(tokenResponse.getTokenType())
-                .expiresIn(tokenResponse.getExpiresIn())
-                .username(tokenResponse.getUsername())
-                .roles(tokenResponse.getRoles())
-                .build();
-    }
 }
