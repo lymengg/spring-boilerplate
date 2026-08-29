@@ -7,3 +7,14 @@ docker-compose.yml
 *.md
 .vscode/
 .idea/
+.env
+.env.*
+*.log
+logs/
+*.jar
+*.class
+.settings/
+.classpath
+.project
+.DS_Store
+Thumbs.db
