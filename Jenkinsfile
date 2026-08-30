@@ -16,7 +16,7 @@ pipeline {
         DOCKER_REGISTRY    = 'docker.io'
         DOCKER_IMAGE       = 'lymengouk/spring-boilerplate'
 
-        DOCKER_CREDENTIALS = 'docker-credentials'
+        DOCKER_CREDENTIALS = 'dockerhub'
         SSH_CREDENTIALS    = 'ssh-key'
 
         STAGING_HOST       = credentials('staging-host')
