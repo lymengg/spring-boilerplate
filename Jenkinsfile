@@ -14,7 +14,7 @@ pipeline {
     environment {
         APP_NAME = 'expense-management-api'
         DOCKER_IMAGE = 'expense-management-api'
-
+        BRANCH_NAME = 'main'
         // Jenkins credentials
         DOCKER_CREDENTIALS_ID = 'dockerhub'
         SSH_CREDENTIALS_ID    = 'ssh-key'
