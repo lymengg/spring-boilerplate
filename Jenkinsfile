@@ -15,12 +15,12 @@ pipeline {
         APP_NAME = 'your-app'
         DOCKER_IMAGE = 'your-docker-image'
 
-        // Jenkins Credentials
+        // Jenkins credentials
         DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
         SSH_CREDENTIALS_ID    = 'production-ssh-key'
 
-        // Deployment
-        DEPLOY_HOST = 'your-ec2-private-ip'
+        // Deployment target
+        DEPLOY_HOST = '10.x.x.x'
         DEPLOY_USER = 'ec2-user'
     }
 
@@ -85,7 +85,6 @@ pipeline {
                             --password-stdin
 
                         docker push "${DOCKER_IMAGE}:${IMAGE_TAG}"
-
                         docker push "${DOCKER_IMAGE}:latest"
 
                         docker logout
@@ -121,8 +120,6 @@ pipeline {
 
                         set -eu
 
-                        echo "Starting deployment..."
-
                         cd "/opt/${APP_NAME}"
 
                         export APP_NAME="${APP_NAME}"
@@ -130,28 +127,34 @@ pipeline {
                         export IMAGE_TAG="${IMAGE_TAG}"
 
                         echo "Pulling image:"
-                        echo "  ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                        echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
                         docker pull "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
-                        # Update the image tag used by Docker Compose
+                        echo "Updating IMAGE_TAG..."
+
                         sed -i \
                             "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" \
                             .env
 
+                        echo "Pulling Docker Compose image..."
+
                         docker compose pull
+
+                        echo "Starting application..."
 
                         docker compose up -d --remove-orphans
 
-                        echo "Waiting for container..."
+                        echo "Waiting for application..."
 
                         sleep 10
 
+                        echo "Container status:"
+
                         docker compose ps
 
-                        echo "Deployment completed successfully."
+                        echo "Deployment completed."
 
-                        # Remove unused images
                         docker image prune -f
 
 REMOTE_SCRIPT
@@ -173,6 +176,8 @@ REMOTE_SCRIPT
                     sh '''
                         set -eu
 
+                        echo "Verifying deployment..."
+
                         ssh \
                             -o StrictHostKeyChecking=no \
                             -o UserKnownHostsFile=/dev/null \
@@ -185,54 +190,6 @@ REMOTE_SCRIPT
     }
 
     post {
-        success {
-            script {
-                if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'develop') {
-                    slackSend(
-                        color: 'good',
-                        message: """
-:white_check_mark: *${env.APP_NAME}* build #${env.BUILD_NUMBER} succeeded
-
-Branch: ${env.BRANCH_NAME}
-Commit: ${env.GIT_COMMIT_SHORT ?: 'unknown'}
-Image: ${env.DOCKER_IMAGE}:${env.IMAGE_TAG ?: 'unknown'}
-Build: ${env.BUILD_URL}
-""".stripIndent()
-                    )
-                }
-            }
-        }
-
-        failure {
-            script {
-                slackSend(
-                    color: 'danger',
-                    message: """
-:x: *${env.APP_NAME}* build #${env.BUILD_NUMBER} failed
-
-Branch: ${env.BRANCH_NAME ?: 'unknown'}
-Commit: ${env.GIT_COMMIT_SHORT ?: 'unknown'}
-Build: ${env.BUILD_URL}
-""".stripIndent()
-                )
-            }
-        }
-
-        unstable {
-            script {
-                slackSend(
-                    color: 'warning',
-                    message: """
-:warning: *${env.APP_NAME}* build #${env.BUILD_NUMBER} is unstable
-
-Branch: ${env.BRANCH_NAME ?: 'unknown'}
-Commit: ${env.GIT_COMMIT_SHORT ?: 'unknown'}
-Build: ${env.BUILD_URL}
-""".stripIndent()
-                )
-            }
-        }
-
         cleanup {
             script {
                 try {
