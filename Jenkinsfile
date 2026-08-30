@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'linux'
+        label 'docker'
     }
 
     options {
@@ -12,106 +12,84 @@ pipeline {
     }
 
     environment {
-        APP_NAME           = 'spring-boilerplate'
-        DOCKER_REGISTRY    = 'docker.io'
-        DOCKER_IMAGE       = 'lymengouk/spring-boilerplate'
+        APP_NAME = 'your-app'
+        DOCKER_IMAGE = 'your-docker-image'
 
-        DOCKER_CREDENTIALS = 'dockerhub'
-        SSH_CREDENTIALS    = 'ssh-key'
+        // Jenkins Credentials
+        DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
+        SSH_CREDENTIALS_ID    = 'production-ssh-key'
 
-        STAGING_HOST       = credentials('staging-host')
-        PRODUCTION_HOST    = credentials('production-host')
+        // Deployment
+        DEPLOY_HOST = 'your-ec2-private-ip'
+        DEPLOY_USER = 'ec2-user'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
 
-        stage('Prepare') {
-            steps {
                 script {
-                    def gitCommit = sh(
+                    env.GIT_COMMIT_SHORT = sh(
                         script: 'git rev-parse --short HEAD',
                         returnStdout: true
                     ).trim()
 
-                    env.GIT_COMMIT_SHORT = gitCommit
-                    env.IMAGE_TAG = "${BUILD_NUMBER}-${gitCommit}"
+                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
 
-                    echo "Branch: ${BRANCH_NAME}"
-                    echo "Commit: ${GIT_COMMIT_SHORT}"
-                    echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                    echo "Application : ${env.APP_NAME}"
+                    echo "Branch      : ${env.BRANCH_NAME}"
+                    echo "Commit      : ${env.GIT_COMMIT_SHORT}"
+                    echo "Image       : ${env.DOCKER_IMAGE}:${env.IMAGE_TAG}"
                 }
             }
         }
 
-        stage('Docker Build') {
+        stage('Build Docker Image') {
             steps {
                 sh '''
-                    set -e
+                    set -eu
+
+                    echo "Building Docker image..."
 
                     docker build \
-                        --pull \
-                        -t "$DOCKER_IMAGE:$IMAGE_TAG" \
+                        -t "${DOCKER_IMAGE}:${IMAGE_TAG}" \
+                        -t "${DOCKER_IMAGE}:latest" \
                         .
-
-                    docker tag \
-                        "$DOCKER_IMAGE:$IMAGE_TAG" \
-                        "$DOCKER_IMAGE:latest"
                 '''
             }
         }
 
-        stage('Docker Push') {
+        stage('Push Docker Image') {
             when {
                 anyOf {
-                    branch 'develop'
                     branch 'main'
+                    branch 'develop'
                 }
             }
 
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: "${DOCKER_CREDENTIALS}",
+                        credentialsId: env.DOCKER_CREDENTIALS_ID,
                         usernameVariable: 'DOCKER_USERNAME',
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
                     sh '''
-                        set -e
+                        set -eu
 
-                        echo "$DOCKER_PASSWORD" | docker login \
-                            "$DOCKER_REGISTRY" \
-                            --username "$DOCKER_USERNAME" \
+                        echo "${DOCKER_PASSWORD}" | docker login \
+                            -u "${DOCKER_USERNAME}" \
                             --password-stdin
 
-                        docker push "$DOCKER_IMAGE:$IMAGE_TAG"
-                        docker push "$DOCKER_IMAGE:latest"
+                        docker push "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
-                        docker logout "$DOCKER_REGISTRY"
+                        docker push "${DOCKER_IMAGE}:latest"
+
+                        docker logout
                     '''
-                }
-            }
-        }
-
-        stage('Production Approval') {
-            when {
-                branch 'main'
-            }
-
-            input {
-                message 'Deploy this image to production?'
-                ok 'Deploy to Production'
-                submitterParameter 'APPROVED_BY'
-            }
-
-            steps {
-                script {
-                    echo "Production deployment approved by: ${env.APPROVED_BY ?: 'unknown'}"
                 }
             }
         }
@@ -119,58 +97,106 @@ pipeline {
         stage('Deploy') {
             when {
                 anyOf {
-                    branch 'develop'
                     branch 'main'
+                    branch 'develop'
                 }
             }
 
             steps {
-                script {
-                    def deployHost = env.BRANCH_NAME == 'main'
-                        ? env.PRODUCTION_HOST
-                        : env.STAGING_HOST
+                sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+                    sh '''
+                        set -eu
 
-                    echo "Deploying ${IMAGE_TAG} to ${env.BRANCH_NAME == 'main' ? 'production' : 'staging'}"
+                        echo "Deploying ${APP_NAME}..."
+                        echo "Target: ${DEPLOY_USER}@${DEPLOY_HOST}"
 
-                    withEnv(["DEPLOY_HOST=${deployHost}"]) {
-                        sshagent(credentials: ["${SSH_CREDENTIALS}"]) {
-                            sh '''
-                                set -e
+                        ssh \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
+                            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+                            "APP_NAME='${APP_NAME}' \
+                             DOCKER_IMAGE='${DOCKER_IMAGE}' \
+                             IMAGE_TAG='${IMAGE_TAG}' \
+                             bash -s" <<'REMOTE_SCRIPT'
 
-                                ssh \
-                                    -o BatchMode=yes \
-                                    -o StrictHostKeyChecking=no \
-                                    -o UserKnownHostsFile=/dev/null \
-                                    deploy@"$DEPLOY_HOST" \
-                                    "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
-                                     cd /opt/\\$APP_NAME && \
-                                     docker pull \\$IMAGE && \
-                                     docker compose -f docker-compose.yml up -d"
-                            '''
-                        }
-                    }
+                        set -eu
+
+                        echo "Starting deployment..."
+
+                        cd "/opt/${APP_NAME}"
+
+                        export APP_NAME="${APP_NAME}"
+                        export DOCKER_IMAGE="${DOCKER_IMAGE}"
+                        export IMAGE_TAG="${IMAGE_TAG}"
+
+                        echo "Pulling image:"
+                        echo "  ${DOCKER_IMAGE}:${IMAGE_TAG}"
+
+                        docker pull "${DOCKER_IMAGE}:${IMAGE_TAG}"
+
+                        # Update the image tag used by Docker Compose
+                        sed -i \
+                            "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" \
+                            .env
+
+                        docker compose pull
+
+                        docker compose up -d --remove-orphans
+
+                        echo "Waiting for container..."
+
+                        sleep 10
+
+                        docker compose ps
+
+                        echo "Deployment completed successfully."
+
+                        # Remove unused images
+                        docker image prune -f
+
+REMOTE_SCRIPT
+                    '''
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+
+            steps {
+                sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+                    sh '''
+                        set -eu
+
+                        ssh \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
+                            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+                            "cd /opt/${APP_NAME} && docker compose ps"
+                    '''
                 }
             }
         }
     }
 
     post {
-        always {
-            cleanWs()
-        }
-
         success {
             script {
                 if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'develop') {
                     slackSend(
                         color: 'good',
                         message: """
-:white_check_mark: *${APP_NAME}* build #${BUILD_NUMBER} succeeded
+:white_check_mark: *${env.APP_NAME}* build #${env.BUILD_NUMBER} succeeded
 
-Branch: ${BRANCH_NAME}
-Commit: ${GIT_COMMIT_SHORT}
-Image: ${DOCKER_IMAGE}:${IMAGE_TAG}
-Build: ${BUILD_URL}
+Branch: ${env.BRANCH_NAME}
+Commit: ${env.GIT_COMMIT_SHORT ?: 'unknown'}
+Image: ${env.DOCKER_IMAGE}:${env.IMAGE_TAG ?: 'unknown'}
+Build: ${env.BUILD_URL}
 """.stripIndent()
                     )
                 }
@@ -182,11 +208,11 @@ Build: ${BUILD_URL}
                 slackSend(
                     color: 'danger',
                     message: """
-:x: *${APP_NAME}* build #${BUILD_NUMBER} failed
+:x: *${env.APP_NAME}* build #${env.BUILD_NUMBER} failed
 
-Branch: ${BRANCH_NAME}
-Commit: ${GIT_COMMIT_SHORT ?: 'unknown'}
-Build: ${BUILD_URL}
+Branch: ${env.BRANCH_NAME ?: 'unknown'}
+Commit: ${env.GIT_COMMIT_SHORT ?: 'unknown'}
+Build: ${env.BUILD_URL}
 """.stripIndent()
                 )
             }
@@ -197,13 +223,26 @@ Build: ${BUILD_URL}
                 slackSend(
                     color: 'warning',
                     message: """
-:warning: *${APP_NAME}* build #${BUILD_NUMBER} is unstable
+:warning: *${env.APP_NAME}* build #${env.BUILD_NUMBER} is unstable
 
-Branch: ${BRANCH_NAME}
-Commit: ${GIT_COMMIT_SHORT ?: 'unknown'}
-Build: ${BUILD_URL}
+Branch: ${env.BRANCH_NAME ?: 'unknown'}
+Commit: ${env.GIT_COMMIT_SHORT ?: 'unknown'}
+Build: ${env.BUILD_URL}
 """.stripIndent()
                 )
+            }
+        }
+
+        cleanup {
+            script {
+                try {
+                    cleanWs(
+                        deleteDirs: true,
+                        disableDeferredWipeout: true
+                    )
+                } catch (Exception e) {
+                    echo "Workspace cleanup skipped: ${e.message}"
+                }
             }
         }
     }
