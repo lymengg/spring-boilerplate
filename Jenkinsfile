@@ -15,9 +15,6 @@ pipeline {
         APP_NAME = 'expense-management-api'
         DOCKER_IMAGE = 'lymengouk/expense-management-api'
         BRANCH_NAME = 'main'
-        // Jenkins credentials
-        DOCKER_CREDENTIALS_ID = 'dockerhub'
-        SSH_CREDENTIALS_ID    = 'ssh-key'
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
@@ -69,7 +66,7 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: env.DOCKER_CREDENTIALS_ID,
+                        credentialsId: 'dockerhub',
                         usernameVariable: 'DOCKER_USERNAME',
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
@@ -96,7 +93,7 @@ pipeline {
             }
 
             steps {
-                sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+                sshagent(credentials: ['ssh-key']) {
                     sh '''
                         set -eu
 
@@ -163,7 +160,7 @@ REMOTE_SCRIPT
             }
 
             steps {
-                sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+                sshagent(credentials: ['ssh-key']) {
                     sh '''
                         set -eu
 
