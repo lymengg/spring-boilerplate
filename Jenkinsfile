@@ -12,12 +12,12 @@ pipeline {
     }
 
     environment {
-        APP_NAME = 'your-app'
-        DOCKER_IMAGE = 'your-docker-image'
+        APP_NAME = 'expense-management-api'
+        DOCKER_IMAGE = 'expense-management-api'
 
         // Jenkins credentials
-        DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
-        SSH_CREDENTIALS_ID    = 'production-ssh-key'
+        DOCKER_CREDENTIALS_ID = 'dockerhub'
+        SSH_CREDENTIALS_ID    = 'ssh-key'
 
         // Deployment target
         DEPLOY_HOST = '10.x.x.x'
