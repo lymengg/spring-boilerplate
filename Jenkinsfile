@@ -16,6 +16,10 @@ pipeline {
         DOCKER_IMAGE = 'lymengouk/expense-management-api'
         BRANCH_NAME = 'main'
 
+        // Database
+        DB_USERNAME = 'postgres'
+        DB_NAME = 'expense_management'
+
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
         DEPLOY_USER = 'deploy'
@@ -107,6 +111,8 @@ pipeline {
                             "APP_NAME='${APP_NAME}' \
                              DOCKER_IMAGE='${DOCKER_IMAGE}' \
                              IMAGE_TAG='${IMAGE_TAG}' \
+                             DB_USERNAME='${DB_USERNAME}' \
+                             DB_NAME='${DB_NAME}' \
                              bash -s" <<'REMOTE_SCRIPT'
 
                         set -eu
@@ -116,17 +122,29 @@ pipeline {
                         export APP_NAME="${APP_NAME}"
                         export DOCKER_IMAGE="${DOCKER_IMAGE}"
                         export IMAGE_TAG="${IMAGE_TAG}"
+                        export DB_USERNAME="${DB_USERNAME}"
+                        export DB_NAME="${DB_NAME}"
 
                         echo "Pulling image:"
                         echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
                         docker pull "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
-                        echo "Updating IMAGE_TAG..."
+                        echo "Generating environment file..."
 
-                        sed -i \
-                            "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" \
-                            .env
+                        DB_PASSWORD=$(openssl rand -base64 32)
+                        JWT_SECRET=$(openssl rand -base64 64)
+
+                        cat > .env <<EOF
+APP_NAME=${APP_NAME}
+IMAGE_TAG=${IMAGE_TAG}
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+DB_NAME=${DB_NAME}
+JWT_SECRET=${JWT_SECRET}
+EOF
+
+                        echo "Environment file created."
 
                         echo "Pulling Docker Compose image..."
 
