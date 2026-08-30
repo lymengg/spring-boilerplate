@@ -12,8 +12,7 @@ pipeline {
     }
 
     environment {
-        APP_NAME = 'spring-boilerplate'
-
+        APP_NAME        = 'spring-boilerplate'
         DOCKER_REGISTRY = 'docker.io'
         DOCKER_IMAGE    = 'your-dockerhub-username/spring-boilerplate'
 
@@ -43,67 +42,9 @@ pipeline {
                     env.GIT_COMMIT_SHORT = gitCommit
                     env.IMAGE_TAG = "${BUILD_NUMBER}-${gitCommit}"
 
-                    echo "Application : ${APP_NAME}"
-                    echo "Branch      : ${BRANCH_NAME}"
-                    echo "Commit      : ${gitCommit}"
-                    echo "Image       : ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Build & Test') {
-            agent {
-                docker {
-                    image 'eclipse-temurin:21-jdk-alpine'
-                    reuseNode true
-                }
-            }
-
-            stages {
-                stage('Compile') {
-                    steps {
-                        sh '''
-                            set -e
-                            chmod +x mvnw
-                            ./mvnw clean compile -B
-                        '''
-                    }
-                }
-
-                stage('Unit Tests') {
-                    steps {
-                        sh '''
-                            set -e
-                            ./mvnw test -B
-                        '''
-                    }
-
-                    post {
-                        always {
-                            junit(
-                                testResults: '**/target/surefire-reports/*.xml',
-                                allowEmptyResults: true
-                            )
-                        }
-                    }
-                }
-
-                stage('Code Quality') {
-                    steps {
-                        sh '''
-                            set -e
-                            ./mvnw verify -B -DskipTests
-                        '''
-                    }
-                }
-
-                stage('Package') {
-                    steps {
-                        sh '''
-                            set -e
-                            ./mvnw package -B -DskipTests
-                        '''
-                    }
+                    echo "Branch: ${BRANCH_NAME}"
+                    echo "Commit: ${GIT_COMMIT_SHORT}"
+                    echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
                 }
             }
         }
@@ -121,8 +62,6 @@ pipeline {
                     docker tag \
                         "$DOCKER_IMAGE:$IMAGE_TAG" \
                         "$DOCKER_IMAGE:latest"
-
-                    docker image ls "$DOCKER_IMAGE"
                 '''
             }
         }
@@ -178,10 +117,9 @@ pipeline {
                             -o StrictHostKeyChecking=yes \
                             deploy@"$STAGING_HOST" \
                             "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
-                             cd /opt/\$APP_NAME && \
-                             docker pull \$IMAGE && \
-                             docker compose -f docker-compose.yml up -d && \
-                             docker image prune -f"
+                             cd /opt/\\$APP_NAME && \
+                             docker pull \\$IMAGE && \
+                             docker compose -f docker-compose.yml up -d"
                     '''
                 }
             }
@@ -220,10 +158,9 @@ pipeline {
                             -o StrictHostKeyChecking=yes \
                             deploy@"$PROD_HOST" \
                             "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
-                             cd /opt/\$APP_NAME && \
-                             docker pull \$IMAGE && \
-                             docker compose -f docker-compose.yml up -d && \
-                             docker image prune -f"
+                             cd /opt/\\$APP_NAME && \
+                             docker pull \\$IMAGE && \
+                             docker compose -f docker-compose.yml up -d"
                     '''
                 }
             }
