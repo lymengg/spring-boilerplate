@@ -20,8 +20,8 @@ pipeline {
         SSH_CREDENTIALS_ID    = 'ssh-key'
 
         // Deployment target
-        DEPLOY_HOST = '10.x.x.x'
-        DEPLOY_USER = 'ec2-user'
+        DEPLOY_HOST = '172.31.26.3'
+        DEPLOY_USER = 'deploy'
     }
 
     stages {
