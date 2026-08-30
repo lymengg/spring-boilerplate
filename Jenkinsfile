@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'docker'
+        label 'linux'
     }
 
     options {
@@ -12,16 +12,15 @@ pipeline {
     }
 
     environment {
-        APP_NAME        = 'spring-boilerplate'
-        DOCKER_REGISTRY = 'docker.io'
-        DOCKER_IMAGE    = 'your-dockerhub-username/spring-boilerplate'
+        APP_NAME           = 'spring-boilerplate'
+        DOCKER_REGISTRY    = 'docker.io'
+        DOCKER_IMAGE       = 'lymengouk/spring-boilerplate'
 
         DOCKER_CREDENTIALS = 'docker-credentials'
-        STAGING_SSH_KEY    = 'staging-ssh-key'
-        PRODUCTION_SSH_KEY = 'production-ssh-key'
+        SSH_CREDENTIALS    = 'ssh-key'
 
-        STAGING_HOST = credentials('staging-host')
-        PROD_HOST    = credentials('production-host')
+        STAGING_HOST       = credentials('staging-host')
+        PRODUCTION_HOST    = credentials('production-host')
     }
 
     stages {
@@ -99,39 +98,13 @@ pipeline {
             }
         }
 
-        stage('Deploy to Staging') {
-            when {
-                anyOf {
-                    branch 'develop'
-                    branch 'main'
-                }
-            }
-
-            steps {
-                sshagent(credentials: ["${STAGING_SSH_KEY}"]) {
-                    sh '''
-                        set -e
-
-                        ssh \
-                            -o BatchMode=yes \
-                            -o StrictHostKeyChecking=yes \
-                            deploy@"$STAGING_HOST" \
-                            "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
-                             cd /opt/\\$APP_NAME && \
-                             docker pull \\$IMAGE && \
-                             docker compose -f docker-compose.yml up -d"
-                    '''
-                }
-            }
-        }
-
         stage('Production Approval') {
             when {
                 branch 'main'
             }
 
             input {
-                message 'Staging deployment completed. Deploy this image to production?'
+                message 'Deploy this image to production?'
                 ok 'Deploy to Production'
                 submitterParameter 'APPROVED_BY'
             }
@@ -143,25 +116,39 @@ pipeline {
             }
         }
 
-        stage('Deploy to Production') {
+        stage('Deploy') {
             when {
-                branch 'main'
+                anyOf {
+                    branch 'develop'
+                    branch 'main'
+                }
             }
 
             steps {
-                sshagent(credentials: ["${PRODUCTION_SSH_KEY}"]) {
-                    sh '''
-                        set -e
+                script {
+                    def deployHost = env.BRANCH_NAME == 'main'
+                        ? env.PRODUCTION_HOST
+                        : env.STAGING_HOST
 
-                        ssh \
-                            -o BatchMode=yes \
-                            -o StrictHostKeyChecking=yes \
-                            deploy@"$PROD_HOST" \
-                            "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
-                             cd /opt/\\$APP_NAME && \
-                             docker pull \\$IMAGE && \
-                             docker compose -f docker-compose.yml up -d"
-                    '''
+                    echo "Deploying ${IMAGE_TAG} to ${env.BRANCH_NAME == 'main' ? 'production' : 'staging'}"
+
+                    withEnv(["DEPLOY_HOST=${deployHost}"]) {
+                        sshagent(credentials: ["${SSH_CREDENTIALS}"]) {
+                            sh '''
+                                set -e
+
+                                ssh \
+                                    -o BatchMode=yes \
+                                    -o StrictHostKeyChecking=no \
+                                    -o UserKnownHostsFile=/dev/null \
+                                    deploy@"$DEPLOY_HOST" \
+                                    "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
+                                     cd /opt/\\$APP_NAME && \
+                                     docker pull \\$IMAGE && \
+                                     docker compose -f docker-compose.yml up -d"
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -213,6 +200,7 @@ Build: ${BUILD_URL}
 :warning: *${APP_NAME}* build #${BUILD_NUMBER} is unstable
 
 Branch: ${BRANCH_NAME}
+Commit: ${GIT_COMMIT_SHORT ?: 'unknown'}
 Build: ${BUILD_URL}
 """.stripIndent()
                 )
