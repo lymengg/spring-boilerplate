@@ -63,10 +63,7 @@ pipeline {
 
         stage('Push Docker Image') {
             when {
-                anyOf {
-                    branch 'main'
-                    branch 'develop'
-                }
+                branch 'main'
             }
 
             steps {
@@ -95,10 +92,7 @@ pipeline {
 
         stage('Deploy') {
             when {
-                anyOf {
-                    branch 'main'
-                    branch 'develop'
-                }
+                branch 'main'
             }
 
             steps {
@@ -165,10 +159,7 @@ REMOTE_SCRIPT
 
         stage('Verify Deployment') {
             when {
-                anyOf {
-                    branch 'main'
-                    branch 'develop'
-                }
+                branch 'main'
             }
 
             steps {
