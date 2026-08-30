@@ -1,9 +1,6 @@
 pipeline {
     agent {
-        docker {
-            image 'eclipse-temurin:21-jdk-alpine'
-            args '-v $HOME/.m2:/root/.m2'
-        }
+        label 'linux'
     }
 
     options {
@@ -11,16 +8,21 @@ pipeline {
         timestamps()
         buildDiscarder(logRotator(numToKeepStr: '20'))
         disableConcurrentBuilds()
+        skipDefaultCheckout(true)
     }
 
     environment {
-        APP_NAME            = 'spring-boilerplate'
-        DOCKER_REGISTRY     = env.DOCKER_REGISTRY ?: 'docker.io'
-        DOCKER_IMAGE        = "${DOCKER_REGISTRY}/${APP_NAME}"
-        DOCKER_CREDENTIALS  = credentials('docker-credentials')
-        SONAR_TOKEN         = credentials('sonar-token')
-        JAVA_OPTS           = '-Xmx1024m -Xms512m'
-        MAVEN_OPTS          = '-Xmx1024m -Xms512m'
+        APP_NAME = 'spring-boilerplate'
+
+        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_IMAGE    = 'your-dockerhub-username/spring-boilerplate'
+
+        DOCKER_CREDENTIALS = 'docker-credentials'
+        STAGING_SSH_KEY    = 'staging-ssh-key'
+        PRODUCTION_SSH_KEY = 'production-ssh-key'
+
+        STAGING_HOST = credentials('staging-host')
+        PROD_HOST    = credentials('production-host')
     }
 
     stages {
@@ -30,83 +32,175 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Prepare') {
             steps {
-                sh './mvnw clean compile -B'
+                script {
+                    def gitCommit = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    env.GIT_COMMIT_SHORT = gitCommit
+                    env.IMAGE_TAG = "${BUILD_NUMBER}-${gitCommit}"
+
+                    echo "Application : ${APP_NAME}"
+                    echo "Branch      : ${BRANCH_NAME}"
+                    echo "Commit      : ${gitCommit}"
+                    echo "Image       : ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                }
             }
         }
 
-        stage('Test') {
-            parallel {
+        stage('Build & Test') {
+            agent {
+                docker {
+                    image 'eclipse-temurin:21-jdk-alpine'
+                    reuseNode true
+                }
+            }
+
+            stages {
+                stage('Compile') {
+                    steps {
+                        sh '''
+                            set -e
+                            chmod +x mvnw
+                            ./mvnw clean compile -B
+                        '''
+                    }
+                }
+
                 stage('Unit Tests') {
                     steps {
-                        sh './mvnw test -B'
+                        sh '''
+                            set -e
+                            ./mvnw test -B
+                        '''
                     }
+
                     post {
                         always {
-                            junit '**/target/surefire-reports/*.xml'
+                            junit(
+                                testResults: '**/target/surefire-reports/*.xml',
+                                allowEmptyResults: true
+                            )
                         }
                     }
                 }
 
                 stage('Code Quality') {
                     steps {
-                        sh './mvnw verify -B -DskipTests'
+                        sh '''
+                            set -e
+                            ./mvnw verify -B -DskipTests
+                        '''
                     }
                 }
-            }
-        }
 
-        stage('Package') {
-            steps {
-                sh './mvnw package -B -DskipTests'
-            }
-            post {
-                success {
-                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                stage('Package') {
+                    steps {
+                        sh '''
+                            set -e
+                            ./mvnw package -B -DskipTests
+                        '''
+                    }
                 }
             }
         }
 
         stage('Docker Build') {
             steps {
-                script {
-                    def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    def buildTag = "${env.BUILD_NUMBER}-${gitCommit}"
-                    env.IMAGE_TAG = buildTag
+                sh '''
+                    set -e
 
-                    sh """
-                        docker build -t ${DOCKER_IMAGE}:${buildTag} .
-                        docker tag ${DOCKER_IMAGE}:${buildTag} ${DOCKER_IMAGE}:latest
-                    """
-                }
+                    docker build \
+                        --pull \
+                        -t "$DOCKER_IMAGE:$IMAGE_TAG" \
+                        .
+
+                    docker tag \
+                        "$DOCKER_IMAGE:$IMAGE_TAG" \
+                        "$DOCKER_IMAGE:latest"
+
+                    docker image ls "$DOCKER_IMAGE"
+                '''
             }
         }
 
         stage('Docker Push') {
             when {
-                branch 'main'
+                anyOf {
+                    branch 'develop'
+                    branch 'main'
+                }
             }
+
             steps {
-                sh """
-                    echo ${DOCKER_PASSWORD_PSW} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_USERNAME_PSW} --password-stdin
-                    docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
-                    docker push ${DOCKER_IMAGE}:latest
-                """
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: "${DOCKER_CREDENTIALS}",
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            "$DOCKER_REGISTRY" \
+                            --username "$DOCKER_USERNAME" \
+                            --password-stdin
+
+                        docker push "$DOCKER_IMAGE:$IMAGE_TAG"
+                        docker push "$DOCKER_IMAGE:latest"
+
+                        docker logout "$DOCKER_REGISTRY"
+                    '''
+                }
             }
         }
 
         stage('Deploy to Staging') {
             when {
+                anyOf {
+                    branch 'develop'
+                    branch 'main'
+                }
+            }
+
+            steps {
+                sshagent(credentials: ["${STAGING_SSH_KEY}"]) {
+                    sh '''
+                        set -e
+
+                        ssh \
+                            -o BatchMode=yes \
+                            -o StrictHostKeyChecking=yes \
+                            deploy@"$STAGING_HOST" \
+                            "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
+                             cd /opt/\$APP_NAME && \
+                             docker pull \$IMAGE && \
+                             docker compose -f docker-compose.yml up -d && \
+                             docker image prune -f"
+                    '''
+                }
+            }
+        }
+
+        stage('Production Approval') {
+            when {
                 branch 'main'
             }
+
+            input {
+                message 'Staging deployment completed. Deploy this image to production?'
+                ok 'Deploy to Production'
+                submitterParameter 'APPROVED_BY'
+            }
+
             steps {
-                sshagent(['staging-ssh-key']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no deploy@${STAGING_HOST} \
-                            "docker pull ${DOCKER_IMAGE}:${IMAGE_TAG} && \
-                             docker compose -f /opt/${APP_NAME}/docker-compose.yml up -d"
-                    """
+                script {
+                    echo "Production deployment approved by: ${env.APPROVED_BY ?: 'unknown'}"
                 }
             }
         }
@@ -115,17 +209,22 @@ pipeline {
             when {
                 branch 'main'
             }
-            input {
-                message 'Deploy to production?'
-                ok 'Deploy'
-            }
+
             steps {
-                sshagent(['production-ssh-key']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no deploy@${PROD_HOST} \
-                            "docker pull ${DOCKER_IMAGE}:${IMAGE_TAG} && \
-                             docker compose -f /opt/${APP_NAME}/docker-compose.yml up -d"
-                    """
+                sshagent(credentials: ["${PRODUCTION_SSH_KEY}"]) {
+                    sh '''
+                        set -e
+
+                        ssh \
+                            -o BatchMode=yes \
+                            -o StrictHostKeyChecking=yes \
+                            deploy@"$PROD_HOST" \
+                            "export APP_NAME='$APP_NAME' IMAGE='$DOCKER_IMAGE:$IMAGE_TAG' && \
+                             cd /opt/\$APP_NAME && \
+                             docker pull \$IMAGE && \
+                             docker compose -f docker-compose.yml up -d && \
+                             docker image prune -f"
+                    '''
                 }
             }
         }
@@ -135,29 +234,50 @@ pipeline {
         always {
             cleanWs()
         }
+
         success {
             script {
-                if (env.BRANCH_NAME == 'main') {
+                if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'develop') {
                     slackSend(
                         color: 'good',
-                        message: ":white_check_mark: *${APP_NAME}* build #${env.BUILD_NUMBER} succeeded\nBranch: ${env.BRANCH_NAME}\nCommit: ${env.GIT_COMMIT?.take(7)}"
+                        message: """
+:white_check_mark: *${APP_NAME}* build #${BUILD_NUMBER} succeeded
+
+Branch: ${BRANCH_NAME}
+Commit: ${GIT_COMMIT_SHORT}
+Image: ${DOCKER_IMAGE}:${IMAGE_TAG}
+Build: ${BUILD_URL}
+""".stripIndent()
                     )
                 }
             }
         }
+
         failure {
             script {
                 slackSend(
                     color: 'danger',
-                    message: ":x: *${APP_NAME}* build #${env.BUILD_NUMBER} failed\nBranch: ${env.BRANCH_NAME}\nURL: ${env.BUILD_URL}"
+                    message: """
+:x: *${APP_NAME}* build #${BUILD_NUMBER} failed
+
+Branch: ${BRANCH_NAME}
+Commit: ${GIT_COMMIT_SHORT ?: 'unknown'}
+Build: ${BUILD_URL}
+""".stripIndent()
                 )
             }
         }
+
         unstable {
             script {
                 slackSend(
                     color: 'warning',
-                    message: ":warning: *${APP_NAME}* build #${env.BUILD_NUMBER} is unstable\nBranch: ${env.BRANCH_NAME}\nURL: ${env.BUILD_URL}"
+                    message: """
+:warning: *${APP_NAME}* build #${BUILD_NUMBER} is unstable
+
+Branch: ${BRANCH_NAME}
+Build: ${BUILD_URL}
+""".stripIndent()
                 )
             }
         }
