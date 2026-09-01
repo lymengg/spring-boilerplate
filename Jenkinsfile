@@ -28,13 +28,8 @@ pipeline {
         JWT_SECRET = credentials('jwt-secret')
 
         // Application URLs
-        BASE_URL = credentials('base-url')
-        FRONTEND_URL = credentials('frontend-url')
-
-        // Rate Limiting
-        RATE_LIMITING_PER_USER_FORGOT_PASSWORD = credentials('rate-limiting-per-user-forgot-password')
-        RATE_LIMITING_PER_USER_RESET_PASSWORD = credentials('rate-limiting-per-user-reset-password')
-        RATE_LIMITING_PER_USER_MFA_VERIFY = credentials('rate-limiting-per-user-mfa-verify')
+        BASE_URL = expm-api.ouklymeng.qzz.io
+        FRONTEND_URL = expm.ouklymeng.qzz.io
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
