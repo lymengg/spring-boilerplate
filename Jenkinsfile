@@ -120,6 +120,12 @@ pipeline {
                         echo "Deploying ${APP_NAME}..."
                         echo "Target: ${DEPLOY_USER}@${DEPLOY_HOST}"
 
+                        scp \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
+                            docker-compose.yml \
+                            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/${APP_NAME}/docker-compose.yml"
+
                         ssh \
                             -o StrictHostKeyChecking=no \
                             -o UserKnownHostsFile=/dev/null \
