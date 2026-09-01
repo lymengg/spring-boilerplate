@@ -28,8 +28,8 @@ pipeline {
         JWT_SECRET = credentials('jwt-secret')
 
         // Application URLs
-        BASE_URL = expm-api.ouklymeng.qzz.io
-        FRONTEND_URL = expm.ouklymeng.qzz.io
+        BASE_URL = 'expm-api.ouklymeng.qzz.io'
+        FRONTEND_URL = 'expm.ouklymeng.qzz.io'
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
