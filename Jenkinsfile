@@ -31,6 +31,11 @@ pipeline {
         BASE_URL = 'expm-api.ouklymeng.qzz.io'
         FRONTEND_URL = 'expm.ouklymeng.qzz.io'
 
+        // Rate Limiting
+        RATE_LIMITING_PER_USER_FORGOT_PASSWORD = '10'
+        RATE_LIMITING_PER_USER_RESET_PASSWORD = '10'
+        RATE_LIMITING_PER_USER_MFA_VERIFY = '10'
+
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
         DEPLOY_USER = 'deploy'
