@@ -27,6 +27,9 @@ pipeline {
         // JWT
         JWT_SECRET = credentials('jwt-secret')
 
+        // Database password from Jenkins credentials
+        DB_PASSWORD = credentials('db-password')
+
         // Application URLs
         BASE_URL = 'expm-api.ouklymeng.qzz.io'
         FRONTEND_URL = 'expm.ouklymeng.qzz.io'
@@ -134,6 +137,7 @@ pipeline {
                              DOCKER_IMAGE='${DOCKER_IMAGE}' \
                              IMAGE_TAG='${IMAGE_TAG}' \
                              DB_USERNAME='${DB_USERNAME}' \
+                             DB_PASSWORD='${DB_PASSWORD}' \
                              DB_NAME='${DB_NAME}' \
                              REDIS_HOST='${REDIS_HOST}' \
                              REDIS_PORT='${REDIS_PORT}' \
@@ -153,6 +157,7 @@ pipeline {
                         export DOCKER_IMAGE="${DOCKER_IMAGE}"
                         export IMAGE_TAG="${IMAGE_TAG}"
                         export DB_USERNAME="${DB_USERNAME}"
+                        export DB_PASSWORD="${DB_PASSWORD}"
                         export DB_NAME="${DB_NAME}"
                         export REDIS_HOST="${REDIS_HOST}"
                         export REDIS_PORT="${REDIS_PORT}"
@@ -167,28 +172,6 @@ pipeline {
                         echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
                         docker pull "${DOCKER_IMAGE}:${IMAGE_TAG}"
-
-                        echo "Generating environment file..."
-
-                        DB_PASSWORD=$(openssl rand -base64 32)
-
-                        cat > .env <<EOF
-APP_NAME="${APP_NAME}"
-IMAGE_TAG="${IMAGE_TAG}"
-DB_USERNAME="${DB_USERNAME}"
-DB_PASSWORD="${DB_PASSWORD}"
-DB_NAME="${DB_NAME}"
-JWT_SECRET="${JWT_SECRET}"
-REDIS_HOST="${REDIS_HOST}"
-REDIS_PORT="${REDIS_PORT}"
-BASE_URL="${BASE_URL}"
-FRONTEND_URL="${FRONTEND_URL}"
-RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
-RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
-RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
-EOF
-
-                        echo "Environment file created."
 
                         echo "Pulling Docker Compose image..."
 
