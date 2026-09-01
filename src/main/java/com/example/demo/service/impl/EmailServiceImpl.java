@@ -1,21 +1,35 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.service.EmailService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
+    private final boolean mailEnabled;
+
+    @Autowired
+    public EmailServiceImpl(
+            @Value("${app.mail.enabled:false}") boolean mailEnabled,
+            @org.springframework.lang.Nullable JavaMailSender mailSender) {
+        this.mailEnabled = mailEnabled;
+        this.mailSender = mailSender;
+    }
+
     @Override
     public void sendPasswordResetEmail(String to, String resetLink) {
+        if (!mailEnabled) {
+            log.info("Mail disabled — skipping password reset email to {}", to);
+            return;
+        }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
@@ -30,6 +44,10 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendVerificationEmail(String to, String verificationLink) {
+        if (!mailEnabled) {
+            log.info("Mail disabled — skipping verification email to {}", to);
+            return;
+        }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
@@ -44,6 +62,10 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendMfaCodeEmail(String to, String code) {
+        if (!mailEnabled) {
+            log.info("Mail disabled — skipping MFA code email to {}", to);
+            return;
+        }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
