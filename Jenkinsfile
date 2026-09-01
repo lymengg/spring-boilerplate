@@ -28,7 +28,7 @@ pipeline {
         JWT_SECRET = credentials('jwt-secret')
 
         // Database password from Jenkins credentials
-        DB_PASSWORD = credentials('DB_PASSWORD
+        DB_PASSWORD = credentials('DB_PASSWORD')
 
         // Application URLs
         BASE_URL = 'expm-api.ouklymeng.qzz.io'
