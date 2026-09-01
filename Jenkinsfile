@@ -129,6 +129,12 @@ pipeline {
                             docker-compose.yml \
                             "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/${APP_NAME}/docker-compose.yml"
 
+                        scp \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
+                            Caddyfile \
+                            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/${APP_NAME}/Caddyfile"
+
                         ssh \
                             -o StrictHostKeyChecking=no \
                             -o UserKnownHostsFile=/dev/null \

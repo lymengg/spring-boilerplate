@@ -92,9 +92,26 @@ services:
           memory: 128M
           cpus: '0.25'
 
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - backend
+
 volumes:
   postgres-data:
   redis-data:
+  caddy-data:
+  caddy-config:
 
 networks:
   backend:

@@ -1,0 +1,8 @@
+expm-api.ouklymeng.qzz.io {
+    reverse_proxy http://app:8080 {
+        header_up Host {upstream_hostport}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
