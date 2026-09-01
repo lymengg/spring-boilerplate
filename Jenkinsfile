@@ -32,7 +32,6 @@ pipeline {
         FRONTEND_URL = credentials('frontend-url')
 
         // Rate Limiting
-        RATE_LIMITING_TRUSTED_PROXIES = credentials('rate-limiting-trusted-proxies')
         RATE_LIMITING_PER_USER_FORGOT_PASSWORD = credentials('rate-limiting-per-user-forgot-password')
         RATE_LIMITING_PER_USER_RESET_PASSWORD = credentials('rate-limiting-per-user-reset-password')
         RATE_LIMITING_PER_USER_MFA_VERIFY = credentials('rate-limiting-per-user-mfa-verify')
@@ -135,7 +134,6 @@ pipeline {
                              JWT_SECRET='${JWT_SECRET}' \
                              BASE_URL='${BASE_URL}' \
                              FRONTEND_URL='${FRONTEND_URL}' \
-                             RATE_LIMITING_TRUSTED_PROXIES='${RATE_LIMITING_TRUSTED_PROXIES}' \
                              RATE_LIMITING_PER_USER_FORGOT_PASSWORD='${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}' \
                              RATE_LIMITING_PER_USER_RESET_PASSWORD='${RATE_LIMITING_PER_USER_RESET_PASSWORD}' \
                              RATE_LIMITING_PER_USER_MFA_VERIFY='${RATE_LIMITING_PER_USER_MFA_VERIFY}' \
@@ -155,7 +153,6 @@ pipeline {
                         export JWT_SECRET="${JWT_SECRET}"
                         export BASE_URL="${BASE_URL}"
                         export FRONTEND_URL="${FRONTEND_URL}"
-                        export RATE_LIMITING_TRUSTED_PROXIES="${RATE_LIMITING_TRUSTED_PROXIES}"
                         export RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
                         export RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
                         export RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
@@ -180,7 +177,6 @@ REDIS_HOST="${REDIS_HOST}"
 REDIS_PORT="${REDIS_PORT}"
 BASE_URL="${BASE_URL}"
 FRONTEND_URL="${FRONTEND_URL}"
-RATE_LIMITING_TRUSTED_PROXIES="${RATE_LIMITING_TRUSTED_PROXIES}"
 RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
 RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
 RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"

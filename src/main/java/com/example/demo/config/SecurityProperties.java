@@ -5,9 +5,6 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Getter
 @Setter
 @Component
@@ -28,7 +25,6 @@ public class SecurityProperties {
     @Setter
     public static class RateLimiting {
         private long windowMillis = 60_000;
-        private List<String> trustedProxies = new ArrayList<>();
         private PerUserLimits perUser = new PerUserLimits();
 
         @Getter
