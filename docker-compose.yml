@@ -4,14 +4,24 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       DB_NAME: ${DB_NAME:-expense_management}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_PORT: '6379'
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-expense_management}
+      SPRING_DATASOURCE_DRIVER: org.postgresql.Driver
+      SPRING_JPA_DDL_AUTO: none
+      SPRING_JPA_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_JPA_FORMAT_SQL: 'false'
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      RATE_LIMITING_PER_USER_FORGOT_PASSWORD: ${RATE_LIMITING_PER_USER_FORGOT_PASSWORD:-10}
+      RATE_LIMITING_PER_USER_RESET_PASSWORD: ${RATE_LIMITING_PER_USER_RESET_PASSWORD:-10}
+      RATE_LIMITING_PER_USER_MFA_VERIFY: ${RATE_LIMITING_PER_USER_MFA_VERIFY:-10}
+      LOG_LEVEL_APP: INFO
+      LOG_LEVEL_SECURITY: WARN
     depends_on:
       postgres:
         condition: service_healthy

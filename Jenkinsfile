@@ -20,6 +20,22 @@ pipeline {
         DB_USERNAME = 'postgres'
         DB_NAME = 'expense_management'
 
+        // Redis
+        REDIS_HOST = 'redis'
+        REDIS_PORT = '6379'
+
+        // JWT
+        JWT_SECRET = credentials('jwt-secret')
+
+        // Application URLs
+        BASE_URL = credentials('base-url')
+        FRONTEND_URL = credentials('frontend-url')
+
+        // Rate Limiting
+        RATE_LIMITING_PER_USER_FORGOT_PASSWORD = credentials('rate-limiting-per-user-forgot-password')
+        RATE_LIMITING_PER_USER_RESET_PASSWORD = credentials('rate-limiting-per-user-reset-password')
+        RATE_LIMITING_PER_USER_MFA_VERIFY = credentials('rate-limiting-per-user-mfa-verify')
+
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
         DEPLOY_USER = 'deploy'
@@ -113,6 +129,14 @@ pipeline {
                              IMAGE_TAG='${IMAGE_TAG}' \
                              DB_USERNAME='${DB_USERNAME}' \
                              DB_NAME='${DB_NAME}' \
+                             REDIS_HOST='${REDIS_HOST}' \
+                             REDIS_PORT='${REDIS_PORT}' \
+                             JWT_SECRET='${JWT_SECRET}' \
+                             BASE_URL='${BASE_URL}' \
+                             FRONTEND_URL='${FRONTEND_URL}' \
+                             RATE_LIMITING_PER_USER_FORGOT_PASSWORD='${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}' \
+                             RATE_LIMITING_PER_USER_RESET_PASSWORD='${RATE_LIMITING_PER_USER_RESET_PASSWORD}' \
+                             RATE_LIMITING_PER_USER_MFA_VERIFY='${RATE_LIMITING_PER_USER_MFA_VERIFY}' \
                              bash -s" <<'REMOTE_SCRIPT'
 
                         set -eu
@@ -124,6 +148,14 @@ pipeline {
                         export IMAGE_TAG="${IMAGE_TAG}"
                         export DB_USERNAME="${DB_USERNAME}"
                         export DB_NAME="${DB_NAME}"
+                        export REDIS_HOST="${REDIS_HOST}"
+                        export REDIS_PORT="${REDIS_PORT}"
+                        export JWT_SECRET="${JWT_SECRET}"
+                        export BASE_URL="${BASE_URL}"
+                        export FRONTEND_URL="${FRONTEND_URL}"
+                        export RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
+                        export RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
+                        export RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
 
                         echo "Pulling image:"
                         echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
@@ -133,7 +165,6 @@ pipeline {
                         echo "Generating environment file..."
 
                         DB_PASSWORD=$(openssl rand -base64 32)
-                        JWT_SECRET=$(openssl rand -base64 64)
 
                         cat > .env <<EOF
 APP_NAME="${APP_NAME}"
@@ -142,6 +173,13 @@ DB_USERNAME="${DB_USERNAME}"
 DB_PASSWORD="${DB_PASSWORD}"
 DB_NAME="${DB_NAME}"
 JWT_SECRET="${JWT_SECRET}"
+REDIS_HOST="${REDIS_HOST}"
+REDIS_PORT="${REDIS_PORT}"
+BASE_URL="${BASE_URL}"
+FRONTEND_URL="${FRONTEND_URL}"
+RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
+RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
+RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
 EOF
 
                         echo "Environment file created."
