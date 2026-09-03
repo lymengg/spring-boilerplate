@@ -15,7 +15,7 @@ public interface TenantManagementService {
 
     Tenant findById(Long id);
 
-    TenantResponse createTenant(TenantCreateRequest request);
+    TenantResponse createTenant(TenantCreateRequest request, String currentUsername);
 
     TenantResponse updateTenant(Long id, TenantUpdateRequest request, String currentUsername);
 

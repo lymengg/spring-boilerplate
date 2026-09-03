@@ -68,7 +68,7 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_CREATE')")
-    public TenantResponse createTenant(TenantCreateRequest request) {
+    public TenantResponse createTenant(TenantCreateRequest request, String currentUsername) {
         if (tenantRepository.existsByName(request.getName())) {
             throw new IllegalArgumentException("Tenant already exists");
         }
@@ -78,7 +78,7 @@ public class TenantManagementServiceImpl implements TenantManagementService {
                 .build();
         Tenant saved = tenantRepository.save(tenant);
         auditLogService.record(AuditActions.TENANT_CREATED, AuditActions.RESOURCE_TENANT,
-                String.valueOf(saved.getId()), "Tenant created: " + saved.getName(), null);
+                String.valueOf(saved.getId()), "Tenant created: " + saved.getName(), currentUsername);
         return tenantMapper.toResponse(saved);
     }
 

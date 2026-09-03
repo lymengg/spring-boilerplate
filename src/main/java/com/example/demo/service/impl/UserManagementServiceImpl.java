@@ -233,9 +233,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         if (!canAssignBuiltInRole(currentUser, role)) {
             throw new IllegalArgumentException("Only admin can remove this role");
         }
-        if (!UserManagementMapper.getAllPermissions(currentUser).containsAll(role.getPermissions())) {
-            throw new IllegalArgumentException("Cannot remove a role with permissions you do not have");
-        }
         if ((Roles.PLATFORM_ADMIN.equals(role.getName()) || Roles.TENANT_ADMIN.equals(role.getName()))
                 && isLastAdmin(user)) {
             throw new IllegalArgumentException("Cannot remove the last admin");
@@ -253,9 +250,6 @@ public class UserManagementServiceImpl implements UserManagementService {
     private void validateRoleAssignment(User granter, Role role) {
         if (!canAssignBuiltInRole(granter, role)) {
             throw new IllegalArgumentException("Only admin can assign this role");
-        }
-        if (!UserManagementMapper.getAllPermissions(granter).containsAll(role.getPermissions())) {
-            throw new IllegalArgumentException("Cannot assign a role with permissions you do not have");
         }
     }
 
@@ -306,7 +300,11 @@ public class UserManagementServiceImpl implements UserManagementService {
         if (!authorizationService.canAccessTenant(granter, target.getTenant())) {
             return false;
         }
-        return UserManagementMapper.getAllPermissions(granter).containsAll(UserManagementMapper.getAllPermissions(target));
+        // A granter can manage a target if they could assign all of the target's roles.
+        // This prevents a USER_MANAGER from managing a PLATFORM_ADMIN (can't assign that role),
+        // while allowing them to manage EMPLOYEE users whose permissions are in a different domain.
+        return target.getRoles().stream()
+                .allMatch(role -> canAssignBuiltInRole(granter, role));
     }
 
     @Override

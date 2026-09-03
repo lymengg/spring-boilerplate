@@ -207,7 +207,7 @@ class RoleManagementControllerIntegrationTest {
         mockMvc.perform(post("/api/management/roles")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", "user", "title", "Duplicate", "description", "Duplicate role"))))
+                        .content(objectMapper.writeValueAsString(Map.of("name", "employee", "title", "Duplicate", "description", "Duplicate role"))))
                 .andExpect(status().is(400));
     }
 

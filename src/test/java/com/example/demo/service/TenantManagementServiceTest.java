@@ -137,7 +137,7 @@ class TenantManagementServiceTest {
 
         when(tenantRepository.existsByName("Acme Corp")).thenReturn(true);
 
-        assertThatThrownBy(() -> tenantManagementService.createTenant(request))
+        assertThatThrownBy(() -> tenantManagementService.createTenant(request, "adminuser"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Tenant already exists");
     }
@@ -157,13 +157,13 @@ class TenantManagementServiceTest {
             return t;
         });
 
-        tenantManagementService.createTenant(request);
+        tenantManagementService.createTenant(request, "adminuser");
 
         ArgumentCaptor<Tenant> captor = ArgumentCaptor.forClass(Tenant.class);
         verify(tenantRepository).save(captor.capture());
         assertThat(captor.getValue().getName()).isEqualTo("New Tenant");
         verify(auditLogService).record(AuditActions.TENANT_CREATED, AuditActions.RESOURCE_TENANT,
-                "2", "Tenant created: New Tenant", null);
+                "2", "Tenant created: New Tenant", "adminuser");
     }
 
     @Test

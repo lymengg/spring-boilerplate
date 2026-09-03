@@ -40,8 +40,9 @@ public class TenantManagementController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<TenantResponse>> createTenant(
-            @Valid @RequestBody TenantCreateRequest request) {
-        TenantResponse tenant = tenantManagementService.createTenant(request);
+            @Valid @RequestBody TenantCreateRequest request,
+            Authentication authentication) {
+        TenantResponse tenant = tenantManagementService.createTenant(request, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Tenant created successfully", tenant));
     }
 
