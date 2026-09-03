@@ -55,10 +55,10 @@ pipeline {
         // When enabled (APP_MAIL_ENABLED=true), set MAIL_HOST/MAIL_USERNAME and
         // MAIL_PASSWORD to real values.
         APP_MAIL_ENABLED = 'false'
-        MAIL_HOST = ''
+        MAIL_HOST = '0.0.0.0'
         MAIL_PORT = '587'
-        MAIL_USERNAME = ''
-        MAIL_PASSWORD = ''
+        MAIL_USERNAME = 'test'
+        MAIL_PASSWORD = 'test'
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
