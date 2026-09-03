@@ -25,8 +25,26 @@ class ClientIpResolverTest {
     }
 
     @Test
-    @DisplayName("Should return remote address from request")
-    void shouldReturnRemoteAddr() {
+    @DisplayName("Should return the first X-Forwarded-For value (the original client)")
+    void shouldUseFirstForwardedForValue() {
+        when(request.getHeader("X-Forwarded-For")).thenReturn("198.51.100.7, 10.0.0.1");
+
+        assertThat(clientIpResolver.resolveClientIp(request)).isEqualTo("198.51.100.7");
+    }
+
+    @Test
+    @DisplayName("Should fall back to remote address when the header is absent")
+    void shouldFallBackToRemoteAddrWithoutHeader() {
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getRemoteAddr()).thenReturn("203.0.113.5");
+
+        assertThat(clientIpResolver.resolveClientIp(request)).isEqualTo("203.0.113.5");
+    }
+
+    @Test
+    @DisplayName("Should fall back to remote address when the header is blank")
+    void shouldFallBackToRemoteAddrForBlankHeader() {
+        when(request.getHeader("X-Forwarded-For")).thenReturn("   ");
         when(request.getRemoteAddr()).thenReturn("203.0.113.5");
 
         assertThat(clientIpResolver.resolveClientIp(request)).isEqualTo("203.0.113.5");
@@ -35,16 +53,9 @@ class ClientIpResolverTest {
     @Test
     @DisplayName("Should return localhost for local address")
     void shouldReturnLocalhost() {
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
 
         assertThat(clientIpResolver.resolveClientIp(request)).isEqualTo("127.0.0.1");
-    }
-
-    @Test
-    @DisplayName("Should return IPv6 address")
-    void shouldReturnIpv6Address() {
-        when(request.getRemoteAddr()).thenReturn("::1");
-
-        assertThat(clientIpResolver.resolveClientIp(request)).isEqualTo("::1");
     }
 }

@@ -33,8 +33,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -168,5 +170,64 @@ class SecurityIntegrationTest {
         mockMvc.perform(get("/api/management/users")
                         .header("Authorization", "Bearer " + validToken))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("State-changing request from a non-allowed origin is blocked (CSRF)")
+    void crossOriginStateChangingRequestBlocked() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .header("Origin", "http://evil.example.com")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("State-changing request from the allowed frontend origin passes the origin check")
+    void sameOriginStateChangingRequestAllowed() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .header("Origin", "http://localhost:3000")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest()); // passes CSRF check, fails validation
+    }
+
+    @Test
+    @DisplayName("State-changing request without an Origin header is allowed (API client)")
+    void missingOriginStateChangingRequestAllowed() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest()); // passes CSRF check, fails validation
+    }
+
+    @Test
+    @DisplayName("Safe methods are exempt from the origin check (but still require auth)")
+    void safeMethodsExemptFromOriginCheck() throws Exception {
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Origin", "http://localhost:3000"))
+                .andExpect(status().isUnauthorized()); // origin check skipped for GET; no session → 401
+    }
+
+    @Test
+    @DisplayName("CSP violation reports are accepted without a session")
+    void cspReportAcceptedWithoutSession() throws Exception {
+        mockMvc.perform(post("/api/csp-report")
+                        .header("Origin", "http://localhost:3000")
+                        .contentType("application/csp-report")
+                        .content("{\"csp-report\":{\"violated-directive\":\"script-src\"}}"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("API responses carry restrictive security headers (CSP default-src 'none', X-Frame-Options DENY)")
+    void apiResponsesCarrySecurityHeaders() throws Exception {
+        mockMvc.perform(get("/api/auth/me").secure(true))
+                .andExpect(header().string("Content-Security-Policy", containsString("default-src 'none'")))
+                .andExpect(header().string("Content-Security-Policy", containsString("frame-ancestors 'none'")))
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Referrer-Policy", "strict-origin-when-cross-origin"))
+                .andExpect(header().string("Strict-Transport-Security", containsString("max-age=31536000")));
     }
 }

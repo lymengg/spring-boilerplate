@@ -1,13 +1,12 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.*;
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.service.AuthService;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -18,18 +17,32 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthCookieService authCookieService;
 
-    private static final String REFRESH_TOKEN_COOKIE = "refresh_token";
-    private static final long REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
-
+    /**
+     * Login. Sets both auth cookies on success.
+     *
+     * Response shaping:
+     * - Browser flows (Origin header present): tokens are delivered ONLY via
+     *   httpOnly cookies — the body carries the user profile, never tokens.
+     * - API clients (no Origin): tokens are returned in the body (they do not
+     *   hold browser cookies). The access token remains usable via the
+     *   Authorization header for these clients.
+     */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<Object>> login(
             @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest,
             HttpServletResponse response) {
         Object loginResult = authService.login(request);
 
         if (loginResult instanceof TokenResponse tokenResponse) {
-            addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
+            authCookieService.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
+
+            if (isBrowserFlow(servletRequest)) {
+                UserProfileResponse profile = authService.getUserProfile(tokenResponse.getUsername());
+                return ResponseEntity.ok(ApiResponse.success("Login successful", profile));
+            }
             return ResponseEntity.ok(ApiResponse.success("Login successful", tokenResponse));
         }
 
@@ -37,41 +50,52 @@ public class AuthController {
     }
 
     @PostMapping("/mfa/verify")
-    public ResponseEntity<ApiResponse<TokenResponse>> verifyMfa(
+    public ResponseEntity<ApiResponse<Object>> verifyMfa(
             @Valid @RequestBody MfaVerifyRequest request,
+            HttpServletRequest servletRequest,
             HttpServletResponse response) {
         TokenResponse tokenResponse = authService.verifyMfa(request);
-        addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
+        authCookieService.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
+
+        if (isBrowserFlow(servletRequest)) {
+            UserProfileResponse profile = authService.getUserProfile(tokenResponse.getUsername());
+            return ResponseEntity.ok(ApiResponse.success("MFA verification successful", profile));
+        }
         return ResponseEntity.ok(ApiResponse.success("MFA verification successful", tokenResponse));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
+    public ResponseEntity<ApiResponse<Object>> refreshToken(
             @Valid @RequestBody(required = false) RefreshTokenRequest body,
-            HttpServletRequest request,
+            HttpServletRequest servletRequest,
             HttpServletResponse response) {
-        // BFF sends the refresh token in the body; direct browser clients rely on
-        // the httpOnly cookie. Body takes precedence so the BFF flow works cleanly.
+        // API clients send the refresh token in the body; browser flows rely on
+        // the httpOnly cookie. Body takes precedence so API clients work cleanly.
         String refreshToken = body != null && body.getRefreshToken() != null
                 ? body.getRefreshToken()
-                : extractRefreshTokenFromCookie(request);
+                : authCookieService.resolveRefreshToken(servletRequest);
         if (refreshToken == null) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Refresh token not provided"));
         }
 
         TokenResponse tokenResponse = authService.refreshToken(refreshToken);
-        addRefreshTokenCookie(response, tokenResponse.getRefreshToken());
+        authCookieService.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
+
+        if (isBrowserFlow(servletRequest)) {
+            // Browser flow: new tokens already delivered via cookies — no token in the body.
+            return ResponseEntity.ok(ApiResponse.success("Token refreshed", null));
+        }
         return ResponseEntity.ok(ApiResponse.success("Token refreshed", tokenResponse));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             Authentication authentication,
-            HttpServletRequest request,
+            HttpServletRequest servletRequest,
             HttpServletResponse response) {
-        String accessToken = extractAccessToken(request);
+        String accessToken = extractAccessToken(servletRequest);
         authService.logout(authentication, accessToken);
-        clearRefreshTokenCookie(response);
+        authCookieService.clearCookies(response);
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
 
@@ -87,7 +111,7 @@ public class AuthController {
             Authentication authentication,
             HttpServletResponse response) {
         authService.changePassword(authentication, request);
-        clearRefreshTokenCookie(response);
+        authCookieService.clearCookies(response);
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }
 
@@ -103,38 +127,15 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.<Void>success("Password reset successfully", null));
     }
 
-    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, refreshToken)
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(REFRESH_TOKEN_MAX_AGE)
-                .sameSite("Strict")
-                .build();
-        response.addHeader("Set-Cookie", cookie.toString());
-    }
-
-    private void clearRefreshTokenCookie(HttpServletResponse response) {
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(0)
-                .sameSite("Strict")
-                .build();
-        response.addHeader("Set-Cookie", cookie.toString());
-    }
-
-    private String extractRefreshTokenFromCookie(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (REFRESH_TOKEN_COOKIE.equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
-        }
-        return null;
+    /**
+     * Browser flows are identified by the presence of an Origin header, which
+     * browsers always send on state-changing requests. API clients (curl,
+     * other services) do not send it. Stripping tokens for Origin-bearing
+     * requests is fail-safe: an attacker forging Origin only loses token
+     * access, never gains it.
+     */
+    private boolean isBrowserFlow(HttpServletRequest request) {
+        return request.getHeader("Origin") != null;
     }
 
     private String extractAccessToken(HttpServletRequest request) {
@@ -142,7 +143,8 @@ public class AuthController {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
-        return null;
+        // Browser flows send the access token as an httpOnly cookie.
+        return authCookieService.resolveAccessToken(request);
     }
 
 }

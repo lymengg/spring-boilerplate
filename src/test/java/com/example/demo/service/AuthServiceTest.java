@@ -106,6 +106,19 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("Should delegate profile lookup by username to UserService")
+    void shouldDelegateGetUserProfile() {
+        UserProfileResponse userProfileResponse = UserProfileResponse.builder().username("testuser").build();
+
+        when(userService.getCurrentUser("testuser")).thenReturn(userProfileResponse);
+
+        UserProfileResponse result = authService.getUserProfile("testuser");
+
+        assertThat(result).isEqualTo(userProfileResponse);
+        verify(userService).getCurrentUser("testuser");
+    }
+
+    @Test
     @DisplayName("Should delegate change password and revoke tokens")
     void shouldDelegateChangePassword() {
         ChangePasswordRequest request = ChangePasswordRequest.builder()

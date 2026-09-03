@@ -78,8 +78,11 @@ public class TokenServiceImpl implements TokenService {
         String newAccessToken = jwtTokenProvider.generateAccessToken(authentication);
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(authentication);
 
-        refreshTokenService.revokeRefreshToken(refreshToken);
-        refreshTokenService.storeRefreshToken(username, newRefreshToken, jwtConfig.getRefreshTokenExpiration());
+        // Rotation with a reuse grace window: the old token stays valid briefly
+        // so concurrent refreshes (multi-tab) don't fail at the boundary.
+        refreshTokenService.rotateRefreshToken(
+                username, refreshToken, newRefreshToken,
+                jwtConfig.getRefreshTokenExpiration(), jwtConfig.getRefreshTokenGraceWindow());
 
         User user = customUserDetailsService.loadUserEntityByUsername(username);
         securityAuditLogger.logTokenRefreshed(username, ipAddress);

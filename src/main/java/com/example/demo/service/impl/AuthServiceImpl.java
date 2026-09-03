@@ -50,6 +50,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public UserProfileResponse getUserProfile(String username) {
+        return userService.getCurrentUser(username);
+    }
+
+    @Override
     public void changePassword(Authentication authentication, ChangePasswordRequest request) {
         String ipAddress = getClientIp();
         userService.changePassword(authentication.getName(), request, ipAddress);

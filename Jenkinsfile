@@ -30,14 +30,25 @@ pipeline {
         // Database password from Jenkins credentials
         DB_PASSWORD = credentials('DB_PASSWORD')
 
-        // Application URLs
-        BASE_URL = 'expm-api.ouklymeng.qzz.io'
-        FRONTEND_URL = 'expm.ouklymeng.qzz.io'
+        // Application URLs — must include the scheme: the browser Origin header
+        // and password-reset links are scheme-qualified (https://). Without it,
+        // CORS and OriginCheckFilter reject every browser request.
+        BASE_URL = 'https://expm-api.ouklymeng.qzz.io'
+        FRONTEND_URL = 'https://expm.ouklymeng.qzz.io'
 
         // Rate Limiting
         RATE_LIMITING_PER_USER_FORGOT_PASSWORD = '10'
         RATE_LIMITING_PER_USER_RESET_PASSWORD = '10'
         RATE_LIMITING_PER_USER_MFA_VERIFY = '10'
+
+        // Mail — optional; required for email MFA and password-reset emails.
+        // When enabled (APP_MAIL_ENABLED=true), set MAIL_HOST/MAIL_USERNAME and
+        // make MAIL_PASSWORD a Jenkins credential instead of a plain string.
+        APP_MAIL_ENABLED = 'false'
+        MAIL_HOST = ''
+        MAIL_PORT = '587'
+        MAIL_USERNAME = ''
+        MAIL_PASSWORD = ''
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
@@ -153,6 +164,11 @@ pipeline {
                              RATE_LIMITING_PER_USER_FORGOT_PASSWORD='${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}' \
                              RATE_LIMITING_PER_USER_RESET_PASSWORD='${RATE_LIMITING_PER_USER_RESET_PASSWORD}' \
                              RATE_LIMITING_PER_USER_MFA_VERIFY='${RATE_LIMITING_PER_USER_MFA_VERIFY}' \
+                             APP_MAIL_ENABLED='${APP_MAIL_ENABLED}' \
+                             MAIL_HOST='${MAIL_HOST}' \
+                             MAIL_PORT='${MAIL_PORT}' \
+                             MAIL_USERNAME='${MAIL_USERNAME}' \
+                             MAIL_PASSWORD='${MAIL_PASSWORD}' \
                              bash -s" <<'REMOTE_SCRIPT'
 
                         set -eu
@@ -173,6 +189,11 @@ pipeline {
                         export RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
                         export RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
                         export RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
+                        export APP_MAIL_ENABLED="${APP_MAIL_ENABLED}"
+                        export MAIL_HOST="${MAIL_HOST}"
+                        export MAIL_PORT="${MAIL_PORT}"
+                        export MAIL_USERNAME="${MAIL_USERNAME}"
+                        export MAIL_PASSWORD="${MAIL_PASSWORD}"
 
                         echo "Pulling image:"
                         echo "${DOCKER_IMAGE}:${IMAGE_TAG}"

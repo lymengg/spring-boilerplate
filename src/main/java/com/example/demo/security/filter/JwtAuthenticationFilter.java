@@ -1,5 +1,6 @@
 package com.example.demo.security.filter;
 
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
@@ -27,6 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
+    private final AuthCookieService authCookieService;
 
     @Override
     protected void doFilterInternal(
@@ -35,7 +37,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         try {
+            // Credential resolution precedence: explicit Authorization header wins,
+            // then the httpOnly access-token cookie (browser flows). An explicit
+            // credential must never be overridden by an ambient cookie.
             String token = jwtTokenProvider.resolveToken(request);
+            if (!StringUtils.hasText(token)) {
+                token = authCookieService.resolveAccessToken(request);
+            }
 
             if (StringUtils.hasText(token) && jwtTokenProvider.validateAccessToken(token)) {
                 String jti = jwtTokenProvider.getIdFromToken(token);

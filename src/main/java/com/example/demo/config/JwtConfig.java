@@ -22,6 +22,10 @@ public class JwtConfig {
     private String secret;
     private long accessTokenExpiration = 900000;
     private long refreshTokenExpiration = 604800000;
+    /** How long a just-rotated refresh token stays valid, so parallel requests
+     *  (multiple browser tabs) at the rotation boundary don't log each other
+     *  out. See OAuth 2.0 BCP §4.14 (reuse grace period). Default 60s. */
+    private long refreshTokenGraceWindow = 60000;
     private String issuer = "security-boilerplate";
     private String audience = "api.security-boilerplate";
 

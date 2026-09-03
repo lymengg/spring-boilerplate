@@ -2,6 +2,7 @@ package com.example.demo.config;
 
 import com.example.demo.dto.ApiResponse;
 import com.example.demo.security.filter.JwtAuthenticationFilter;
+import com.example.demo.security.filter.OriginCheckFilter;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final OriginCheckFilter originCheckFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
@@ -44,16 +46,24 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/mfa/verify", "/error").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/csp-report").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                         .anyRequest().authenticated()
                 )
                  .authenticationProvider(authenticationProvider())
+                 // Order matters: the JWT filter's position must be registered
+                 // before the origin filter can reference it as its anchor.
                  .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                 // CSRF: Origin validation for cookie-based browser flows (see OriginCheckFilter).
+                 .addFilterBefore(originCheckFilter, JwtAuthenticationFilter.class)
                  .headers(headers -> headers
-                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
-                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'"))
+                         // The API renders no HTML: deny framing outright and allow
+                         // nothing by default (defends against content-sniffing of
+                         // JSON/error bodies as HTML).
+                         .frameOptions(HeadersConfigurer.FrameOptionsConfig::deny)
+                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"))
                          .contentTypeOptions(contentType -> {})
                          .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                          .httpStrictTransportSecurity(hsts -> hsts

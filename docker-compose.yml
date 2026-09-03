@@ -8,8 +8,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       DB_NAME: ${DB_NAME:-expense_management}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      REDIS_HOST: redis
-      REDIS_PORT: '6379'
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-expense_management}
       SPRING_DATASOURCE_DRIVER: org.postgresql.Driver
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
@@ -24,6 +24,12 @@ services:
       RATE_LIMITING_PER_USER_MFA_VERIFY: ${RATE_LIMITING_PER_USER_MFA_VERIFY:-10}
       LOG_LEVEL_APP: INFO
       LOG_LEVEL_SECURITY: WARN
+      # Mail — optional (email MFA / password-reset emails). Off by default.
+      APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
+      SPRING_MAIL_HOST: ${MAIL_HOST:-}
+      SPRING_MAIL_PORT: ${MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
