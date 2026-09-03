@@ -18,17 +18,23 @@ pipeline {
 
         // Database
         DB_USERNAME = 'postgres'
+        DB_PASSWORD = 'postgres'
         DB_NAME = 'expense_management'
+
+        // Datasource
+        SPRING_DATASOURCE_URL = 'jdbc:postgresql://postgres:5432/expense_management'
+        SPRING_DATASOURCE_DRIVER = 'org.postgresql.Driver'
+        SPRING_JPA_DDL_AUTO = 'none'
+        SPRING_JPA_DIALECT = 'org.hibernate.dialect.PostgreSQLDialect'
+        SPRING_JPA_FORMAT_SQL = 'false'
 
         // Redis
         REDIS_HOST = 'redis'
         REDIS_PORT = '6379'
+        REDIS_TIMEOUT = '2000ms'
 
-        // JWT
-        JWT_SECRET = credentials('jwt-secret')
-
-        // Database password from Jenkins credentials
-        DB_PASSWORD = credentials('DB_PASSWORD')
+        // JWT — default value, not read from Jenkins credentials
+        JWT_SECRET = 'change-me-in-production-00000000000000000000000000000000'
 
         // Application URLs — must include the scheme: the browser Origin header
         // and password-reset links are scheme-qualified (https://). Without it,
@@ -41,9 +47,13 @@ pipeline {
         RATE_LIMITING_PER_USER_RESET_PASSWORD = '10'
         RATE_LIMITING_PER_USER_MFA_VERIFY = '10'
 
+        // Logging
+        LOG_LEVEL_APP = 'INFO'
+        LOG_LEVEL_SECURITY = 'WARN'
+
         // Mail — optional; required for email MFA and password-reset emails.
         // When enabled (APP_MAIL_ENABLED=true), set MAIL_HOST/MAIL_USERNAME and
-        // make MAIL_PASSWORD a Jenkins credential instead of a plain string.
+        // MAIL_PASSWORD to real values.
         APP_MAIL_ENABLED = 'false'
         MAIL_HOST = ''
         MAIL_PORT = '587'
@@ -158,6 +168,14 @@ pipeline {
                              DB_NAME='${DB_NAME}' \
                              REDIS_HOST='${REDIS_HOST}' \
                              REDIS_PORT='${REDIS_PORT}' \
+                             REDIS_TIMEOUT='${REDIS_TIMEOUT}' \
+                             SPRING_DATASOURCE_URL='${SPRING_DATASOURCE_URL}' \
+                             SPRING_DATASOURCE_DRIVER='${SPRING_DATASOURCE_DRIVER}' \
+                             SPRING_JPA_DDL_AUTO='${SPRING_JPA_DDL_AUTO}' \
+                             SPRING_JPA_DIALECT='${SPRING_JPA_DIALECT}' \
+                             SPRING_JPA_FORMAT_SQL='${SPRING_JPA_FORMAT_SQL}' \
+                             LOG_LEVEL_APP='${LOG_LEVEL_APP}' \
+                             LOG_LEVEL_SECURITY='${LOG_LEVEL_SECURITY}' \
                              JWT_SECRET='${JWT_SECRET}' \
                              BASE_URL='${BASE_URL}' \
                              FRONTEND_URL='${FRONTEND_URL}' \
@@ -183,6 +201,14 @@ pipeline {
                         export DB_NAME="${DB_NAME}"
                         export REDIS_HOST="${REDIS_HOST}"
                         export REDIS_PORT="${REDIS_PORT}"
+                        export REDIS_TIMEOUT="${REDIS_TIMEOUT}"
+                        export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL}"
+                        export SPRING_DATASOURCE_DRIVER="${SPRING_DATASOURCE_DRIVER}"
+                        export SPRING_JPA_DDL_AUTO="${SPRING_JPA_DDL_AUTO}"
+                        export SPRING_JPA_DIALECT="${SPRING_JPA_DIALECT}"
+                        export SPRING_JPA_FORMAT_SQL="${SPRING_JPA_FORMAT_SQL}"
+                        export LOG_LEVEL_APP="${LOG_LEVEL_APP}"
+                        export LOG_LEVEL_SECURITY="${LOG_LEVEL_SECURITY}"
                         export JWT_SECRET="${JWT_SECRET}"
                         export BASE_URL="${BASE_URL}"
                         export FRONTEND_URL="${FRONTEND_URL}"
