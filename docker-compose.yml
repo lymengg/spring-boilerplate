@@ -1,7 +1,7 @@
 services:
   app:
     image: ${DOCKER_IMAGE:-lymengouk/expense-management-api}:${IMAGE_TAG:-latest}
-    container_name: expense-management-app
+    container_name: app
     # No host port mapping: the app is reachable only through Caddy.
     environment:
       DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
@@ -55,7 +55,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: expense-management-postgres
+    container_name: postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
@@ -79,7 +79,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: expense-management-redis
+    container_name: redis
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
@@ -100,7 +100,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    container_name: expense-management-caddy
+    container_name: caddy
     ports:
       - "80:80"
       - "443:443"
