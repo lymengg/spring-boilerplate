@@ -154,71 +154,58 @@ pipeline {
                             Caddyfile \
                             "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/${APP_NAME}/Caddyfile"
 
+                        # Deployment config is delivered as an .env file next to
+                        # docker-compose.yml: compose reads it automatically, and the
+                        # values never appear in the remote process list.
+                        umask 077
+
+                        cat > deploy.env <<EOF
+DOCKER_IMAGE=${DOCKER_IMAGE}
+IMAGE_TAG=${IMAGE_TAG}
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+DB_NAME=${DB_NAME}
+REDIS_HOST=${REDIS_HOST}
+REDIS_PORT=${REDIS_PORT}
+REDIS_TIMEOUT=${REDIS_TIMEOUT}
+SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+SPRING_DATASOURCE_DRIVER=${SPRING_DATASOURCE_DRIVER}
+SPRING_JPA_DDL_AUTO=${SPRING_JPA_DDL_AUTO}
+SPRING_JPA_DIALECT=${SPRING_JPA_DIALECT}
+SPRING_JPA_FORMAT_SQL=${SPRING_JPA_FORMAT_SQL}
+LOG_LEVEL_APP=${LOG_LEVEL_APP}
+LOG_LEVEL_SECURITY=${LOG_LEVEL_SECURITY}
+SERVER_FORWARD_HEADERS_STRATEGY=${SERVER_FORWARD_HEADERS_STRATEGY}
+JWT_SECRET=${JWT_SECRET}
+BASE_URL=${BASE_URL}
+FRONTEND_URL=${FRONTEND_URL}
+RATE_LIMITING_PER_USER_FORGOT_PASSWORD=${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}
+RATE_LIMITING_PER_USER_RESET_PASSWORD=${RATE_LIMITING_PER_USER_RESET_PASSWORD}
+RATE_LIMITING_PER_USER_MFA_VERIFY=${RATE_LIMITING_PER_USER_MFA_VERIFY}
+APP_MAIL_ENABLED=${APP_MAIL_ENABLED}
+EOF
+
+                        scp \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
+                            deploy.env \
+                            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/${APP_NAME}/.env"
+
+                        rm -f deploy.env
+
                         ssh \
                             -o StrictHostKeyChecking=no \
                             -o UserKnownHostsFile=/dev/null \
                             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-                            "APP_NAME='${APP_NAME}' \
-                             DOCKER_IMAGE='${DOCKER_IMAGE}' \
-                             IMAGE_TAG='${IMAGE_TAG}' \
-                             DB_USERNAME='${DB_USERNAME}' \
-                             DB_PASSWORD='${DB_PASSWORD}' \
-                             DB_NAME='${DB_NAME}' \
-                             REDIS_HOST='${REDIS_HOST}' \
-                             REDIS_PORT='${REDIS_PORT}' \
-                             REDIS_TIMEOUT='${REDIS_TIMEOUT}' \
-                             SPRING_DATASOURCE_URL='${SPRING_DATASOURCE_URL}' \
-                             SPRING_DATASOURCE_DRIVER='${SPRING_DATASOURCE_DRIVER}' \
-                             SPRING_JPA_DDL_AUTO='${SPRING_JPA_DDL_AUTO}' \
-                             SPRING_JPA_DIALECT='${SPRING_JPA_DIALECT}' \
-                             SPRING_JPA_FORMAT_SQL='${SPRING_JPA_FORMAT_SQL}' \
-                             LOG_LEVEL_APP='${LOG_LEVEL_APP}' \
-                             LOG_LEVEL_SECURITY='${LOG_LEVEL_SECURITY}' \
-                             SERVER_FORWARD_HEADERS_STRATEGY='${SERVER_FORWARD_HEADERS_STRATEGY}' \
-                             JWT_SECRET='${JWT_SECRET}' \
-                             BASE_URL='${BASE_URL}' \
-                             FRONTEND_URL='${FRONTEND_URL}' \
-                             RATE_LIMITING_PER_USER_FORGOT_PASSWORD='${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}' \
-                             RATE_LIMITING_PER_USER_RESET_PASSWORD='${RATE_LIMITING_PER_USER_RESET_PASSWORD}' \
-                             RATE_LIMITING_PER_USER_MFA_VERIFY='${RATE_LIMITING_PER_USER_MFA_VERIFY}' \
-                             APP_MAIL_ENABLED='${APP_MAIL_ENABLED}' \
-                             bash -s" <<'REMOTE_SCRIPT'
+                            "APP_NAME='${APP_NAME}' bash -s" <<'REMOTE_SCRIPT'
 
                         set -eu
 
                         cd "/opt/${APP_NAME}"
 
-                        export APP_NAME="${APP_NAME}"
-                        export DOCKER_IMAGE="${DOCKER_IMAGE}"
-                        export IMAGE_TAG="${IMAGE_TAG}"
-                        export DB_USERNAME="${DB_USERNAME}"
-                        export DB_PASSWORD="${DB_PASSWORD}"
-                        export DB_NAME="${DB_NAME}"
-                        export REDIS_HOST="${REDIS_HOST}"
-                        export REDIS_PORT="${REDIS_PORT}"
-                        export REDIS_TIMEOUT="${REDIS_TIMEOUT}"
-                        export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL}"
-                        export SPRING_DATASOURCE_DRIVER="${SPRING_DATASOURCE_DRIVER}"
-                        export SPRING_JPA_DDL_AUTO="${SPRING_JPA_DDL_AUTO}"
-                        export SPRING_JPA_DIALECT="${SPRING_JPA_DIALECT}"
-                        export SPRING_JPA_FORMAT_SQL="${SPRING_JPA_FORMAT_SQL}"
-                        export LOG_LEVEL_APP="${LOG_LEVEL_APP}"
-                        export LOG_LEVEL_SECURITY="${LOG_LEVEL_SECURITY}"
-                        export SERVER_FORWARD_HEADERS_STRATEGY="${SERVER_FORWARD_HEADERS_STRATEGY}"
-                        export JWT_SECRET="${JWT_SECRET}"
-                        export BASE_URL="${BASE_URL}"
-                        export FRONTEND_URL="${FRONTEND_URL}"
-                        export RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
-                        export RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
-                        export RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
-                        export APP_MAIL_ENABLED="${APP_MAIL_ENABLED}"
+                        chmod 600 .env
 
-                        echo "Pulling image:"
-                        echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
-
-                        docker pull "${DOCKER_IMAGE}:${IMAGE_TAG}"
-
-                        echo "Pulling Docker Compose image..."
+                        echo "Pulling images..."
 
                         docker compose pull
 
