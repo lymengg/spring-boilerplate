@@ -18,7 +18,8 @@ pipeline {
 
         // Database
         DB_USERNAME = 'postgres'
-        DB_PASSWORD = 'postgres'
+        // DB_PASSWORD — read from a Jenkins secret-text credential (masked in logs).
+        DB_PASSWORD = credentials('DB_PASSWORD')
         DB_NAME = 'expense_management'
 
         // Datasource
@@ -27,14 +28,20 @@ pipeline {
         SPRING_JPA_DDL_AUTO = 'none'
         SPRING_JPA_DIALECT = 'org.hibernate.dialect.PostgreSQLDialect'
         SPRING_JPA_FORMAT_SQL = 'false'
+        SPRING_JPA_OPEN_IN_VIEW = 'false'
 
         // Redis
         REDIS_HOST = 'redis'
         REDIS_PORT = '6379'
         REDIS_TIMEOUT = '2000ms'
 
-        // JWT — default value, not read from Jenkins credentials
-        JWT_SECRET = 'change-me-in-production-00000000000000000000000000000000'
+        // JWT_SECRET — read from a Jenkins secret-text credential (masked in logs).
+        JWT_SECRET = credentials('JWT_SECRET')
+        JWT_ACCESS_TOKEN_EXPIRATION = '900000'
+        JWT_REFRESH_TOKEN_EXPIRATION = '604800000'
+        JWT_REFRESH_TOKEN_GRACE_WINDOW = '60000'
+        JWT_ISSUER = 'expense-management-api'
+        JWT_AUDIENCE = 'expense-management-web'
 
         // Application URLs — must include the scheme: the browser Origin header
         // and password-reset links are scheme-qualified (https://). Without it,
@@ -42,23 +49,34 @@ pipeline {
         BASE_URL = 'https://expm-api.ouklymeng.qzz.io'
         FRONTEND_URL = 'https://expm.ouklymeng.qzz.io'
 
+        // Account Lockout
+        ACCOUNT_LOCKOUT_MAX_ATTEMPTS = '5'
+        ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES = '15'
+
         // Rate Limiting
+        RATE_LIMITING_WINDOW_MILLIS = '60000'
         RATE_LIMITING_PER_USER_FORGOT_PASSWORD = '10'
         RATE_LIMITING_PER_USER_RESET_PASSWORD = '10'
         RATE_LIMITING_PER_USER_MFA_VERIFY = '10'
+
+        // MFA
+        MFA_ISSUER = 'Expense Management'
+        MFA_OTP_EXPIRATION_SECONDS = '300'
+        MFA_PENDING_TOKEN_EXPIRATION = '300000'
+        MFA_OTP_DIGITS = '6'
 
         // Logging
         LOG_LEVEL_APP = 'INFO'
         LOG_LEVEL_SECURITY = 'WARN'
 
-        // Mail — optional; required for email MFA and password-reset emails.
-        // When enabled (APP_MAIL_ENABLED=true), set MAIL_HOST/MAIL_USERNAME and
-        // MAIL_PASSWORD to real values.
+        // Server
+        SERVER_PORT = '8080'
+        SERVER_COMPRESSION = 'true'
+        SERVER_FORWARD_HEADERS_STRATEGY = 'framework'
+
+        // Mail — off by default. To enable, set APP_MAIL_ENABLED=true and
+        // pass SPRING_MAIL_HOST/PORT/USERNAME/PASSWORD to the container.
         APP_MAIL_ENABLED = 'false'
-        MAIL_HOST = '0.0.0.0'
-        MAIL_PORT = '587'
-        MAIL_USERNAME = 'test'
-        MAIL_PASSWORD = 'test'
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
@@ -174,19 +192,31 @@ pipeline {
                              SPRING_JPA_DDL_AUTO='${SPRING_JPA_DDL_AUTO}' \
                              SPRING_JPA_DIALECT='${SPRING_JPA_DIALECT}' \
                              SPRING_JPA_FORMAT_SQL='${SPRING_JPA_FORMAT_SQL}' \
+                             SPRING_JPA_OPEN_IN_VIEW='${SPRING_JPA_OPEN_IN_VIEW}' \
                              LOG_LEVEL_APP='${LOG_LEVEL_APP}' \
                              LOG_LEVEL_SECURITY='${LOG_LEVEL_SECURITY}' \
                              JWT_SECRET='${JWT_SECRET}' \
+                             JWT_ACCESS_TOKEN_EXPIRATION='${JWT_ACCESS_TOKEN_EXPIRATION}' \
+                             JWT_REFRESH_TOKEN_EXPIRATION='${JWT_REFRESH_TOKEN_EXPIRATION}' \
+                             JWT_REFRESH_TOKEN_GRACE_WINDOW='${JWT_REFRESH_TOKEN_GRACE_WINDOW}' \
+                             JWT_ISSUER='${JWT_ISSUER}' \
+                             JWT_AUDIENCE='${JWT_AUDIENCE}' \
                              BASE_URL='${BASE_URL}' \
                              FRONTEND_URL='${FRONTEND_URL}' \
+                             ACCOUNT_LOCKOUT_MAX_ATTEMPTS='${ACCOUNT_LOCKOUT_MAX_ATTEMPTS}' \
+                             ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES='${ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES}' \
+                             RATE_LIMITING_WINDOW_MILLIS='${RATE_LIMITING_WINDOW_MILLIS}' \
                              RATE_LIMITING_PER_USER_FORGOT_PASSWORD='${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}' \
                              RATE_LIMITING_PER_USER_RESET_PASSWORD='${RATE_LIMITING_PER_USER_RESET_PASSWORD}' \
                              RATE_LIMITING_PER_USER_MFA_VERIFY='${RATE_LIMITING_PER_USER_MFA_VERIFY}' \
+                             MFA_ISSUER='${MFA_ISSUER}' \
+                             MFA_OTP_EXPIRATION_SECONDS='${MFA_OTP_EXPIRATION_SECONDS}' \
+                             MFA_PENDING_TOKEN_EXPIRATION='${MFA_PENDING_TOKEN_EXPIRATION}' \
+                             MFA_OTP_DIGITS='${MFA_OTP_DIGITS}' \
+                             SERVER_PORT='${SERVER_PORT}' \
+                             SERVER_COMPRESSION='${SERVER_COMPRESSION}' \
+                             SERVER_FORWARD_HEADERS_STRATEGY='${SERVER_FORWARD_HEADERS_STRATEGY}' \
                              APP_MAIL_ENABLED='${APP_MAIL_ENABLED}' \
-                             MAIL_HOST='${MAIL_HOST}' \
-                             MAIL_PORT='${MAIL_PORT}' \
-                             MAIL_USERNAME='${MAIL_USERNAME}' \
-                             MAIL_PASSWORD='${MAIL_PASSWORD}' \
                              bash -s" <<'REMOTE_SCRIPT'
 
                         set -eu
@@ -207,19 +237,31 @@ pipeline {
                         export SPRING_JPA_DDL_AUTO="${SPRING_JPA_DDL_AUTO}"
                         export SPRING_JPA_DIALECT="${SPRING_JPA_DIALECT}"
                         export SPRING_JPA_FORMAT_SQL="${SPRING_JPA_FORMAT_SQL}"
+                        export SPRING_JPA_OPEN_IN_VIEW="${SPRING_JPA_OPEN_IN_VIEW}"
                         export LOG_LEVEL_APP="${LOG_LEVEL_APP}"
                         export LOG_LEVEL_SECURITY="${LOG_LEVEL_SECURITY}"
                         export JWT_SECRET="${JWT_SECRET}"
+                        export JWT_ACCESS_TOKEN_EXPIRATION="${JWT_ACCESS_TOKEN_EXPIRATION}"
+                        export JWT_REFRESH_TOKEN_EXPIRATION="${JWT_REFRESH_TOKEN_EXPIRATION}"
+                        export JWT_REFRESH_TOKEN_GRACE_WINDOW="${JWT_REFRESH_TOKEN_GRACE_WINDOW}"
+                        export JWT_ISSUER="${JWT_ISSUER}"
+                        export JWT_AUDIENCE="${JWT_AUDIENCE}"
                         export BASE_URL="${BASE_URL}"
                         export FRONTEND_URL="${FRONTEND_URL}"
+                        export ACCOUNT_LOCKOUT_MAX_ATTEMPTS="${ACCOUNT_LOCKOUT_MAX_ATTEMPTS}"
+                        export ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES="${ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES}"
+                        export RATE_LIMITING_WINDOW_MILLIS="${RATE_LIMITING_WINDOW_MILLIS}"
                         export RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
                         export RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
                         export RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
+                        export MFA_ISSUER="${MFA_ISSUER}"
+                        export MFA_OTP_EXPIRATION_SECONDS="${MFA_OTP_EXPIRATION_SECONDS}"
+                        export MFA_PENDING_TOKEN_EXPIRATION="${MFA_PENDING_TOKEN_EXPIRATION}"
+                        export MFA_OTP_DIGITS="${MFA_OTP_DIGITS}"
+                        export SERVER_PORT="${SERVER_PORT}"
+                        export SERVER_COMPRESSION="${SERVER_COMPRESSION}"
+                        export SERVER_FORWARD_HEADERS_STRATEGY="${SERVER_FORWARD_HEADERS_STRATEGY}"
                         export APP_MAIL_ENABLED="${APP_MAIL_ENABLED}"
-                        export MAIL_HOST="${MAIL_HOST}"
-                        export MAIL_PORT="${MAIL_PORT}"
-                        export MAIL_USERNAME="${MAIL_USERNAME}"
-                        export MAIL_PASSWORD="${MAIL_PASSWORD}"
 
                         echo "Pulling image:"
                         echo "${DOCKER_IMAGE}:${IMAGE_TAG}"

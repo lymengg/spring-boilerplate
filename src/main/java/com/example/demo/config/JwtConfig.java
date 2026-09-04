@@ -26,8 +26,8 @@ public class JwtConfig {
      *  (multiple browser tabs) at the rotation boundary don't log each other
      *  out. See OAuth 2.0 BCP §4.14 (reuse grace period). Default 60s. */
     private long refreshTokenGraceWindow = 60000;
-    private String issuer = "security-boilerplate";
-    private String audience = "api.security-boilerplate";
+    private String issuer = "expense-management-api";
+    private String audience = "expense-management-web";
 
     @PostConstruct
     public void init() {

@@ -1,8 +1,26 @@
 expm-api.ouklymeng.qzz.io {
     reverse_proxy http://app:8080 {
-        header_up Host {upstream_hostport}
+        header_up Host {host}
         header_up X-Real-IP {remote_host}
+        # Overwrite (not append) so the backend can trust the first value — see ClientIpResolver.
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
+    }
+
+    request_body {
+        max_size 1MB
+    }
+
+    # Caddy-generated errors (413, 502, 504, ...) use the same ApiResponse
+    # envelope as the backend so the frontend's useApiError handles them.
+    handle_errors {
+        @4xx expression `{err.status_code} >= 400 && {err.status_code} < 500`
+        @5xx expression `{err.status_code} >= 500`
+        respond @4xx `{"success":false,"message":"{err.status_code} {err.status_text}","data":null,"timestamp":"{time.now}"}` 400 {
+            header Content-Type application/json
+        }
+        respond @5xx `{"success":false,"message":"{err.status_code} {err.status_text}","data":null,"timestamp":"{time.now}"}` 500 {
+            header Content-Type application/json
+        }
     }
 }

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "mfa")
 public class MfaProperties {
 
-    private String issuer = "security-boilerplate";
+    private String issuer = "Expense Management";
     private int otpExpirationSeconds = 300;
     private long pendingTokenExpiration = 300000;
     private int otpDigits = 6;
