@@ -1,8 +1,15 @@
 expm-api.ouklymeng.qzz.io {
-    reverse_proxy http://app:8080 {
-        header_up Host {upstream_hostport}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-    }
+	reverse_proxy http://app:8080 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Errors raised by Caddy itself (upstream down, TLS, timeouts) are returned
+	# in the backend's ApiResponse envelope so clients parse one shape only.
+	handle_errors {
+		header Content-Type "application/json"
+		respond `{"success":false,"message":"{err.status_text}","data":null,"timestamp":"{time.now.http}"}` {err.status_code}
+	}
 }
