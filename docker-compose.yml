@@ -1,36 +1,33 @@
 services:
   app:
     image: ${DOCKER_IMAGE:-lymengouk/expense-management-api}:${IMAGE_TAG:-latest}
-    ports:
-      - "8080:8080"
+    container_name: app
+    # No host port mapping: the app is reachable only through Caddy.
     environment:
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      JWT_SECRET: ${JWT_SECRET}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      REDIS_TIMEOUT: ${REDIS_TIMEOUT}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:-expense_management}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_TIMEOUT: ${REDIS_TIMEOUT:-2000ms}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:?SPRING_DATASOURCE_URL is required}
       SPRING_DATASOURCE_DRIVER: ${SPRING_DATASOURCE_DRIVER:-org.postgresql.Driver}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_JPA_DDL_AUTO: ${SPRING_JPA_DDL_AUTO:-none}
       SPRING_JPA_DIALECT: ${SPRING_JPA_DIALECT:-org.hibernate.dialect.PostgreSQLDialect}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
-      BASE_URL: ${BASE_URL}
-      FRONTEND_URL: ${FRONTEND_URL}
+      BASE_URL: ${BASE_URL:?BASE_URL is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      SERVER_FORWARD_HEADERS_STRATEGY: ${SERVER_FORWARD_HEADERS_STRATEGY:-framework}
       RATE_LIMITING_PER_USER_FORGOT_PASSWORD: ${RATE_LIMITING_PER_USER_FORGOT_PASSWORD:-10}
       RATE_LIMITING_PER_USER_RESET_PASSWORD: ${RATE_LIMITING_PER_USER_RESET_PASSWORD:-10}
       RATE_LIMITING_PER_USER_MFA_VERIFY: ${RATE_LIMITING_PER_USER_MFA_VERIFY:-10}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_SECURITY: ${LOG_LEVEL_SECURITY:-WARN}
-      # Mail — optional (email MFA / password-reset emails). Off by default.
+      # Mail — disabled; mail autoconfiguration is excluded in all profiles.
       APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
-      SPRING_MAIL_HOST: ${MAIL_HOST:-}
-      SPRING_MAIL_PORT: ${MAIL_PORT:-587}
-      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-}
-      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,6 +55,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    container_name: postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
@@ -81,6 +79,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: redis
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
@@ -101,6 +100,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    container_name: caddy
     ports:
       - "80:80"
       - "443:443"

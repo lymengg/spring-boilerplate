@@ -18,7 +18,7 @@ pipeline {
 
         // Database
         DB_USERNAME = 'postgres'
-        DB_PASSWORD = 'postgres'
+        DB_PASSWORD = credentials('DB_PASSWORD')
         DB_NAME = 'expense_management'
 
         // Datasource
@@ -33,8 +33,8 @@ pipeline {
         REDIS_PORT = '6379'
         REDIS_TIMEOUT = '2000ms'
 
-        // JWT — default value, not read from Jenkins credentials
-        JWT_SECRET = 'change-me-in-production-00000000000000000000000000000000'
+        // JWT — signing key, injected from the Jenkins credential store
+        JWT_SECRET = credentials('JWT_SECRET')
 
         // Application URLs — must include the scheme: the browser Origin header
         // and password-reset links are scheme-qualified (https://). Without it,
@@ -51,14 +51,12 @@ pipeline {
         LOG_LEVEL_APP = 'INFO'
         LOG_LEVEL_SECURITY = 'WARN'
 
-        // Mail — optional; required for email MFA and password-reset emails.
-        // When enabled (APP_MAIL_ENABLED=true), set MAIL_HOST/MAIL_USERNAME and
-        // MAIL_PASSWORD to real values.
+        // Server — the app runs behind the Caddy reverse proxy, so scheme and
+        // client IP come from the X-Forwarded-* headers Caddy sets.
+        SERVER_FORWARD_HEADERS_STRATEGY = 'framework'
+
+        // Mail — disabled; mail autoconfiguration is excluded in all profiles.
         APP_MAIL_ENABLED = 'false'
-        MAIL_HOST = '0.0.0.0'
-        MAIL_PORT = '587'
-        MAIL_USERNAME = 'test'
-        MAIL_PASSWORD = 'test'
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
@@ -176,6 +174,7 @@ pipeline {
                              SPRING_JPA_FORMAT_SQL='${SPRING_JPA_FORMAT_SQL}' \
                              LOG_LEVEL_APP='${LOG_LEVEL_APP}' \
                              LOG_LEVEL_SECURITY='${LOG_LEVEL_SECURITY}' \
+                             SERVER_FORWARD_HEADERS_STRATEGY='${SERVER_FORWARD_HEADERS_STRATEGY}' \
                              JWT_SECRET='${JWT_SECRET}' \
                              BASE_URL='${BASE_URL}' \
                              FRONTEND_URL='${FRONTEND_URL}' \
@@ -183,10 +182,6 @@ pipeline {
                              RATE_LIMITING_PER_USER_RESET_PASSWORD='${RATE_LIMITING_PER_USER_RESET_PASSWORD}' \
                              RATE_LIMITING_PER_USER_MFA_VERIFY='${RATE_LIMITING_PER_USER_MFA_VERIFY}' \
                              APP_MAIL_ENABLED='${APP_MAIL_ENABLED}' \
-                             MAIL_HOST='${MAIL_HOST}' \
-                             MAIL_PORT='${MAIL_PORT}' \
-                             MAIL_USERNAME='${MAIL_USERNAME}' \
-                             MAIL_PASSWORD='${MAIL_PASSWORD}' \
                              bash -s" <<'REMOTE_SCRIPT'
 
                         set -eu
@@ -209,6 +204,7 @@ pipeline {
                         export SPRING_JPA_FORMAT_SQL="${SPRING_JPA_FORMAT_SQL}"
                         export LOG_LEVEL_APP="${LOG_LEVEL_APP}"
                         export LOG_LEVEL_SECURITY="${LOG_LEVEL_SECURITY}"
+                        export SERVER_FORWARD_HEADERS_STRATEGY="${SERVER_FORWARD_HEADERS_STRATEGY}"
                         export JWT_SECRET="${JWT_SECRET}"
                         export BASE_URL="${BASE_URL}"
                         export FRONTEND_URL="${FRONTEND_URL}"
@@ -216,10 +212,6 @@ pipeline {
                         export RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
                         export RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
                         export APP_MAIL_ENABLED="${APP_MAIL_ENABLED}"
-                        export MAIL_HOST="${MAIL_HOST}"
-                        export MAIL_PORT="${MAIL_PORT}"
-                        export MAIL_USERNAME="${MAIL_USERNAME}"
-                        export MAIL_PASSWORD="${MAIL_PASSWORD}"
 
                         echo "Pulling image:"
                         echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
