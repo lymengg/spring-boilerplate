@@ -8,9 +8,11 @@ import com.example.demo.entity.User;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,7 +92,7 @@ class TenantManagementControllerIntegrationTest {
     @DisplayName("Platform admin can list all tenants")
     void platformAdminCanListTenants() throws Exception {
         mockMvc.perform(get("/api/management/tenants")
-                        .header("Authorization", "Bearer " + platformAdminToken))
+                        .cookie(accessCookie(platformAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
                 .andExpect(jsonPath("$.data.content[0].name").value("Acme Corp"));
@@ -100,7 +102,7 @@ class TenantManagementControllerIntegrationTest {
     @DisplayName("Tenant admin cannot list tenants")
     void tenantAdminCannotListTenants() throws Exception {
         mockMvc.perform(get("/api/management/tenants")
-                        .header("Authorization", "Bearer " + tenantAdminToken))
+                        .cookie(accessCookie(tenantAdminToken)))
                 .andExpect(status().isForbidden());
     }
 
@@ -108,7 +110,7 @@ class TenantManagementControllerIntegrationTest {
     @DisplayName("Employee cannot list tenants")
     void employeeCannotListTenants() throws Exception {
         mockMvc.perform(get("/api/management/tenants")
-                        .header("Authorization", "Bearer " + employeeToken))
+                        .cookie(accessCookie(employeeToken)))
                 .andExpect(status().isForbidden());
     }
 
@@ -119,7 +121,7 @@ class TenantManagementControllerIntegrationTest {
 
         mockMvc.perform(get("/api/management/tenants")
                         .param("name", "acme")
-                        .header("Authorization", "Bearer " + platformAdminToken))
+                        .cookie(accessCookie(platformAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
                 .andExpect(jsonPath("$.data.content[0].name").value("Acme Corp"));
@@ -130,7 +132,7 @@ class TenantManagementControllerIntegrationTest {
     void searchReturnsEmptyWhenNoMatch() throws Exception {
         mockMvc.perform(get("/api/management/tenants")
                         .param("name", "NonExistent")
-                        .header("Authorization", "Bearer " + platformAdminToken))
+                        .cookie(accessCookie(platformAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(0));
     }
@@ -140,7 +142,7 @@ class TenantManagementControllerIntegrationTest {
     void searchIsCaseInsensitive() throws Exception {
         mockMvc.perform(get("/api/management/tenants")
                         .param("name", "ACME")
-                        .header("Authorization", "Bearer " + platformAdminToken))
+                        .cookie(accessCookie(platformAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
                 .andExpect(jsonPath("$.data.content[0].name").value("Acme Corp"));
@@ -150,7 +152,7 @@ class TenantManagementControllerIntegrationTest {
     @DisplayName("Platform admin can get tenant by ID")
     void platformAdminCanGetTenantById() throws Exception {
         mockMvc.perform(get("/api/management/tenants/{id}", tenantId)
-                        .header("Authorization", "Bearer " + platformAdminToken))
+                        .cookie(accessCookie(platformAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("Acme Corp"));
     }
@@ -159,7 +161,7 @@ class TenantManagementControllerIntegrationTest {
     @DisplayName("Tenant admin can get their own tenant by ID")
     void tenantAdminCanGetOwnTenantById() throws Exception {
         mockMvc.perform(get("/api/management/tenants/{id}", tenantId)
-                        .header("Authorization", "Bearer " + tenantAdminToken))
+                        .cookie(accessCookie(tenantAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("Acme Corp"));
     }
@@ -173,7 +175,7 @@ class TenantManagementControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/management/tenants")
-                        .header("Authorization", "Bearer " + platformAdminToken)
+                        .cookie(accessCookie(platformAdminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -190,7 +192,7 @@ class TenantManagementControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/management/tenants")
-                        .header("Authorization", "Bearer " + platformAdminToken)
+                        .cookie(accessCookie(platformAdminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -206,7 +208,7 @@ class TenantManagementControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(put("/api/management/tenants/{id}", tenantId)
-                        .header("Authorization", "Bearer " + platformAdminToken)
+                        .cookie(accessCookie(platformAdminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -221,7 +223,7 @@ class TenantManagementControllerIntegrationTest {
                 Tenant.builder().name("To Delete").status(TenantStatus.ACTIVE).build());
 
         mockMvc.perform(delete("/api/management/tenants/{id}", toDelete.getId())
-                        .header("Authorization", "Bearer " + platformAdminToken))
+                        .cookie(accessCookie(platformAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Tenant deleted successfully"));
     }
@@ -232,7 +234,7 @@ class TenantManagementControllerIntegrationTest {
         tenantRepository.save(Tenant.builder().name("Another Corp").status(TenantStatus.ACTIVE).build());
 
         mockMvc.perform(get("/api/management/tenants")
-                        .header("Authorization", "Bearer " + platformAdminToken))
+                        .cookie(accessCookie(platformAdminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(2));
     }
@@ -259,5 +261,9 @@ class TenantManagementControllerIntegrationTest {
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         return jwtTokenProvider.generateAccessToken(authentication);
+    }
+
+    private Cookie accessCookie(String token) {
+        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
     }
 }

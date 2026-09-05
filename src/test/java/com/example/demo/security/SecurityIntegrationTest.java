@@ -6,11 +6,13 @@ import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -95,6 +97,10 @@ class SecurityIntegrationTest {
         validToken = jwtTokenProvider.generateAccessToken(authentication);
     }
 
+    private Cookie accessCookie(String token) {
+        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+    }
+
     @Test
     @DisplayName("Unauthenticated request to protected endpoint returns 401")
     void unauthenticatedRequestReturns401() throws Exception {
@@ -103,24 +109,16 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("Invalid token format returns 401")
-    void invalidTokenFormatReturns401() throws Exception {
+    @DisplayName("Invalid access token cookie returns 401")
+    void invalidTokenCookieReturns401() throws Exception {
         mockMvc.perform(get("/api/expenses")
-                        .header("Authorization", "Bearer invalid-token"))
+                        .cookie(accessCookie("invalid-token")))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("Malformed authorization header returns 401")
-    void malformedAuthorizationHeaderReturns401() throws Exception {
-        mockMvc.perform(get("/api/expenses")
-                        .header("Authorization", validToken))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    @DisplayName("Expired token returns 401")
-    void expiredTokenReturns401() throws Exception {
+    @DisplayName("Expired access token cookie returns 401")
+    void expiredTokenCookieReturns401() throws Exception {
         Date now = Date.from(Instant.now().minus(2, ChronoUnit.HOURS));
         Date expiry = Date.from(Instant.now().minus(1, ChronoUnit.HOURS));
 
@@ -135,7 +133,7 @@ class SecurityIntegrationTest {
                 .compact();
 
         mockMvc.perform(get("/api/expenses")
-                        .header("Authorization", "Bearer " + expiredToken))
+                        .cookie(accessCookie(expiredToken)))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -168,7 +166,7 @@ class SecurityIntegrationTest {
     @DisplayName("User without permission receives 403 for protected management endpoint")
     void unauthorizedRoleReceives403() throws Exception {
         mockMvc.perform(get("/api/management/users")
-                        .header("Authorization", "Bearer " + validToken))
+                        .cookie(accessCookie(validToken)))
                 .andExpect(status().isForbidden());
     }
 
@@ -187,15 +185,6 @@ class SecurityIntegrationTest {
     void sameOriginStateChangingRequestAllowed() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .header("Origin", "http://localhost:3000")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isBadRequest()); // passes CSRF check, fails validation
-    }
-
-    @Test
-    @DisplayName("State-changing request without an Origin header is allowed (API client)")
-    void missingOriginStateChangingRequestAllowed() throws Exception {
-        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest()); // passes CSRF check, fails validation

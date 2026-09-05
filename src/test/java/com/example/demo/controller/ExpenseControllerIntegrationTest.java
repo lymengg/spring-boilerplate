@@ -3,9 +3,11 @@ package com.example.demo.controller;
 import com.example.demo.dto.ExpenseCreateRequest;
 import com.example.demo.entity.*;
 import com.example.demo.repository.*;
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -172,6 +174,10 @@ class ExpenseControllerIntegrationTest {
         return jwtTokenProvider.generateAccessToken(authentication);
     }
 
+    private Cookie accessCookie(String token) {
+        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+    }
+
     @Test
     @DisplayName("Employee can create an expense")
     void employeeCanCreateExpense() throws Exception {
@@ -183,7 +189,7 @@ class ExpenseControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/expenses")
-                        .header("Authorization", "Bearer " + employeeToken)
+                        .cookie(accessCookie(employeeToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -195,7 +201,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Employee can view their own expense")
     void employeeCanViewOwnExpense() throws Exception {
         mockMvc.perform(get("/api/expenses/{id}", expenseId)
-                        .header("Authorization", "Bearer " + employeeToken))
+                        .cookie(accessCookie(employeeToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(expenseId));
     }
@@ -204,7 +210,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Employee cannot view another employee's expense in a different department")
     void employeeCannotViewAnotherEmployeeExpense() throws Exception {
         mockMvc.perform(get("/api/expenses/{id}", otherDeptExpenseId)
-                        .header("Authorization", "Bearer " + employeeToken))
+                        .cookie(accessCookie(employeeToken)))
                 .andExpect(status().is(403));
     }
 
@@ -232,7 +238,7 @@ class ExpenseControllerIntegrationTest {
         teammateExpense = expenseRepository.save(teammateExpense);
 
         mockMvc.perform(get("/api/expenses/{id}", teammateExpense.getId())
-                        .header("Authorization", "Bearer " + employeeToken))
+                        .cookie(accessCookie(employeeToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(teammateExpense.getId()));
     }
@@ -241,7 +247,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Manager can approve an expense in their department")
     void managerCanApproveDepartmentExpense() throws Exception {
         mockMvc.perform(post("/api/expenses/{id}/approve", expenseId)
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
     }
@@ -250,7 +256,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Manager cannot approve an expense in another tenant")
     void managerCannotApproveOtherTenantExpense() throws Exception {
         mockMvc.perform(post("/api/expenses/{id}/approve", otherTenantExpenseId)
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().is(400));
     }
 
@@ -262,7 +268,7 @@ class ExpenseControllerIntegrationTest {
         expenseRepository.save(expense);
 
         mockMvc.perform(post("/api/expenses/{id}/process", expenseId)
-                        .header("Authorization", "Bearer " + financeToken))
+                        .cookie(accessCookie(financeToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PROCESSED"));
     }
@@ -271,7 +277,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Finance cannot approve an expense")
     void financeCannotApproveExpense() throws Exception {
         mockMvc.perform(post("/api/expenses/{id}/approve", expenseId)
-                        .header("Authorization", "Bearer " + financeToken))
+                        .cookie(accessCookie(financeToken)))
                 .andExpect(status().is(403));
     }
 
@@ -279,7 +285,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Cannot process a pending expense")
     void cannotProcessPendingExpense() throws Exception {
         mockMvc.perform(post("/api/expenses/{id}/process", expenseId)
-                        .header("Authorization", "Bearer " + financeToken))
+                        .cookie(accessCookie(financeToken)))
                 .andExpect(status().is(409));
     }
 
@@ -291,7 +297,7 @@ class ExpenseControllerIntegrationTest {
         expenseRepository.save(expense);
 
         mockMvc.perform(post("/api/expenses/{id}/approve", expenseId)
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().is(409));
     }
 
@@ -303,7 +309,7 @@ class ExpenseControllerIntegrationTest {
         expenseRepository.save(expense);
 
         mockMvc.perform(post("/api/expenses/{id}/cancel", expenseId)
-                        .header("Authorization", "Bearer " + employeeToken))
+                        .cookie(accessCookie(employeeToken)))
                 .andExpect(status().is(409));
     }
 
@@ -311,7 +317,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Employee from another tenant cannot access this tenant's expense")
     void crossTenantAccessBlocked() throws Exception {
         mockMvc.perform(get("/api/expenses/{id}", expenseId)
-                        .header("Authorization", "Bearer " + otherEmployeeToken))
+                        .cookie(accessCookie(otherEmployeeToken)))
                 .andExpect(status().is(400));
     }
 
@@ -319,7 +325,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Super admin sees all expenses across tenants without a tenant filter")
     void superAdminSeesAllExpensesAcrossTenants() throws Exception {
         mockMvc.perform(get("/api/expenses")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(3));
     }
@@ -330,7 +336,7 @@ class ExpenseControllerIntegrationTest {
         Tenant tenant1 = tenantRepository.findByName("Tenant 1").orElseThrow();
         mockMvc.perform(get("/api/expenses")
                         .param("tenantId", String.valueOf(tenant1.getId()))
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(2));
     }
@@ -339,7 +345,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Finance sees all expenses in their tenant across departments")
     void financeSeesAllTenantExpenses() throws Exception {
         mockMvc.perform(get("/api/expenses")
-                        .header("Authorization", "Bearer " + financeToken))
+                        .cookie(accessCookie(financeToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(2));
     }
@@ -352,7 +358,7 @@ class ExpenseControllerIntegrationTest {
                 .orElseThrow();
         mockMvc.perform(get("/api/expenses")
                         .param("departmentId", String.valueOf(dept2.getId()))
-                        .header("Authorization", "Bearer " + financeToken))
+                        .cookie(accessCookie(financeToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1));
     }
@@ -361,7 +367,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Employee sees only their department expenses")
     void employeeSeesOnlyDepartmentExpenses() throws Exception {
         mockMvc.perform(get("/api/expenses")
-                        .header("Authorization", "Bearer " + employeeToken))
+                        .cookie(accessCookie(employeeToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1));
     }
@@ -374,7 +380,7 @@ class ExpenseControllerIntegrationTest {
         expenseRepository.save(expense);
 
         mockMvc.perform(post("/api/expenses/{id}/process", expenseId)
-                        .header("Authorization", "Bearer " + auditorToken))
+                        .cookie(accessCookie(auditorToken)))
                 .andExpect(status().is(403));
     }
 
@@ -382,7 +388,7 @@ class ExpenseControllerIntegrationTest {
     @DisplayName("Manager sees expenses from their department")
     void managerSeesDepartmentExpenses() throws Exception {
         mockMvc.perform(get("/api/expenses")
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray())
                 .andExpect(jsonPath("$.data.content.length()").value(1));
@@ -399,7 +405,7 @@ class ExpenseControllerIntegrationTest {
         departmentRepository.save(dept2);
 
         mockMvc.perform(post("/api/expenses/{id}/approve", otherDeptExpenseId)
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
     }

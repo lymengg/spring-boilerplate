@@ -5,7 +5,6 @@ import com.example.demo.security.service.CustomUserDetailsService;
 import com.example.demo.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -207,14 +206,6 @@ public class JwtTokenProvider {
 
     public String getUsernameFromMfaPendingToken(String token) {
         return parseClaims(token).getSubject();
-    }
-
-    public String resolveToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
     }
 
     private Claims parseClaims(String token) {

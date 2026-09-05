@@ -8,10 +8,12 @@ import com.example.demo.repository.DepartmentRepository;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.example.demo.service.TokenService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -120,11 +122,15 @@ class UserManagementControllerIntegrationTest {
         return jwtTokenProvider.generateAccessToken(authentication);
     }
 
+    private Cookie accessCookie(String token) {
+        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+    }
+
     @Test
     @DisplayName("Admin can list users")
     void adminCanListUsers() throws Exception {
         mockMvc.perform(get("/api/management/users")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray())
                 .andExpect(jsonPath("$.data.content.length()").value(3));
@@ -134,7 +140,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("User manager can list users in their tenant")
     void userManagerCanListUsers() throws Exception {
         mockMvc.perform(get("/api/management/users")
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray())
                 .andExpect(jsonPath("$.data.content.length()").value(2));
@@ -144,7 +150,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("Regular user cannot list users")
     void regularUserCannotListUsers() throws Exception {
         mockMvc.perform(get("/api/management/users")
-                        .header("Authorization", "Bearer " + userToken))
+                        .cookie(accessCookie(userToken)))
                 .andExpect(status().is(403));
     }
 
@@ -159,7 +165,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("Admin can delete user")
     void adminCanDeleteUser() throws Exception {
         mockMvc.perform(delete("/api/management/users/{id}", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().isOk());
     }
 
@@ -167,7 +173,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("User manager cannot delete user")
     void userManagerCannotDeleteUser() throws Exception {
         mockMvc.perform(delete("/api/management/users/{id}", regularUserId)
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().is(403));
     }
 
@@ -176,7 +182,7 @@ class UserManagementControllerIntegrationTest {
     void adminCannotDeleteSelf() throws Exception {
         User admin = userRepository.findByUsername("adminuser").orElseThrow();
         mockMvc.perform(delete("/api/management/users/{id}", admin.getId())
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().is(400));
     }
 
@@ -188,7 +194,7 @@ class UserManagementControllerIntegrationTest {
 
         User admin = userRepository.findByUsername("adminuser").orElseThrow();
         mockMvc.perform(delete("/api/management/users/{id}", admin.getId())
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().is(400));
     }
 
@@ -196,7 +202,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("User manager can update user")
     void userManagerCanUpdateUser() throws Exception {
         mockMvc.perform(put("/api/management/users/{id}", regularUserId)
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("firstName", "Updated"))))
                 .andExpect(status().isOk())
@@ -210,7 +216,7 @@ class UserManagementControllerIntegrationTest {
         Department newDept = departmentRepository.save(Department.builder().name("New Dept").tenant(tenant).build());
 
         mockMvc.perform(put("/api/management/users/{id}", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("departmentId", newDept.getId()))))
                 .andExpect(status().isOk())
@@ -225,7 +231,7 @@ class UserManagementControllerIntegrationTest {
         Department otherDept = departmentRepository.save(Department.builder().name("Other Dept 2").tenant(otherTenant).build());
 
         mockMvc.perform(put("/api/management/users/{id}", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("departmentId", otherDept.getId()))))
                 .andExpect(status().is(400));
@@ -235,7 +241,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("Regular user cannot update other user")
     void regularUserCannotUpdate() throws Exception {
         mockMvc.perform(put("/api/management/users/{id}", regularUserId)
-                        .header("Authorization", "Bearer " + userToken)
+                        .cookie(accessCookie(userToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("firstName", "Updated"))))
                 .andExpect(status().is(403));
@@ -260,7 +266,7 @@ class UserManagementControllerIntegrationTest {
         noRoleUser = userRepository.save(noRoleUser);
 
         mockMvc.perform(post("/api/management/users/{id}/roles", noRoleUser.getId())
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
                 .andExpect(status().isOk())
@@ -271,7 +277,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("User manager cannot assign PLATFORM_ADMIN role")
     void userManagerCannotAssignAdminRole() throws Exception {
         mockMvc.perform(post("/api/management/users/{id}/roles", regularUserId)
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().is(400));
@@ -282,7 +288,7 @@ class UserManagementControllerIntegrationTest {
     void adminCanAssignAdminRole() throws Exception {
         User newUser = createUser("newuser", "new@example.com", roleRepository.findByName("EMPLOYEE").orElseThrow(), null);
         mockMvc.perform(post("/api/management/users/{id}/roles", newUser.getId())
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().isOk());
@@ -307,7 +313,7 @@ class UserManagementControllerIntegrationTest {
         noRoleUser = userRepository.save(noRoleUser);
 
         mockMvc.perform(post("/api/management/users/{id}/roles", noRoleUser.getId())
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("roleName", "USER_MANAGER"))))
                 .andExpect(status().is(400));
@@ -319,7 +325,7 @@ class UserManagementControllerIntegrationTest {
         User admin = userRepository.findByUsername("adminuser").orElseThrow();
 
         mockMvc.perform(put("/api/management/users/{id}", admin.getId())
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("firstName", "Hacked"))))
                 .andExpect(status().is(400));
@@ -331,7 +337,7 @@ class UserManagementControllerIntegrationTest {
         User admin = userRepository.findByUsername("adminuser").orElseThrow();
 
         mockMvc.perform(delete("/api/management/users/{id}/roles", admin.getId())
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
                 .andExpect(status().is(400));
@@ -353,7 +359,7 @@ class UserManagementControllerIntegrationTest {
                 "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
@@ -374,7 +380,7 @@ class UserManagementControllerIntegrationTest {
                 "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
@@ -395,7 +401,7 @@ class UserManagementControllerIntegrationTest {
                 "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().is(400));
@@ -414,7 +420,7 @@ class UserManagementControllerIntegrationTest {
                 "departmentId", otherDept.getId());
 
         mockMvc.perform(post("/api/management/users")
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().is(403));
@@ -432,7 +438,7 @@ class UserManagementControllerIntegrationTest {
                 "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
-                        .header("Authorization", "Bearer " + userToken)
+                        .cookie(accessCookie(userToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().is(403));
@@ -464,7 +470,7 @@ class UserManagementControllerIntegrationTest {
                 "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().is(400));
@@ -482,7 +488,7 @@ class UserManagementControllerIntegrationTest {
                 "departmentId", dept.getId());
 
         mockMvc.perform(post("/api/management/users")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest());
@@ -492,7 +498,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("Admin can enable TOTP MFA for a user")
     void adminCanEnableMfa() throws Exception {
         mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
                 .andExpect(status().isOk())
@@ -511,7 +517,7 @@ class UserManagementControllerIntegrationTest {
         userRepository.save(user);
 
         mockMvc.perform(post("/api/management/users/{id}/mfa/disable", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().isOk());
 
         User updated = userRepository.findById(regularUserId).orElseThrow();
@@ -530,7 +536,7 @@ class UserManagementControllerIntegrationTest {
         userRepository.save(user);
 
         mockMvc.perform(post("/api/management/users/{id}/mfa/reset", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
                 .andExpect(status().isOk())
@@ -542,7 +548,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("Regular user cannot manage MFA")
     void regularUserCannotManageMfa() throws Exception {
         mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
-                        .header("Authorization", "Bearer " + userToken)
+                        .cookie(accessCookie(userToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
                 .andExpect(status().is(403));
@@ -558,7 +564,7 @@ class UserManagementControllerIntegrationTest {
         userRepository.save(user);
 
         mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
                 .andExpect(status().is(409));
@@ -568,7 +574,7 @@ class UserManagementControllerIntegrationTest {
     @DisplayName("Disabling MFA when not enabled returns 409")
     void disableMfaWhenNotEnabledReturns409() throws Exception {
         mockMvc.perform(post("/api/management/users/{id}/mfa/disable", regularUserId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().is(409));
     }
 
