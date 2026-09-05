@@ -23,13 +23,13 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
-    @Value("${seed.admin.username:admin}")
+    @Value("${seed.admin.username}")
     private String adminUsername;
 
-    @Value("${seed.admin.email:admin@example.com}")
+    @Value("${seed.admin.email}")
     private String adminEmail;
 
-    @Value("${seed.admin.password:admin123}")
+    @Value("${seed.admin.password}")
     private String adminPassword;
 
     @Override
