@@ -58,6 +58,11 @@ pipeline {
         // Mail — disabled; mail autoconfiguration is excluded in all profiles.
         APP_MAIL_ENABLED = 'false'
 
+        // Seed Admin — credentials for the initial admin user
+        SEED_ADMIN_USERNAME = 'admin'
+        SEED_ADMIN_EMAIL = 'admin@expm.ouklymeng.qzz.io'
+        SEED_ADMIN_PASSWORD = credentials('SEED_ADMIN_PASSWORD')
+
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
         DEPLOY_USER = 'deploy'
@@ -183,6 +188,9 @@ RATE_LIMITING_PER_USER_FORGOT_PASSWORD=${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}
 RATE_LIMITING_PER_USER_RESET_PASSWORD=${RATE_LIMITING_PER_USER_RESET_PASSWORD}
 RATE_LIMITING_PER_USER_MFA_VERIFY=${RATE_LIMITING_PER_USER_MFA_VERIFY}
 APP_MAIL_ENABLED=${APP_MAIL_ENABLED}
+SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME}
+SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
+SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
 EOF
 
                         scp \
