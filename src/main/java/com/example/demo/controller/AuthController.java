@@ -21,7 +21,7 @@ public class AuthController {
 
     /**
      * Login. Sets both auth cookies on success.
-     *
+     * <p>
      * Response shaping:
      * - Browser flows (Origin header present): tokens are delivered ONLY via
      *   httpOnly cookies — the body carries the user profile, never tokens.
@@ -102,7 +102,7 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentUser(Authentication authentication) {
         UserProfileResponse userProfileResponse = authService.getCurrentUser(authentication);
-        return ResponseEntity.ok(ApiResponse.success(userProfileResponse));
+        return ResponseEntity.ok(ApiResponse.success("Current user retrieved", userProfileResponse));
     }
 
     @PostMapping("/change-password")
