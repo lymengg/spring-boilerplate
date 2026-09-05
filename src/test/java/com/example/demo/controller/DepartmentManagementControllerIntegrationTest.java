@@ -8,9 +8,11 @@ import com.example.demo.repository.DepartmentRepository;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -112,11 +114,15 @@ class DepartmentManagementControllerIntegrationTest {
         return jwtTokenProvider.generateAccessToken(authentication);
     }
 
+    private Cookie accessCookie(String token) {
+        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+    }
+
     @Test
     @DisplayName("Admin can create department with multiple managers")
     void adminCanCreateDepartmentWithMultipleManagers() throws Exception {
         mockMvc.perform(post("/api/management/departments")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "name", "Engineering",
@@ -132,7 +138,7 @@ class DepartmentManagementControllerIntegrationTest {
     @DisplayName("Admin can create department with empty manager list")
     void adminCanCreateDepartmentWithNoManagers() throws Exception {
         mockMvc.perform(post("/api/management/departments")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "name", "Sales",
@@ -150,7 +156,7 @@ class DepartmentManagementControllerIntegrationTest {
                 Department.builder().name("Marketing").tenant(tenant).build());
 
         mockMvc.perform(put("/api/management/departments/{id}", dept.getId())
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "name", "Marketing",
@@ -169,7 +175,7 @@ class DepartmentManagementControllerIntegrationTest {
                 roleRepository.findByName("DEPARTMENT_MANAGER").orElseThrow(), otherTenant);
 
         mockMvc.perform(post("/api/management/departments")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "name", "Finance",
@@ -185,7 +191,7 @@ class DepartmentManagementControllerIntegrationTest {
         departmentRepository.save(Department.builder().name("HR").tenant(tenant).build());
 
         mockMvc.perform(post("/api/management/departments")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "name", "HR",

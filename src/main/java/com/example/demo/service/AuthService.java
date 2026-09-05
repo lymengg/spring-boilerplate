@@ -15,7 +15,6 @@ public interface AuthService {
 
     UserProfileResponse getCurrentUser(Authentication authentication);
 
-    /** Profile lookup by username — used to shape browser-flow login/MFA responses. */
     UserProfileResponse getUserProfile(String username);
 
     void changePassword(Authentication authentication, ChangePasswordRequest request);

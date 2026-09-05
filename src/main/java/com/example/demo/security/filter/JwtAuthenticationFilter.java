@@ -37,13 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         try {
-            // Credential resolution precedence: explicit Authorization header wins,
-            // then the httpOnly access-token cookie (browser flows). An explicit
-            // credential must never be overridden by an ambient cookie.
-            String token = jwtTokenProvider.resolveToken(request);
-            if (!StringUtils.hasText(token)) {
-                token = authCookieService.resolveAccessToken(request);
-            }
+            String token = authCookieService.resolveAccessToken(request);
 
             if (StringUtils.hasText(token) && jwtTokenProvider.validateAccessToken(token)) {
                 String jti = jwtTokenProvider.getIdFromToken(token);

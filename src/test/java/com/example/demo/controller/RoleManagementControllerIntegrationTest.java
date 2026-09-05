@@ -5,9 +5,11 @@ import com.example.demo.entity.User;
 import com.example.demo.constants.UserPermission;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.security.cookie.AuthCookieService;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -104,11 +106,15 @@ class RoleManagementControllerIntegrationTest {
         return jwtTokenProvider.generateAccessToken(authentication);
     }
 
+    private Cookie accessCookie(String token) {
+        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+    }
+
     @Test
     @DisplayName("Admin can list roles")
     void adminCanListRoles() throws Exception {
         mockMvc.perform(get("/api/management/roles")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray());
     }
@@ -117,7 +123,7 @@ class RoleManagementControllerIntegrationTest {
     @DisplayName("User manager cannot list roles")
     void userManagerCannotListRoles() throws Exception {
         mockMvc.perform(get("/api/management/roles")
-                        .header("Authorization", "Bearer " + managerToken))
+                        .cookie(accessCookie(managerToken)))
                 .andExpect(status().is(403));
     }
 
@@ -125,7 +131,7 @@ class RoleManagementControllerIntegrationTest {
     @DisplayName("Admin can create role")
     void adminCanCreateRole() throws Exception {
         mockMvc.perform(post("/api/management/roles")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "REPORTER", "title", "Reporter", "description", "Reporter role"))))
                 .andExpect(status().isOk())
@@ -138,7 +144,7 @@ class RoleManagementControllerIntegrationTest {
     void adminCannotUpdateBuiltInRole() throws Exception {
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
         mockMvc.perform(put("/api/management/roles/{id}", employeeRole.getId())
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "EMPLOYEE", "description", "Updated"))))
                 .andExpect(status().is(400));
@@ -148,7 +154,7 @@ class RoleManagementControllerIntegrationTest {
     @DisplayName("Admin can add permission to custom role")
     void adminCanAddPermission() throws Exception {
         mockMvc.perform(post("/api/management/roles/{id}/permissions", customRoleId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("permission", "USER_READ"))))
                 .andExpect(status().isOk())
@@ -163,7 +169,7 @@ class RoleManagementControllerIntegrationTest {
         roleRepository.save(role);
 
         mockMvc.perform(delete("/api/management/roles/{id}/permissions", customRoleId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("permission", "USER_READ"))))
                 .andExpect(status().isOk());
@@ -174,7 +180,7 @@ class RoleManagementControllerIntegrationTest {
     void adminCannotDeleteBuiltInRole() throws Exception {
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
         mockMvc.perform(delete("/api/management/roles/{id}", employeeRole.getId())
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().is(400));
     }
 
@@ -182,7 +188,7 @@ class RoleManagementControllerIntegrationTest {
     @DisplayName("User manager cannot create role")
     void userManagerCannotCreateRole() throws Exception {
         mockMvc.perform(post("/api/management/roles")
-                        .header("Authorization", "Bearer " + managerToken)
+                        .cookie(accessCookie(managerToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "HACKER", "title", "Hacker", "description", "Hacker role"))))
                 .andExpect(status().is(403));
@@ -197,7 +203,7 @@ class RoleManagementControllerIntegrationTest {
         userRepository.save(user);
 
         mockMvc.perform(delete("/api/management/roles/{id}", customRoleId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .cookie(accessCookie(adminToken)))
                 .andExpect(status().is(400));
     }
 
@@ -205,7 +211,7 @@ class RoleManagementControllerIntegrationTest {
     @DisplayName("Admin cannot create role with existing name in different case")
     void adminCannotCreateRoleWithExistingName() throws Exception {
         mockMvc.perform(post("/api/management/roles")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "employee", "title", "Duplicate", "description", "Duplicate role"))))
                 .andExpect(status().is(400));
@@ -215,7 +221,7 @@ class RoleManagementControllerIntegrationTest {
     @DisplayName("Admin cannot update role to an existing name")
     void adminCannotUpdateRoleToExistingName() throws Exception {
         mockMvc.perform(put("/api/management/roles/{id}", customRoleId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .cookie(accessCookie(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "EMPLOYEE", "description", "Collision"))))
                 .andExpect(status().is(400));

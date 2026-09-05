@@ -39,7 +39,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerIntegrationTest {
 
     private static final String PASSWORD = "Password123!";
-    private static final String FRONTEND_ORIGIN = "http://localhost:3000";
 
     @Autowired
     private MockMvc mockMvc;
@@ -97,15 +96,20 @@ class AuthControllerIntegrationTest {
         return jwtTokenProvider.generateAccessToken(authentication);
     }
 
+    private Cookie accessCookie() {
+        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, validAccessToken());
+    }
+
     @Test
-    @DisplayName("Login (API client, no Origin) returns tokens in the body and sets httpOnly cookies")
-    void loginApiClientReturnsTokensAndCookies() throws Exception {
+    @DisplayName("Login sets cookies and returns the profile, never tokens")
+    void loginReturnsProfileAndSetsCookies() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.username").value("authuser"))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(result -> {
                     Cookie access = result.getResponse().getCookie(AuthCookieService.ACCESS_TOKEN_COOKIE);
                     Cookie refresh = result.getResponse().getCookie(AuthCookieService.REFRESH_TOKEN_COOKIE);
@@ -119,23 +123,6 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Login (browser flow, Origin present) sets cookies and returns the profile, never tokens")
-    void loginBrowserFlowReturnsProfileWithoutTokens() throws Exception {
-        mockMvc.perform(post("/api/auth/login")
-                        .header("Origin", FRONTEND_ORIGIN)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginRequest())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.username").value("authuser"))
-                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
-                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
-                .andExpect(result -> {
-                    assertThat(result.getResponse().getCookie(AuthCookieService.ACCESS_TOKEN_COOKIE)).isNotNull();
-                    assertThat(result.getResponse().getCookie(AuthCookieService.REFRESH_TOKEN_COOKIE)).isNotNull();
-                });
-    }
-
-    @Test
     @DisplayName("Login with wrong password returns 401")
     void loginWithWrongPasswordReturns401() throws Exception {
         LoginRequest request = LoginRequest.builder()
@@ -144,7 +131,6 @@ class AuthControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/auth/login")
-                        .header("Origin", FRONTEND_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -177,7 +163,6 @@ class AuthControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/auth/login")
-                        .header("Origin", FRONTEND_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -189,7 +174,7 @@ class AuthControllerIntegrationTest {
     @DisplayName("Access token cookie authenticates a protected endpoint")
     void accessTokenCookieAuthenticates() throws Exception {
         mockMvc.perform(get("/api/auth/me")
-                        .cookie(new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, validAccessToken())))
+                        .cookie(accessCookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value("authuser"));
     }
@@ -198,8 +183,7 @@ class AuthControllerIntegrationTest {
     @DisplayName("Logout clears both auth cookies")
     void logoutClearsCookies() throws Exception {
         mockMvc.perform(post("/api/auth/logout")
-                        .header("Origin", FRONTEND_ORIGIN)
-                        .cookie(new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, validAccessToken())))
+                        .cookie(accessCookie()))
                 .andExpect(status().isOk())
                 .andExpect(result -> {
                     assertThat(result.getResponse().getCookie(AuthCookieService.ACCESS_TOKEN_COOKIE).getMaxAge()).isZero();
@@ -208,19 +192,10 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Refresh without a refresh token returns 400")
+    @DisplayName("Refresh without a refresh token cookie returns 400")
     void refreshWithoutTokenReturns400() throws Exception {
         mockMvc.perform(post("/api/auth/refresh"))
                 .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("Refresh with an invalid refresh token returns 401")
-    void refreshWithInvalidTokenReturns401() throws Exception {
-        mockMvc.perform(post("/api/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\"invalid-token\"}"))
-                .andExpect(status().isUnauthorized());
     }
 
     @Test
