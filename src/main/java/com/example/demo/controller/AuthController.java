@@ -34,9 +34,10 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse response) {
-        Object loginResult = authService.login(request);
+        LoginResult loginResult = authService.login(request);
 
-        if (loginResult instanceof TokenResponse tokenResponse) {
+        if (loginResult instanceof LoginResult.TokenSuccess tokenSuccess) {
+            TokenResponse tokenResponse = tokenSuccess.tokenResponse();
             authCookieService.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
 
             if (isBrowserFlow(servletRequest)) {
@@ -46,7 +47,8 @@ public class AuthController {
             return ResponseEntity.ok(ApiResponse.success("Login successful", tokenResponse));
         }
 
-        return ResponseEntity.ok(ApiResponse.success("Login successful", loginResult));
+        LoginResult.MfaChallenge mfaChallenge = (LoginResult.MfaChallenge) loginResult;
+        return ResponseEntity.ok(ApiResponse.success("Login successful", mfaChallenge.mfaResponse()));
     }
 
     @PostMapping("/mfa/verify")

@@ -3,6 +3,7 @@ package com.example.demo.service.impl;
 import com.example.demo.config.MfaProperties;
 import com.example.demo.config.SecurityProperties;
 import com.example.demo.dto.LoginRequest;
+import com.example.demo.dto.LoginResult;
 import com.example.demo.dto.MfaLoginResponse;
 import com.example.demo.dto.MfaVerifyRequest;
 import com.example.demo.dto.TokenResponse;
@@ -41,7 +42,7 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     @Transactional
-    public Object login(LoginRequest request, String ipAddress) {
+    public LoginResult login(LoginRequest request, String ipAddress) {
         User user = userService.getByUsernameOrEmail(request.getUsernameOrEmail());
 
         accountLockoutService.prepareForLogin(user, ipAddress);
@@ -67,17 +68,17 @@ public class LoginServiceImpl implements LoginService {
 
                 securityAuditLogger.logMfaChallengeSent(user.getUsername(), user.getMfaMethod().name(), ipAddress);
 
-                return MfaLoginResponse.builder()
+                return new LoginResult.MfaChallenge(MfaLoginResponse.builder()
                         .mfaRequired(true)
                         .mfaSessionToken(mfaSessionToken)
                         .method(user.getMfaMethod().name())
                         .expiresIn(mfaProperties.getPendingTokenExpiration() / 1000)
-                        .build();
+                        .build());
             }
 
             TokenResponse tokenResponse = tokenService.generateTokenResponse(user);
             securityAuditLogger.logLoginSuccess(user.getUsername(), ipAddress);
-            return tokenResponse;
+            return new LoginResult.TokenSuccess(tokenResponse);
 
         } catch (BadCredentialsException e) {
             accountLockoutService.recordFailedLogin(user, ipAddress);
