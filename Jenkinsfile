@@ -18,7 +18,6 @@ pipeline {
 
         // Database
         DB_USERNAME = 'postgres'
-        // DB_PASSWORD — read from a Jenkins secret-text credential (masked in logs).
         DB_PASSWORD = credentials('DB_PASSWORD')
         DB_NAME = 'expense_management'
 
@@ -28,20 +27,14 @@ pipeline {
         SPRING_JPA_DDL_AUTO = 'none'
         SPRING_JPA_DIALECT = 'org.hibernate.dialect.PostgreSQLDialect'
         SPRING_JPA_FORMAT_SQL = 'false'
-        SPRING_JPA_OPEN_IN_VIEW = 'false'
 
         // Redis
         REDIS_HOST = 'redis'
         REDIS_PORT = '6379'
         REDIS_TIMEOUT = '2000ms'
 
-        // JWT_SECRET — read from a Jenkins secret-text credential (masked in logs).
+        // JWT — signing key, injected from the Jenkins credential store
         JWT_SECRET = credentials('JWT_SECRET')
-        JWT_ACCESS_TOKEN_EXPIRATION = '900000'
-        JWT_REFRESH_TOKEN_EXPIRATION = '604800000'
-        JWT_REFRESH_TOKEN_GRACE_WINDOW = '60000'
-        JWT_ISSUER = 'expense-management-api'
-        JWT_AUDIENCE = 'expense-management-web'
 
         // Application URLs — must include the scheme: the browser Origin header
         // and password-reset links are scheme-qualified (https://). Without it,
@@ -49,34 +42,26 @@ pipeline {
         BASE_URL = 'https://expm-api.ouklymeng.qzz.io'
         FRONTEND_URL = 'https://expm.ouklymeng.qzz.io'
 
-        // Account Lockout
-        ACCOUNT_LOCKOUT_MAX_ATTEMPTS = '5'
-        ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES = '15'
-
         // Rate Limiting
-        RATE_LIMITING_WINDOW_MILLIS = '60000'
         RATE_LIMITING_PER_USER_FORGOT_PASSWORD = '10'
         RATE_LIMITING_PER_USER_RESET_PASSWORD = '10'
         RATE_LIMITING_PER_USER_MFA_VERIFY = '10'
-
-        // MFA
-        MFA_ISSUER = 'Expense Management'
-        MFA_OTP_EXPIRATION_SECONDS = '300'
-        MFA_PENDING_TOKEN_EXPIRATION = '300000'
-        MFA_OTP_DIGITS = '6'
 
         // Logging
         LOG_LEVEL_APP = 'INFO'
         LOG_LEVEL_SECURITY = 'WARN'
 
-        // Server
-        SERVER_PORT = '8080'
-        SERVER_COMPRESSION = 'true'
+        // Server — the app runs behind the Caddy reverse proxy, so scheme and
+        // client IP come from the X-Forwarded-* headers Caddy sets.
         SERVER_FORWARD_HEADERS_STRATEGY = 'framework'
 
-        // Mail — off by default. To enable, set APP_MAIL_ENABLED=true and
-        // pass SPRING_MAIL_HOST/PORT/USERNAME/PASSWORD to the container.
+        // Mail — disabled; mail autoconfiguration is excluded in all profiles.
         APP_MAIL_ENABLED = 'false'
+
+        // Seed Admin — credentials for the initial admin user
+        SEED_ADMIN_USERNAME = 'admin'
+        SEED_ADMIN_EMAIL = 'admin@expm.ouklymeng.qzz.io'
+        SEED_ADMIN_PASSWORD = credentials('SEED_ADMIN_PASSWORD')
 
         // Deployment target
         DEPLOY_HOST = '172.31.26.3'
@@ -174,101 +159,61 @@ pipeline {
                             Caddyfile \
                             "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/${APP_NAME}/Caddyfile"
 
+                        # Deployment config is delivered as an .env file next to
+                        # docker-compose.yml: compose reads it automatically, and the
+                        # values never appear in the remote process list.
+                        umask 077
+
+                        cat > deploy.env <<EOF
+DOCKER_IMAGE=${DOCKER_IMAGE}
+IMAGE_TAG=${IMAGE_TAG}
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+DB_NAME=${DB_NAME}
+REDIS_HOST=${REDIS_HOST}
+REDIS_PORT=${REDIS_PORT}
+REDIS_TIMEOUT=${REDIS_TIMEOUT}
+SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+SPRING_DATASOURCE_DRIVER=${SPRING_DATASOURCE_DRIVER}
+SPRING_JPA_DDL_AUTO=${SPRING_JPA_DDL_AUTO}
+SPRING_JPA_DIALECT=${SPRING_JPA_DIALECT}
+SPRING_JPA_FORMAT_SQL=${SPRING_JPA_FORMAT_SQL}
+LOG_LEVEL_APP=${LOG_LEVEL_APP}
+LOG_LEVEL_SECURITY=${LOG_LEVEL_SECURITY}
+SERVER_FORWARD_HEADERS_STRATEGY=${SERVER_FORWARD_HEADERS_STRATEGY}
+JWT_SECRET=${JWT_SECRET}
+BASE_URL=${BASE_URL}
+FRONTEND_URL=${FRONTEND_URL}
+RATE_LIMITING_PER_USER_FORGOT_PASSWORD=${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}
+RATE_LIMITING_PER_USER_RESET_PASSWORD=${RATE_LIMITING_PER_USER_RESET_PASSWORD}
+RATE_LIMITING_PER_USER_MFA_VERIFY=${RATE_LIMITING_PER_USER_MFA_VERIFY}
+APP_MAIL_ENABLED=${APP_MAIL_ENABLED}
+SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME}
+SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
+SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
+EOF
+
+                        scp \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
+                            deploy.env \
+                            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/${APP_NAME}/.env"
+
+                        rm -f deploy.env
+
                         ssh \
                             -o StrictHostKeyChecking=no \
                             -o UserKnownHostsFile=/dev/null \
                             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-                            "APP_NAME='${APP_NAME}' \
-                             DOCKER_IMAGE='${DOCKER_IMAGE}' \
-                             IMAGE_TAG='${IMAGE_TAG}' \
-                             DB_USERNAME='${DB_USERNAME}' \
-                             DB_PASSWORD='${DB_PASSWORD}' \
-                             DB_NAME='${DB_NAME}' \
-                             REDIS_HOST='${REDIS_HOST}' \
-                             REDIS_PORT='${REDIS_PORT}' \
-                             REDIS_TIMEOUT='${REDIS_TIMEOUT}' \
-                             SPRING_DATASOURCE_URL='${SPRING_DATASOURCE_URL}' \
-                             SPRING_DATASOURCE_DRIVER='${SPRING_DATASOURCE_DRIVER}' \
-                             SPRING_JPA_DDL_AUTO='${SPRING_JPA_DDL_AUTO}' \
-                             SPRING_JPA_DIALECT='${SPRING_JPA_DIALECT}' \
-                             SPRING_JPA_FORMAT_SQL='${SPRING_JPA_FORMAT_SQL}' \
-                             SPRING_JPA_OPEN_IN_VIEW='${SPRING_JPA_OPEN_IN_VIEW}' \
-                             LOG_LEVEL_APP='${LOG_LEVEL_APP}' \
-                             LOG_LEVEL_SECURITY='${LOG_LEVEL_SECURITY}' \
-                             JWT_SECRET='${JWT_SECRET}' \
-                             JWT_ACCESS_TOKEN_EXPIRATION='${JWT_ACCESS_TOKEN_EXPIRATION}' \
-                             JWT_REFRESH_TOKEN_EXPIRATION='${JWT_REFRESH_TOKEN_EXPIRATION}' \
-                             JWT_REFRESH_TOKEN_GRACE_WINDOW='${JWT_REFRESH_TOKEN_GRACE_WINDOW}' \
-                             JWT_ISSUER='${JWT_ISSUER}' \
-                             JWT_AUDIENCE='${JWT_AUDIENCE}' \
-                             BASE_URL='${BASE_URL}' \
-                             FRONTEND_URL='${FRONTEND_URL}' \
-                             ACCOUNT_LOCKOUT_MAX_ATTEMPTS='${ACCOUNT_LOCKOUT_MAX_ATTEMPTS}' \
-                             ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES='${ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES}' \
-                             RATE_LIMITING_WINDOW_MILLIS='${RATE_LIMITING_WINDOW_MILLIS}' \
-                             RATE_LIMITING_PER_USER_FORGOT_PASSWORD='${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}' \
-                             RATE_LIMITING_PER_USER_RESET_PASSWORD='${RATE_LIMITING_PER_USER_RESET_PASSWORD}' \
-                             RATE_LIMITING_PER_USER_MFA_VERIFY='${RATE_LIMITING_PER_USER_MFA_VERIFY}' \
-                             MFA_ISSUER='${MFA_ISSUER}' \
-                             MFA_OTP_EXPIRATION_SECONDS='${MFA_OTP_EXPIRATION_SECONDS}' \
-                             MFA_PENDING_TOKEN_EXPIRATION='${MFA_PENDING_TOKEN_EXPIRATION}' \
-                             MFA_OTP_DIGITS='${MFA_OTP_DIGITS}' \
-                             SERVER_PORT='${SERVER_PORT}' \
-                             SERVER_COMPRESSION='${SERVER_COMPRESSION}' \
-                             SERVER_FORWARD_HEADERS_STRATEGY='${SERVER_FORWARD_HEADERS_STRATEGY}' \
-                             APP_MAIL_ENABLED='${APP_MAIL_ENABLED}' \
-                             bash -s" <<'REMOTE_SCRIPT'
+                            "APP_NAME='${APP_NAME}' bash -s" <<'REMOTE_SCRIPT'
 
                         set -eu
 
                         cd "/opt/${APP_NAME}"
 
-                        export APP_NAME="${APP_NAME}"
-                        export DOCKER_IMAGE="${DOCKER_IMAGE}"
-                        export IMAGE_TAG="${IMAGE_TAG}"
-                        export DB_USERNAME="${DB_USERNAME}"
-                        export DB_PASSWORD="${DB_PASSWORD}"
-                        export DB_NAME="${DB_NAME}"
-                        export REDIS_HOST="${REDIS_HOST}"
-                        export REDIS_PORT="${REDIS_PORT}"
-                        export REDIS_TIMEOUT="${REDIS_TIMEOUT}"
-                        export SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL}"
-                        export SPRING_DATASOURCE_DRIVER="${SPRING_DATASOURCE_DRIVER}"
-                        export SPRING_JPA_DDL_AUTO="${SPRING_JPA_DDL_AUTO}"
-                        export SPRING_JPA_DIALECT="${SPRING_JPA_DIALECT}"
-                        export SPRING_JPA_FORMAT_SQL="${SPRING_JPA_FORMAT_SQL}"
-                        export SPRING_JPA_OPEN_IN_VIEW="${SPRING_JPA_OPEN_IN_VIEW}"
-                        export LOG_LEVEL_APP="${LOG_LEVEL_APP}"
-                        export LOG_LEVEL_SECURITY="${LOG_LEVEL_SECURITY}"
-                        export JWT_SECRET="${JWT_SECRET}"
-                        export JWT_ACCESS_TOKEN_EXPIRATION="${JWT_ACCESS_TOKEN_EXPIRATION}"
-                        export JWT_REFRESH_TOKEN_EXPIRATION="${JWT_REFRESH_TOKEN_EXPIRATION}"
-                        export JWT_REFRESH_TOKEN_GRACE_WINDOW="${JWT_REFRESH_TOKEN_GRACE_WINDOW}"
-                        export JWT_ISSUER="${JWT_ISSUER}"
-                        export JWT_AUDIENCE="${JWT_AUDIENCE}"
-                        export BASE_URL="${BASE_URL}"
-                        export FRONTEND_URL="${FRONTEND_URL}"
-                        export ACCOUNT_LOCKOUT_MAX_ATTEMPTS="${ACCOUNT_LOCKOUT_MAX_ATTEMPTS}"
-                        export ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES="${ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES}"
-                        export RATE_LIMITING_WINDOW_MILLIS="${RATE_LIMITING_WINDOW_MILLIS}"
-                        export RATE_LIMITING_PER_USER_FORGOT_PASSWORD="${RATE_LIMITING_PER_USER_FORGOT_PASSWORD}"
-                        export RATE_LIMITING_PER_USER_RESET_PASSWORD="${RATE_LIMITING_PER_USER_RESET_PASSWORD}"
-                        export RATE_LIMITING_PER_USER_MFA_VERIFY="${RATE_LIMITING_PER_USER_MFA_VERIFY}"
-                        export MFA_ISSUER="${MFA_ISSUER}"
-                        export MFA_OTP_EXPIRATION_SECONDS="${MFA_OTP_EXPIRATION_SECONDS}"
-                        export MFA_PENDING_TOKEN_EXPIRATION="${MFA_PENDING_TOKEN_EXPIRATION}"
-                        export MFA_OTP_DIGITS="${MFA_OTP_DIGITS}"
-                        export SERVER_PORT="${SERVER_PORT}"
-                        export SERVER_COMPRESSION="${SERVER_COMPRESSION}"
-                        export SERVER_FORWARD_HEADERS_STRATEGY="${SERVER_FORWARD_HEADERS_STRATEGY}"
-                        export APP_MAIL_ENABLED="${APP_MAIL_ENABLED}"
+                        chmod 600 .env
 
-                        echo "Pulling image:"
-                        echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
-
-                        docker pull "${DOCKER_IMAGE}:${IMAGE_TAG}"
-
-                        echo "Pulling Docker Compose image..."
+                        echo "Pulling images..."
 
                         docker compose pull
 

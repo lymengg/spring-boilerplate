@@ -1,52 +1,37 @@
 services:
   app:
-    container_name: app
     image: ${DOCKER_IMAGE:-lymengouk/expense-management-api}:${IMAGE_TAG:-latest}
-    # No host port mapping: the app is only reachable through Caddy (TLS + trusted headers).
+    container_name: app
+    # No host port mapping: the app is reachable only through Caddy.
     environment:
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ACCESS_TOKEN_EXPIRATION: ${JWT_ACCESS_TOKEN_EXPIRATION:-900000}
-      JWT_REFRESH_TOKEN_EXPIRATION: ${JWT_REFRESH_TOKEN_EXPIRATION:-604800000}
-      JWT_REFRESH_TOKEN_GRACE_WINDOW: ${JWT_REFRESH_TOKEN_GRACE_WINDOW:-60000}
-      JWT_ISSUER: ${JWT_ISSUER:-expense-management-api}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-expense-management-web}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      REDIS_TIMEOUT: ${REDIS_TIMEOUT}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:-expense_management}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_TIMEOUT: ${REDIS_TIMEOUT:-2000ms}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:?SPRING_DATASOURCE_URL is required}
       SPRING_DATASOURCE_DRIVER: ${SPRING_DATASOURCE_DRIVER:-org.postgresql.Driver}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_JPA_DDL_AUTO: ${SPRING_JPA_DDL_AUTO:-none}
       SPRING_JPA_DIALECT: ${SPRING_JPA_DIALECT:-org.hibernate.dialect.PostgreSQLDialect}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
-      SPRING_JPA_OPEN_IN_VIEW: ${SPRING_JPA_OPEN_IN_VIEW:-false}
-      BASE_URL: ${BASE_URL}
-      FRONTEND_URL: ${FRONTEND_URL}
-      # Account Lockout
-      ACCOUNT_LOCKOUT_MAX_ATTEMPTS: ${ACCOUNT_LOCKOUT_MAX_ATTEMPTS:-5}
-      ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES: ${ACCOUNT_LOCKOUT_LOCKOUT_DURATION_MINUTES:-15}
-      # Rate Limiting
-      RATE_LIMITING_WINDOW_MILLIS: ${RATE_LIMITING_WINDOW_MILLIS:-60000}
+      BASE_URL: ${BASE_URL:?BASE_URL is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      SERVER_FORWARD_HEADERS_STRATEGY: ${SERVER_FORWARD_HEADERS_STRATEGY:-framework}
       RATE_LIMITING_PER_USER_FORGOT_PASSWORD: ${RATE_LIMITING_PER_USER_FORGOT_PASSWORD:-10}
       RATE_LIMITING_PER_USER_RESET_PASSWORD: ${RATE_LIMITING_PER_USER_RESET_PASSWORD:-10}
       RATE_LIMITING_PER_USER_MFA_VERIFY: ${RATE_LIMITING_PER_USER_MFA_VERIFY:-10}
-      # MFA
-      MFA_ISSUER: ${MFA_ISSUER:-Expense Management}
-      MFA_OTP_EXPIRATION_SECONDS: ${MFA_OTP_EXPIRATION_SECONDS:-300}
-      MFA_PENDING_TOKEN_EXPIRATION: ${MFA_PENDING_TOKEN_EXPIRATION:-300000}
-      MFA_OTP_DIGITS: ${MFA_OTP_DIGITS:-6}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_SECURITY: ${LOG_LEVEL_SECURITY:-WARN}
-      SERVER_PORT: ${SERVER_PORT:-8080}
-      SERVER_COMPRESSION: ${SERVER_COMPRESSION:-true}
-      SERVER_FORWARD_HEADERS_STRATEGY: ${SERVER_FORWARD_HEADERS_STRATEGY:-framework}
-      # Mail — off by default. To enable, set APP_MAIL_ENABLED=true and add
-      # SPRING_MAIL_HOST/PORT/USERNAME/PASSWORD env vars.
+      # Mail — disabled; mail autoconfiguration is excluded in all profiles.
       APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
-      # Seed admin — created at startup when SEED_ADMIN_PASSWORD is set (empty = disabled).
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@123}
+      # Seed Admin
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@example.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD is required}
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,8 +58,8 @@ services:
           cpus: '1.0'
 
   postgres:
-    container_name: postgres
     image: postgres:16-alpine
+    container_name: postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
@@ -83,7 +68,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-expense_management}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -97,8 +82,8 @@ services:
           cpus: '0.5'
 
   redis:
-    container_name: redis
     image: redis:7-alpine
+    container_name: redis
     command: redis-server --appendonly yes
     volumes:
       - redis-data:/data
@@ -118,8 +103,8 @@ services:
           cpus: '0.25'
 
   caddy:
-    container_name: caddy
     image: caddy:2-alpine
+    container_name: caddy
     ports:
       - "80:80"
       - "443:443"
