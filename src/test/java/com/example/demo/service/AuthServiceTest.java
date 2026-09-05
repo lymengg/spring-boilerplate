@@ -49,12 +49,13 @@ class AuthServiceTest {
     void shouldDelegateLogin() {
         LoginRequest request = LoginRequest.builder().usernameOrEmail("testuser").password("password").build();
         TokenResponse tokenResponse = TokenResponse.builder().accessToken("access").build();
+        LoginResult loginResult = new LoginResult.TokenSuccess(tokenResponse);
 
-        when(loginService.login(request, "unknown")).thenReturn(tokenResponse);
+        when(loginService.login(request, "unknown")).thenReturn(loginResult);
 
-        Object result = authService.login(request);
+        LoginResult result = authService.login(request);
 
-        assertThat(result).isEqualTo(tokenResponse);
+        assertThat(result).isEqualTo(loginResult);
         verify(loginService).login(request, "unknown");
     }
 

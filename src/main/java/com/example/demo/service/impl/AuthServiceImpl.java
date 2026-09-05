@@ -25,7 +25,7 @@ public class AuthServiceImpl implements AuthService {
     private final ClientIpResolver clientIpResolver;
 
     @Override
-    public Object login(LoginRequest request) {
+    public LoginResult login(LoginRequest request) {
         return loginService.login(request, getClientIp());
     }
 

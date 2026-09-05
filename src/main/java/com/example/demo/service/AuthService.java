@@ -5,7 +5,7 @@ import org.springframework.security.core.Authentication;
 
 public interface AuthService {
 
-    Object login(LoginRequest request);
+    LoginResult login(LoginRequest request);
 
     TokenResponse verifyMfa(MfaVerifyRequest request);
 
