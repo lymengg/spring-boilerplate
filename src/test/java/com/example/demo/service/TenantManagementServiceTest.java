@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.constants.AuditActions;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.TenantCreateRequest;
 import com.example.demo.dto.TenantUpdateRequest;
 import com.example.demo.entity.Tenant;
@@ -18,7 +19,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
@@ -76,9 +76,9 @@ class TenantManagementServiceTest {
         when(tenantRepository.findAll(pageable))
                 .thenReturn(new PageImpl<>(Collections.singletonList(tenant), pageable, 1));
 
-        Page<?> result = tenantManagementService.getTenants(pageable, null, "superadmin");
+        PageResponse<?> result = tenantManagementService.getTenants(pageable, null, "superadmin");
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
         verify(tenantRepository).findAll(pageable);
     }
 
@@ -103,9 +103,9 @@ class TenantManagementServiceTest {
         when(tenantRepository.findByNameContainingIgnoreCase("acme", pageable))
                 .thenReturn(new PageImpl<>(Collections.singletonList(tenant), pageable, 1));
 
-        Page<?> result = tenantManagementService.getTenants(pageable, "acme", "superadmin");
+        PageResponse<?> result = tenantManagementService.getTenants(pageable, "acme", "superadmin");
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
         verify(tenantRepository).findByNameContainingIgnoreCase("acme", pageable);
         verify(tenantRepository, never()).findAll(any(PageRequest.class));
     }
@@ -120,9 +120,9 @@ class TenantManagementServiceTest {
         when(tenantRepository.findAll(pageable))
                 .thenReturn(new PageImpl<>(Collections.singletonList(tenant), pageable, 1));
 
-        Page<?> result = tenantManagementService.getTenants(pageable, "   ", "superadmin");
+        PageResponse<?> result = tenantManagementService.getTenants(pageable, "   ", "superadmin");
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
         verify(tenantRepository).findAll(pageable);
         verify(tenantRepository, never()).findByNameContainingIgnoreCase(any(), any());
     }

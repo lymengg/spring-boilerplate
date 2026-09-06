@@ -4,10 +4,10 @@ import com.example.demo.dto.ApiResponse;
 import com.example.demo.dto.DepartmentCreateRequest;
 import com.example.demo.dto.DepartmentResponse;
 import com.example.demo.dto.DepartmentUpdateRequest;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.service.DepartmentManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +22,10 @@ public class DepartmentManagementController {
     private final DepartmentManagementService departmentManagementService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<DepartmentResponse>>> getDepartments(
+    public ResponseEntity<ApiResponse<PageResponse<DepartmentResponse>>> getDepartments(
             @PageableDefault Pageable pageable,
             Authentication authentication) {
-        Page<DepartmentResponse> departments = departmentManagementService.getDepartments(pageable, authentication.getName());
+        PageResponse<DepartmentResponse> departments = departmentManagementService.getDepartments(pageable, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Departments retrieved successfully", departments));
     }
 

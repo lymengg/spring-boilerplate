@@ -1,6 +1,7 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.dto.AuditLogResponse;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.entity.AuditLog;
 import com.example.demo.entity.User;
 import com.example.demo.mapper.AuditLogMapper;
@@ -9,7 +10,6 @@ import com.example.demo.security.service.AuthorizationService;
 import com.example.demo.service.AuditLogService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,15 +44,15 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('AUDIT_LOG_READ')")
-    public Page<AuditLogResponse> getAuditLogs(Pageable pageable, String currentUsername) {
+    public PageResponse<AuditLogResponse> getAuditLogs(Pageable pageable, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         if (authorizationService.isSuperAdmin(currentUser)) {
-            return auditLogRepository.findAll(pageable).map(auditLogMapper::toResponse);
+            return PageResponse.of(auditLogRepository.findAll(pageable).map(auditLogMapper::toResponse));
         }
         if (currentUser.getTenant() == null) {
-            return Page.empty(pageable);
+            return PageResponse.empty(pageable);
         }
-        return auditLogRepository.findAllByTenantId(currentUser.getTenant().getId(), pageable).map(auditLogMapper::toResponse);
+        return PageResponse.of(auditLogRepository.findAllByTenantId(currentUser.getTenant().getId(), pageable).map(auditLogMapper::toResponse));
     }
 
     @Override

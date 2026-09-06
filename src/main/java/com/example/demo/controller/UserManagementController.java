@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.ApiResponse;
 import com.example.demo.dto.MfaSetupResponse;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
 import com.example.demo.dto.UserMfaToggleRequest;
@@ -11,7 +12,6 @@ import com.example.demo.dto.UserUpdateRequest;
 import com.example.demo.service.UserManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -33,8 +33,8 @@ public class UserManagementController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<UserResponse>>> getUsers(Pageable pageable, Authentication authentication) {
-        Page<UserResponse> users = userManagementService.getUsers(pageable, authentication.getName());
+    public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getUsers(Pageable pageable, Authentication authentication) {
+        PageResponse<UserResponse> users = userManagementService.getUsers(pageable, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Users retrieved successfully", users));
     }
 

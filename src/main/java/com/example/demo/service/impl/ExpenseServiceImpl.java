@@ -5,6 +5,7 @@ import com.example.demo.constants.UserPermission;
 import com.example.demo.dto.ExpenseCreateRequest;
 import com.example.demo.dto.ExpenseResponse;
 import com.example.demo.dto.ExpenseUpdateRequest;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.entity.Department;
 import com.example.demo.entity.Expense;
 import com.example.demo.entity.ExpenseStatus;
@@ -17,7 +18,6 @@ import com.example.demo.service.DepartmentManagementService;
 import com.example.demo.service.ExpenseService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,31 +38,31 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('EXPENSE_READ')")
-    public Page<ExpenseResponse> getExpenses(Pageable pageable, ExpenseStatus status, Long filterTenantId, Long filterDepartmentId, String currentUsername) {
+    public PageResponse<ExpenseResponse> getExpenses(Pageable pageable, ExpenseStatus status, Long filterTenantId, Long filterDepartmentId, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
 
         if (authorizationService.isSuperAdmin(currentUser)) {
-            return expenseRepository.findAllWithFilters(filterTenantId, filterDepartmentId, status, pageable)
-                    .map(expenseMapper::toResponse);
+            return PageResponse.of(expenseRepository.findAllWithFilters(filterTenantId, filterDepartmentId, status, pageable)
+                    .map(expenseMapper::toResponse));
         }
 
         if (currentUser.getTenant() == null) {
-            return Page.empty(pageable);
+            return PageResponse.empty(pageable);
         }
 
         Long tenantId = currentUser.getTenant().getId();
 
         if (authorizationService.hasAuthority(currentUser, UserPermission.EXPENSE_READ_ALL.name())) {
-            return expenseRepository.findAllWithFilters(tenantId, filterDepartmentId, status, pageable)
-                    .map(expenseMapper::toResponse);
+            return PageResponse.of(expenseRepository.findAllWithFilters(tenantId, filterDepartmentId, status, pageable)
+                    .map(expenseMapper::toResponse));
         }
 
         if (currentUser.getDepartment() == null) {
-            return Page.empty(pageable);
+            return PageResponse.empty(pageable);
         }
 
-        return expenseRepository.findByDepartmentIdWithStatus(currentUser.getDepartment().getId(), status, pageable)
-                .map(expenseMapper::toResponse);
+        return PageResponse.of(expenseRepository.findByDepartmentIdWithStatus(currentUser.getDepartment().getId(), status, pageable)
+                .map(expenseMapper::toResponse));
     }
 
     @Override

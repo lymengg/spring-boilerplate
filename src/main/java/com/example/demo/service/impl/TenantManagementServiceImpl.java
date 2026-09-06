@@ -1,6 +1,7 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.constants.AuditActions;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.TenantCreateRequest;
 import com.example.demo.dto.TenantResponse;
 import com.example.demo.dto.TenantUpdateRequest;
@@ -13,7 +14,6 @@ import com.example.demo.service.AuditLogService;
 import com.example.demo.service.TenantManagementService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,16 +33,16 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_READ')")
-    public Page<TenantResponse> getTenants(Pageable pageable, String name, String currentUsername) {
+    public PageResponse<TenantResponse> getTenants(Pageable pageable, String name, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         if (!authorizationService.isSuperAdmin(currentUser)) {
             throw new AccessDeniedException("Only platform administrators can list tenants");
         }
         if (name != null && !name.isBlank()) {
-            return tenantRepository.findByNameContainingIgnoreCase(name.trim(), pageable)
-                    .map(tenantMapper::toResponse);
+            return PageResponse.of(tenantRepository.findByNameContainingIgnoreCase(name.trim(), pageable)
+                    .map(tenantMapper::toResponse));
         }
-        return tenantRepository.findAll(pageable).map(tenantMapper::toResponse);
+        return PageResponse.of(tenantRepository.findAll(pageable).map(tenantMapper::toResponse));
     }
 
     @Override

@@ -1,13 +1,13 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.ApiResponse;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.TenantCreateRequest;
 import com.example.demo.dto.TenantResponse;
 import com.example.demo.dto.TenantUpdateRequest;
 import com.example.demo.service.TenantManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +22,11 @@ public class TenantManagementController {
     private final TenantManagementService tenantManagementService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<TenantResponse>>> getTenants(
+    public ResponseEntity<ApiResponse<PageResponse<TenantResponse>>> getTenants(
             @PageableDefault Pageable pageable,
             @RequestParam(required = false) String name,
             Authentication authentication) {
-        Page<TenantResponse> tenants = tenantManagementService.getTenants(pageable, name, authentication.getName());
+        PageResponse<TenantResponse> tenants = tenantManagementService.getTenants(pageable, name, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Tenants retrieved successfully", tenants));
     }
 

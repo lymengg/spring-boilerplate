@@ -3,6 +3,7 @@ package com.example.demo.service.impl;
 import com.example.demo.dto.DepartmentCreateRequest;
 import com.example.demo.dto.DepartmentResponse;
 import com.example.demo.dto.DepartmentUpdateRequest;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.entity.Department;
 import com.example.demo.entity.Tenant;
 import com.example.demo.entity.User;
@@ -13,7 +14,6 @@ import com.example.demo.service.DepartmentManagementService;
 import com.example.demo.service.TenantManagementService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,16 +37,16 @@ public class DepartmentManagementServiceImpl implements DepartmentManagementServ
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('DEPARTMENT_READ')")
-    public Page<DepartmentResponse> getDepartments(Pageable pageable, String currentUsername) {
+    public PageResponse<DepartmentResponse> getDepartments(Pageable pageable, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         if (authorizationService.isSuperAdmin(currentUser)) {
-            return departmentRepository.findAll(pageable).map(departmentMapper::toResponse);
+            return PageResponse.of(departmentRepository.findAll(pageable).map(departmentMapper::toResponse));
         }
         if (currentUser.getTenant() == null) {
-            return Page.empty(pageable);
+            return PageResponse.empty(pageable);
         }
-        return departmentRepository.findAllByTenantId(currentUser.getTenant().getId(), pageable)
-                .map(departmentMapper::toResponse);
+        return PageResponse.of(departmentRepository.findAllByTenantId(currentUser.getTenant().getId(), pageable)
+                .map(departmentMapper::toResponse));
     }
 
     @Override
