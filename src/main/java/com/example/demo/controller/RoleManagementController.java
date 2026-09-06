@@ -1,13 +1,13 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.ApiResponse;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.RoleCreateRequest;
 import com.example.demo.dto.RolePermissionRequest;
 import com.example.demo.dto.RoleResponse;
 import com.example.demo.service.RoleManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,8 +20,8 @@ public class RoleManagementController {
     private final RoleManagementService roleManagementService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<RoleResponse>>> getRoles(Pageable pageable) {
-        Page<RoleResponse> roles = roleManagementService.getRoles(pageable);
+    public ResponseEntity<ApiResponse<PageResponse<RoleResponse>>> getRoles(Pageable pageable) {
+        PageResponse<RoleResponse> roles = roleManagementService.getRoles(pageable);
         return ResponseEntity.ok(ApiResponse.success("Roles retrieved successfully", roles));
     }
 

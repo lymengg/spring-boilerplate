@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.constants.AuditActions;
 import com.example.demo.dto.ExpenseCreateRequest;
 import com.example.demo.dto.ExpenseUpdateRequest;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.entity.Department;
 import com.example.demo.entity.Expense;
 import com.example.demo.entity.ExpenseStatus;
@@ -21,7 +22,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
@@ -135,9 +135,9 @@ class ExpenseServiceTest {
         when(expenseRepository.findByDepartmentIdWithStatus(department.getId(), null, pageable))
                 .thenReturn(new PageImpl<>(Collections.emptyList(), pageable, 0));
 
-        Page<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
+        PageResponse<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
 
-        assertThat(result).isEmpty();
+        assertThat(result.isEmpty()).isTrue();
         verify(expenseRepository).findByDepartmentIdWithStatus(department.getId(), null, pageable);
     }
 
@@ -151,9 +151,9 @@ class ExpenseServiceTest {
         when(expenseRepository.findAllWithFilters(null, null, null, pageable))
                 .thenReturn(new PageImpl<>(Collections.emptyList(), pageable, 0));
 
-        Page<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
+        PageResponse<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
 
-        assertThat(result).isEmpty();
+        assertThat(result.isEmpty()).isTrue();
         verify(expenseRepository).findAllWithFilters(null, null, null, pageable);
     }
 
@@ -168,9 +168,9 @@ class ExpenseServiceTest {
         when(expenseRepository.findAllWithFilters(tenant.getId(), department.getId(), ExpenseStatus.PENDING, pageable))
                 .thenReturn(new PageImpl<>(Collections.emptyList(), pageable, 0));
 
-        Page<?> result = expenseService.getExpenses(pageable, ExpenseStatus.PENDING, null, department.getId(), "employee");
+        PageResponse<?> result = expenseService.getExpenses(pageable, ExpenseStatus.PENDING, null, department.getId(), "employee");
 
-        assertThat(result).isEmpty();
+        assertThat(result.isEmpty()).isTrue();
         verify(expenseRepository).findAllWithFilters(tenant.getId(), department.getId(), ExpenseStatus.PENDING, pageable);
     }
 
@@ -183,9 +183,9 @@ class ExpenseServiceTest {
         when(authorizationService.hasAuthority(employee, "EXPENSE_READ_ALL")).thenReturn(false);
 
         PageRequest pageable = PageRequest.of(0, 10);
-        Page<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
+        PageResponse<?> result = expenseService.getExpenses(pageable, null, null, null, "employee");
 
-        assertThat(result).isEmpty();
+        assertThat(result.isEmpty()).isTrue();
         verify(expenseRepository, never()).findByDepartmentIdWithStatus(any(), any(), any());
     }
 

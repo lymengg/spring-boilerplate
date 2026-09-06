@@ -3,6 +3,7 @@ package com.example.demo.service.impl;
 import com.example.demo.constants.AuditActions;
 import com.example.demo.constants.Roles;
 import com.example.demo.dto.MfaSetupResponse;
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.UserCreateRequest;
 import com.example.demo.dto.UserEnableRequest;
 import com.example.demo.dto.UserMfaToggleRequest;
@@ -25,7 +26,6 @@ import com.example.demo.service.MfaSetupService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -98,16 +98,16 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
-    public Page<UserResponse> getUsers(Pageable pageable, String currentUsername) {
+    public PageResponse<UserResponse> getUsers(Pageable pageable, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
         if (authorizationService.isSuperAdmin(currentUser)) {
-            return userService.findAll(pageable).map(userManagementMapper::toResponse);
+            return PageResponse.of(userService.findAll(pageable).map(userManagementMapper::toResponse));
         }
         if (currentUser.getTenant() == null) {
-            return Page.empty(pageable);
+            return PageResponse.empty(pageable);
         }
-        return userService.findAllByTenantId(currentUser.getTenant().getId(), pageable)
-                .map(userManagementMapper::toResponse);
+        return PageResponse.of(userService.findAllByTenantId(currentUser.getTenant().getId(), pageable)
+                .map(userManagementMapper::toResponse));
     }
 
     @Override

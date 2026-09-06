@@ -1,5 +1,6 @@
 package com.example.demo.service.impl;
 
+import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.RoleCreateRequest;
 import com.example.demo.dto.RolePermissionRequest;
 import com.example.demo.dto.RoleResponse;
@@ -12,7 +13,6 @@ import com.example.demo.service.RoleManagementService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -38,8 +38,8 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_READ')")
-    public Page<RoleResponse> getRoles(Pageable pageable) {
-        return roleRepository.findAll(pageable).map(roleMapper::toResponse);
+    public PageResponse<RoleResponse> getRoles(Pageable pageable) {
+        return PageResponse.of(roleRepository.findAll(pageable).map(roleMapper::toResponse));
     }
 
     @Override
