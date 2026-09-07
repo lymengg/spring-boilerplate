@@ -38,7 +38,7 @@ public class TokenBlacklistService {
         try {
             String key = BLACKLIST_PREFIX + jti;
             Boolean exists = redisTemplate.hasKey(key);
-            return Boolean.TRUE.equals(exists);
+            return exists;
         } catch (Exception e) {
             log.warn("Failed to check blacklist for token jti {}: {}", jti, e.getMessage());
             return false;

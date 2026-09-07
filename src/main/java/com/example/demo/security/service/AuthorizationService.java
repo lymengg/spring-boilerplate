@@ -30,13 +30,27 @@ public class AuthorizationService {
                 && tenant != null && user.getTenant().getId().equals(tenant.getId());
     }
 
+    public boolean belongsToTenant(User user, Long tenantId) {
+        return user != null && user.getTenant() != null
+                && user.getTenant().getId().equals(tenantId);
+    }
+
     public boolean canAccessTenant(User user, Tenant tenant) {
         return isSuperAdmin(user) || belongsToTenant(user, tenant);
+    }
+
+    public boolean canAccessTenant(User user, Long tenantId) {
+        return isSuperAdmin(user) || belongsToTenant(user, tenantId);
     }
 
     public boolean canManageTenant(User user, Tenant tenant) {
         return isSuperAdmin(user)
                 || (belongsToTenant(user, tenant) && hasAuthority(user, "TENANT_UPDATE"));
+    }
+
+    public boolean canManageTenant(User user, Long tenantId) {
+        return isSuperAdmin(user)
+                || (belongsToTenant(user, tenantId) && hasAuthority(user, "TENANT_UPDATE"));
     }
 
     public boolean belongsToDepartment(User user, Department department) {

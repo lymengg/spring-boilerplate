@@ -5,7 +5,7 @@ import com.example.demo.entity.User;
 import com.example.demo.constants.UserPermission;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.security.cookie.AuthCookieService;
+import com.example.demo.security.cookie.AuthCookieManager;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -107,7 +107,7 @@ class RoleManagementControllerIntegrationTest {
     }
 
     private Cookie accessCookie(String token) {
-        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+        return new Cookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, token);
     }
 
     @Test
@@ -225,5 +225,87 @@ class RoleManagementControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "EMPLOYEE", "description", "Collision"))))
                 .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Admin can get role by id")
+    void adminCanGetRoleById() throws Exception {
+        mockMvc.perform(get("/api/management/roles/{id}", customRoleId)
+                        .cookie(accessCookie(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(customRoleId))
+                .andExpect(jsonPath("$.data.name").value("CUSTOM"));
+    }
+
+    @Test
+    @DisplayName("Getting a nonexistent role returns 400")
+    void getNonexistentRoleReturns400() throws Exception {
+        mockMvc.perform(get("/api/management/roles/{id}", 999999L)
+                        .cookie(accessCookie(adminToken)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Admin can update custom role")
+    void adminCanUpdateCustomRole() throws Exception {
+        mockMvc.perform(put("/api/management/roles/{id}", customRoleId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "CUSTOM_UPDATED",
+                                "title", "Updated",
+                                "description", "Updated role"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("CUSTOM_UPDATED"));
+    }
+
+    @Test
+    @DisplayName("Admin can delete custom role")
+    void adminCanDeleteCustomRole() throws Exception {
+        mockMvc.perform(delete("/api/management/roles/{id}", customRoleId)
+                        .cookie(accessCookie(adminToken)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Admin cannot add permission to built-in role")
+    void adminCannotAddPermissionToBuiltInRole() throws Exception {
+        Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
+        mockMvc.perform(post("/api/management/roles/{id}/permissions", employeeRole.getId())
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("permission", "USER_READ"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Admin cannot remove permission from built-in role")
+    void adminCannotRemovePermissionFromBuiltInRole() throws Exception {
+        Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
+        mockMvc.perform(delete("/api/management/roles/{id}/permissions", employeeRole.getId())
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("permission", "EXPENSE_READ"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot add permission to role")
+    void userManagerCannotAddPermission() throws Exception {
+        mockMvc.perform(post("/api/management/roles/{id}/permissions", customRoleId)
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("permission", "USER_READ"))))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("User manager cannot remove permission from role")
+    void userManagerCannotRemovePermission() throws Exception {
+        mockMvc.perform(delete("/api/management/roles/{id}/permissions", customRoleId)
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("permission", "USER_READ"))))
+                .andExpect(status().is(403));
     }
 }

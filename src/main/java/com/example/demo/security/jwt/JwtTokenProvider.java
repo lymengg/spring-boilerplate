@@ -88,6 +88,7 @@ public class JwtTokenProvider {
         Date expiry = new Date(now.getTime() + jwtConfig.getRefreshTokenExpiration());
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(userDetails.getUsername())
                 .claim("type", "refresh")
                 .issuedAt(now)

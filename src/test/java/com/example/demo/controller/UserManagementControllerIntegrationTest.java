@@ -8,7 +8,7 @@ import com.example.demo.repository.DepartmentRepository;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.TenantRepository;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.security.cookie.AuthCookieService;
+import com.example.demo.security.cookie.AuthCookieManager;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.example.demo.service.TokenService;
@@ -123,7 +123,7 @@ class UserManagementControllerIntegrationTest {
     }
 
     private Cookie accessCookie(String token) {
-        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+        return new Cookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, token);
     }
 
     @Test
@@ -508,6 +508,48 @@ class UserManagementControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Admin can enable EMAIL MFA for a user")
+    void adminCanEnableEmailMfa() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "EMAIL"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.method").value("EMAIL"))
+                .andExpect(jsonPath("$.data.secret").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Enabling MFA with an invalid method returns 400")
+    void enableMfaWithInvalidMethodReturns400() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "NONE"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Resetting MFA when not enabled returns 409")
+    void resetMfaWhenNotEnabledReturns409() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/reset", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("Enabling MFA with a missing method in the body returns 400")
+    void enableMfaWithMissingBodyReturns400() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of())))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("Admin can disable MFA for a user")
     void adminCanDisableMfa() throws Exception {
         User user = userRepository.findById(regularUserId).orElseThrow();
@@ -585,5 +627,378 @@ class UserManagementControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
                 .andExpect(status().is(401));
+    }
+
+    @Test
+    @DisplayName("Admin can get a user by id")
+    void adminCanGetUserById() throws Exception {
+        mockMvc.perform(get("/api/management/users/{id}", regularUserId)
+                        .cookie(accessCookie(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("testuser"));
+    }
+
+    @Test
+    @DisplayName("User manager can get a user in their tenant")
+    void userManagerCanGetUserById() throws Exception {
+        mockMvc.perform(get("/api/management/users/{id}", regularUserId)
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("testuser"));
+    }
+
+    @Test
+    @DisplayName("User manager cannot get a user in another tenant")
+    void userManagerCannotGetUserInOtherTenant() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant 3").build());
+        User otherUser = createUser("otheruser", "other@example.com",
+                roleRepository.findByName("EMPLOYEE").orElseThrow(), otherTenant);
+
+        mockMvc.perform(get("/api/management/users/{id}", otherUser.getId())
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Getting a non-existent user returns 400")
+    void getUserByIdNotFoundReturns400() throws Exception {
+        mockMvc.perform(get("/api/management/users/{id}", 99999L)
+                        .cookie(accessCookie(adminToken)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Admin can enable a user")
+    void adminCanEnableUser() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/enable", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enabled").value(true));
+    }
+
+    @Test
+    @DisplayName("Admin can disable a user")
+    void adminCanDisableUser() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/enable", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enabled").value(false));
+    }
+
+    @Test
+    @DisplayName("Cannot change your own enabled state")
+    void cannotChangeOwnEnabledState() throws Exception {
+        User admin = userRepository.findByUsername("adminuser").orElseThrow();
+        mockMvc.perform(post("/api/management/users/{id}/enable", admin.getId())
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Cannot disable the last admin")
+    void cannotDisableLastAdmin() throws Exception {
+        Tenant isolated = tenantRepository.save(Tenant.builder().name("Isolated Tenant").build());
+        User admin2 = createUser("admin2", "admin2@example.com",
+                roleRepository.findByName("TENANT_ADMIN").orElseThrow(), isolated);
+
+        mockMvc.perform(post("/api/management/users/{id}/enable", admin2.getId())
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager lacks permission to toggle enabled state")
+    void userManagerCannotToggleEnabled() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/enable", regularUserId)
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Regular user cannot toggle enabled state")
+    void regularUserCannotToggleEnabled() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/enable", regularUserId)
+                        .cookie(accessCookie(userToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Admin can remove a role from a user")
+    void adminCanRemoveRole() throws Exception {
+        mockMvc.perform(delete("/api/management/users/{id}/roles", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roles").isEmpty());
+    }
+
+    @Test
+    @DisplayName("Removing a role the user does not have returns 400")
+    void removeMissingRoleReturns400() throws Exception {
+        mockMvc.perform(delete("/api/management/users/{id}/roles", regularUserId)
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "PLATFORM_ADMIN"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Cannot remove the last admin role")
+    void cannotRemoveLastAdminRole() throws Exception {
+        Tenant isolated = tenantRepository.save(Tenant.builder().name("Isolated Tenant 2").build());
+        User admin2 = createUser("admin2b", "admin2b@example.com",
+                roleRepository.findByName("TENANT_ADMIN").orElseThrow(), isolated);
+
+        mockMvc.perform(delete("/api/management/users/{id}/roles", admin2.getId())
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "TENANT_ADMIN"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Assigning a role the user already has returns 400")
+    void assignDuplicateRoleReturns400() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/roles", regularUserId)
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Creating a user with a duplicate email returns 400")
+    void duplicateEmailReturns400() throws Exception {
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept",
+                tenantRepository.findByName("Test Tenant").orElseThrow().getId()).orElseThrow();
+        Map<String, Object> body = Map.of(
+                "username", "uniqueuser",
+                "email", "test@example.com",
+                "password", "SecurePass123!",
+                "departmentId", dept.getId());
+
+        mockMvc.perform(post("/api/management/users")
+                        .cookie(accessCookie(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Creating a user with a department in another tenant returns 400")
+    void createUserWithOtherTenantDepartmentReturns400() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant 4").build());
+        Department otherDept = departmentRepository.save(Department.builder().name("Other Dept 4").tenant(otherTenant).build());
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!",
+                "departmentId", otherDept.getId());
+
+        mockMvc.perform(post("/api/management/users")
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Creating a user with an invalid role name returns 400")
+    void createUserWithInvalidRoleReturns400() throws Exception {
+        Department dept = departmentRepository.findByNameAndTenantId("Test Dept",
+                tenantRepository.findByName("Test Tenant").orElseThrow().getId()).orElseThrow();
+        Map<String, Object> body = Map.of(
+                "username", "createduser",
+                "email", "created@example.com",
+                "password", "SecurePass123!",
+                "roleName", "NONEXISTENT",
+                "departmentId", dept.getId());
+
+        mockMvc.perform(post("/api/management/users")
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot update another user manager")
+    void userManagerCannotUpdateAnotherManager() throws Exception {
+        Tenant tenant = tenantRepository.findByName("Test Tenant").orElseThrow();
+        User manager2 = createUser("manager2", "manager2@example.com",
+                roleRepository.findByName("USER_MANAGER").orElseThrow(), tenant);
+
+        mockMvc.perform(put("/api/management/users/{id}", manager2.getId())
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("firstName", "Hacked"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot delete an admin")
+    void userManagerCannotDeleteAdmin() throws Exception {
+        User admin = userRepository.findByUsername("adminuser").orElseThrow();
+        mockMvc.perform(delete("/api/management/users/{id}", admin.getId())
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Cannot delete the last admin")
+    void cannotDeleteLastAdmin() throws Exception {
+        Tenant isolated = tenantRepository.save(Tenant.builder().name("Isolated Tenant 3").build());
+        User admin2 = createUser("admin2c", "admin2c@example.com",
+                roleRepository.findByName("TENANT_ADMIN").orElseThrow(), isolated);
+
+        mockMvc.perform(delete("/api/management/users/{id}", admin2.getId())
+                        .cookie(accessCookie(adminToken)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot manage MFA for an admin")
+    void userManagerCannotManageMfaForAdmin() throws Exception {
+        User admin = userRepository.findByUsername("adminuser").orElseThrow();
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", admin.getId())
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Regular user cannot get a user by id")
+    void regularUserCannotGetUserById() throws Exception {
+        mockMvc.perform(get("/api/management/users/{id}", regularUserId)
+                        .cookie(accessCookie(userToken)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Regular user cannot delete a user")
+    void regularUserCannotDeleteUser() throws Exception {
+        mockMvc.perform(delete("/api/management/users/{id}", regularUserId)
+                        .cookie(accessCookie(userToken)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Regular user cannot assign a role")
+    void regularUserCannotAssignRole() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/roles", regularUserId)
+                        .cookie(accessCookie(userToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Regular user cannot remove a role")
+    void regularUserCannotRemoveRole() throws Exception {
+        mockMvc.perform(delete("/api/management/users/{id}/roles", regularUserId)
+                        .cookie(accessCookie(userToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("User manager cannot delete a user in another tenant")
+    void userManagerCannotDeleteUserInOtherTenant() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant 5").build());
+        User otherUser = createUser("otheruser5", "other5@example.com",
+                roleRepository.findByName("EMPLOYEE").orElseThrow(), otherTenant);
+
+        mockMvc.perform(delete("/api/management/users/{id}", otherUser.getId())
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("User manager cannot update a user in another tenant")
+    void userManagerCannotUpdateUserInOtherTenant() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant 6").build());
+        User otherUser = createUser("otheruser6", "other6@example.com",
+                roleRepository.findByName("EMPLOYEE").orElseThrow(), otherTenant);
+
+        mockMvc.perform(put("/api/management/users/{id}", otherUser.getId())
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("firstName", "Hacked"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot enable a user in another tenant")
+    void userManagerCannotEnableUserInOtherTenant() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant 7").build());
+        User otherUser = createUser("otheruser7", "other7@example.com",
+                roleRepository.findByName("EMPLOYEE").orElseThrow(), otherTenant);
+
+        mockMvc.perform(post("/api/management/users/{id}/enable", otherUser.getId())
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("User manager cannot assign a role to a user in another tenant")
+    void userManagerCannotAssignRoleInOtherTenant() throws Exception {
+        Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant 8").build());
+        User otherUser = createUser("otheruser8", "other8@example.com",
+                roleRepository.findByName("EMPLOYEE").orElseThrow(), otherTenant);
+
+        mockMvc.perform(post("/api/management/users/{id}/roles", otherUser.getId())
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot assign a role to an admin")
+    void userManagerCannotAssignRoleToAdmin() throws Exception {
+        User admin = userRepository.findByUsername("adminuser").orElseThrow();
+        mockMvc.perform(post("/api/management/users/{id}/roles", admin.getId())
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "EMPLOYEE"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager cannot remove a built-in role")
+    void userManagerCannotRemoveBuiltInRole() throws Exception {
+        mockMvc.perform(delete("/api/management/users/{id}/roles", regularUserId)
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("roleName", "USER_MANAGER"))))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("User manager can enable MFA for a user in their tenant")
+    void userManagerCanEnableMfa() throws Exception {
+        mockMvc.perform(post("/api/management/users/{id}/mfa/enable", regularUserId)
+                        .cookie(accessCookie(managerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("method", "TOTP"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.method").value("TOTP"));
     }
 }

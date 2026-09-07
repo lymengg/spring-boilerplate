@@ -50,11 +50,11 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @PreAuthorize("hasAuthority('TENANT_READ')")
     public TenantResponse getTenantById(Long id, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
+        if (!authorizationService.canAccessTenant(currentUser, id)) {
+            throw new IllegalArgumentException("Tenant not found");
+        }
         Tenant tenant = tenantRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
-        if (!authorizationService.canAccessTenant(currentUser, tenant)) {
-            throw new AccessDeniedException("Cannot access this tenant");
-        }
         return tenantMapper.toResponse(tenant);
     }
 
@@ -87,11 +87,11 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @PreAuthorize("hasAuthority('TENANT_UPDATE')")
     public TenantResponse updateTenant(Long id, TenantUpdateRequest request, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
+        if (!authorizationService.canManageTenant(currentUser, id)) {
+            throw new IllegalArgumentException("Tenant not found");
+        }
         Tenant tenant = tenantRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
-        if (!authorizationService.canManageTenant(currentUser, tenant)) {
-            throw new AccessDeniedException("Cannot update this tenant");
-        }
         tenantRepository.findByName(request.getName()).ifPresent(other -> {
             if (!other.getId().equals(tenant.getId())) {
                 throw new IllegalArgumentException("Tenant name already in use");
@@ -110,11 +110,11 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @PreAuthorize("hasAuthority('TENANT_DELETE')")
     public void deleteTenant(Long id, String currentUsername) {
         User currentUser = userService.getByUsername(currentUsername);
+        if (!authorizationService.canManageTenant(currentUser, id)) {
+            throw new IllegalArgumentException("Tenant not found");
+        }
         Tenant tenant = tenantRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
-        if (!authorizationService.canManageTenant(currentUser, tenant)) {
-            throw new AccessDeniedException("Cannot delete this tenant");
-        }
         String tenantName = tenant.getName();
         tenantRepository.delete(tenant);
         auditLogService.record(AuditActions.TENANT_DELETED, AuditActions.RESOURCE_TENANT,

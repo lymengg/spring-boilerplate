@@ -1,6 +1,6 @@
 package com.example.demo.security.filter;
 
-import com.example.demo.security.cookie.AuthCookieService;
+import com.example.demo.security.cookie.AuthCookieManager;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
@@ -28,7 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
-    private final AuthCookieService authCookieService;
+    private final AuthCookieManager authCookieManager;
 
     @Override
     protected void doFilterInternal(
@@ -37,7 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         try {
-            String token = authCookieService.resolveAccessToken(request);
+            String token = authCookieManager.resolveAccessToken(request);
 
             if (StringUtils.hasText(token) && jwtTokenProvider.validateAccessToken(token)) {
                 String jti = jwtTokenProvider.getIdFromToken(token);

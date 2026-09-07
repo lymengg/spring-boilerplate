@@ -1,5 +1,6 @@
 package com.example.demo.security.cookie;
 
+import com.example.demo.config.CookieProperties;
 import com.example.demo.config.JwtConfig;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,9 +11,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class AuthCookieServiceTest {
+class AuthCookieManagerTest {
 
-    private AuthCookieService authCookieService;
+    private AuthCookieManager authCookieManager;
 
     @BeforeEach
     void setUp() {
@@ -20,7 +21,11 @@ class AuthCookieServiceTest {
         jwtConfig.setSecret("test-secret-at-least-32-chars-long-for-hs512-unit-test");
         jwtConfig.setAccessTokenExpiration(900_000L);   // 15 min
         jwtConfig.setRefreshTokenExpiration(604_800_000L); // 7 days
-        authCookieService = new AuthCookieService(jwtConfig);
+        CookieProperties cookieProperties = new CookieProperties();
+        cookieProperties.setSecure(true);
+        cookieProperties.setSameSite("Strict");
+        cookieProperties.setPath("/");
+        authCookieManager = new AuthCookieManager(jwtConfig, cookieProperties);
     }
 
     @Test
@@ -28,11 +33,11 @@ class AuthCookieServiceTest {
     void addCookiesSetsSecureAttributes() {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        authCookieService.addCookies(response, "access-token-value", "refresh-token-value");
+        authCookieManager.addCookies(response, "access-token-value", "refresh-token-value");
 
         assertThat(response.getHeaderValues("Set-Cookie")).hasSize(2);
 
-        Cookie access = response.getCookie(AuthCookieService.ACCESS_TOKEN_COOKIE);
+        Cookie access = response.getCookie(AuthCookieManager.ACCESS_TOKEN_COOKIE);
         assertThat(access).isNotNull();
         assertThat(access.getValue()).isEqualTo("access-token-value");
         assertThat(access.isHttpOnly()).isTrue();
@@ -40,7 +45,7 @@ class AuthCookieServiceTest {
         assertThat(access.getPath()).isEqualTo("/");
         assertThat(access.getMaxAge()).isEqualTo(900);
 
-        Cookie refresh = response.getCookie(AuthCookieService.REFRESH_TOKEN_COOKIE);
+        Cookie refresh = response.getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE);
         assertThat(refresh).isNotNull();
         assertThat(refresh.getValue()).isEqualTo("refresh-token-value");
         assertThat(refresh.isHttpOnly()).isTrue();
@@ -57,7 +62,7 @@ class AuthCookieServiceTest {
     void cookiesHaveNoDomainAttribute() {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        authCookieService.addCookies(response, "a", "r");
+        authCookieManager.addCookies(response, "a", "r");
 
         assertThat(response.getHeader("Set-Cookie")).doesNotContain("Domain=");
     }
@@ -67,10 +72,10 @@ class AuthCookieServiceTest {
     void clearCookiesExpiresBoth() {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        authCookieService.clearCookies(response);
+        authCookieManager.clearCookies(response);
 
-        assertThat(response.getCookie(AuthCookieService.ACCESS_TOKEN_COOKIE).getMaxAge()).isZero();
-        assertThat(response.getCookie(AuthCookieService.REFRESH_TOKEN_COOKIE).getMaxAge()).isZero();
+        assertThat(response.getCookie(AuthCookieManager.ACCESS_TOKEN_COOKIE).getMaxAge()).isZero();
+        assertThat(response.getCookie(AuthCookieManager.REFRESH_TOKEN_COOKIE).getMaxAge()).isZero();
     }
 
     @Test
@@ -78,12 +83,12 @@ class AuthCookieServiceTest {
     void resolveReadsRequestCookies() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(
-                new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, "a-value"),
-                new Cookie(AuthCookieService.REFRESH_TOKEN_COOKIE, "r-value")
+                new Cookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, "a-value"),
+                new Cookie(AuthCookieManager.REFRESH_TOKEN_COOKIE, "r-value")
         );
 
-        assertThat(authCookieService.resolveAccessToken(request)).isEqualTo("a-value");
-        assertThat(authCookieService.resolveRefreshToken(request)).isEqualTo("r-value");
+        assertThat(authCookieManager.resolveAccessToken(request)).isEqualTo("a-value");
+        assertThat(authCookieManager.resolveRefreshToken(request)).isEqualTo("r-value");
     }
 
     @Test
@@ -91,7 +96,7 @@ class AuthCookieServiceTest {
     void resolveReturnsNullWithoutCookies() {
         MockHttpServletRequest request = new MockHttpServletRequest();
 
-        assertThat(authCookieService.resolveAccessToken(request)).isNull();
-        assertThat(authCookieService.resolveRefreshToken(request)).isNull();
+        assertThat(authCookieManager.resolveAccessToken(request)).isNull();
+        assertThat(authCookieManager.resolveRefreshToken(request)).isNull();
     }
 }

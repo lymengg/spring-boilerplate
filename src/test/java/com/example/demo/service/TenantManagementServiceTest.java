@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.constants.AuditActions;
 import com.example.demo.dto.PageResponse;
 import com.example.demo.dto.TenantCreateRequest;
+import com.example.demo.dto.TenantResponse;
 import com.example.demo.dto.TenantUpdateRequest;
 import com.example.demo.entity.Tenant;
 import com.example.demo.entity.TenantStatus;
@@ -176,7 +177,7 @@ class TenantManagementServiceTest {
 
         when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
         when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
-        when(authorizationService.canManageTenant(superAdmin, tenant)).thenReturn(true);
+        when(authorizationService.canManageTenant(superAdmin, 1L)).thenReturn(true);
 
         Tenant other = Tenant.builder().id(3L).name("Other Tenant").status(TenantStatus.ACTIVE).build();
         when(tenantRepository.findByName("Other Tenant")).thenReturn(Optional.of(other));
@@ -196,7 +197,7 @@ class TenantManagementServiceTest {
 
         when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
         when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
-        when(authorizationService.canManageTenant(superAdmin, tenant)).thenReturn(true);
+        when(authorizationService.canManageTenant(superAdmin, 1L)).thenReturn(true);
         when(tenantRepository.findByName("Acme Corp")).thenReturn(Optional.of(tenant));
         when(tenantRepository.save(any(Tenant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -211,13 +212,39 @@ class TenantManagementServiceTest {
     void deleteTenantAuditsAction() {
         when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
         when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
-        when(authorizationService.canManageTenant(superAdmin, tenant)).thenReturn(true);
+        when(authorizationService.canManageTenant(superAdmin, 1L)).thenReturn(true);
 
         tenantManagementService.deleteTenant(1L, "superadmin");
 
         verify(tenantRepository).delete(tenant);
         verify(auditLogService).record(AuditActions.TENANT_DELETED, AuditActions.RESOURCE_TENANT,
                 "1", "Tenant deleted: Acme Corp", "superadmin");
+    }
+
+    @Test
+    @DisplayName("Authorized user can get a tenant by id")
+    void getTenantByIdReturnsTenant() {
+        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(authorizationService.canAccessTenant(superAdmin, 1L)).thenReturn(true);
+        when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
+        when(tenantMapper.toResponse(tenant)).thenReturn(TenantResponse.builder().build());
+
+        TenantResponse result = tenantManagementService.getTenantById(1L, "superadmin");
+
+        assertThat(result).isNotNull();
+        verify(tenantRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("Unauthorized user gets not found without querying the repository")
+    void getTenantByIdForUnauthorizedUserReturnsNotFound() {
+        when(userService.getByUsername("tenantadmin")).thenReturn(tenantAdmin);
+        when(authorizationService.canAccessTenant(tenantAdmin, 1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> tenantManagementService.getTenantById(1L, "tenantadmin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Tenant not found");
+        verify(tenantRepository, never()).findById(any());
     }
 
     @Test
@@ -229,24 +256,24 @@ class TenantManagementServiceTest {
                 .build();
 
         when(userService.getByUsername("tenantadmin")).thenReturn(tenantAdmin);
-        when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
-        when(authorizationService.canManageTenant(tenantAdmin, tenant)).thenReturn(false);
+        when(authorizationService.canManageTenant(tenantAdmin, 1L)).thenReturn(false);
 
         assertThatThrownBy(() -> tenantManagementService.updateTenant(1L, request, "tenantadmin"))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Cannot update this tenant");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Tenant not found");
+        verify(tenantRepository, never()).findById(any());
     }
 
     @Test
     @DisplayName("Non-super-admin cannot delete a tenant they don't manage")
     void nonSuperAdminCannotDeleteUnmanagedTenant() {
         when(userService.getByUsername("tenantadmin")).thenReturn(tenantAdmin);
-        when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
-        when(authorizationService.canManageTenant(tenantAdmin, tenant)).thenReturn(false);
+        when(authorizationService.canManageTenant(tenantAdmin, 1L)).thenReturn(false);
 
         assertThatThrownBy(() -> tenantManagementService.deleteTenant(1L, "tenantadmin"))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Cannot delete this tenant");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Tenant not found");
+        verify(tenantRepository, never()).findById(any());
     }
 
     private User userWithUsername(String username, Long tenantId) {

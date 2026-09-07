@@ -22,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Duration;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -102,5 +103,73 @@ class TokenServiceImplTest {
                 .isInstanceOf(BadCredentialsException.class);
 
         verify(refreshTokenService, never()).rotateRefreshToken(any(), any(), any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("generateTokenResponse builds the response with roles and stores the refresh token")
+    void generateTokenResponseBuildsResponse() {
+        User user = userEntity();
+        when(jwtConfig.getAccessTokenExpiration()).thenReturn(900_000L);
+        when(jwtConfig.getRefreshTokenExpiration()).thenReturn(604_800_000L);
+        when(customUserDetailsService.loadUserByUsername("testuser")).thenReturn(
+                org.springframework.security.core.userdetails.User.builder()
+                        .username("testuser")
+                        .password("pass")
+                        .authorities(new SimpleGrantedAuthority("ROLE_EMPLOYEE"))
+                        .build());
+        when(jwtTokenProvider.generateAccessToken(any(Authentication.class))).thenReturn("access");
+        when(jwtTokenProvider.generateRefreshToken(any(Authentication.class))).thenReturn("refresh");
+
+        TokenResponse response = tokenService.generateTokenResponse(user);
+
+        assertThat(response.getAccessToken()).isEqualTo("access");
+        assertThat(response.getRefreshToken()).isEqualTo("refresh");
+        assertThat(response.getUsername()).isEqualTo("testuser");
+        assertThat(response.getRoles()).containsExactly("EMPLOYEE");
+        assertThat(response.getExpiresIn()).isEqualTo(900);
+        verify(refreshTokenService).revokeAllUserRefreshTokens("testuser");
+        verify(refreshTokenService).storeRefreshToken("testuser", "refresh", 604_800_000L);
+    }
+
+    @Test
+    @DisplayName("Logout blacklists the access token and revokes all refresh tokens")
+    void logoutBlacklistsAccessToken() {
+        when(jwtTokenProvider.getIdFromToken("access-token")).thenReturn("jti-123");
+        when(jwtTokenProvider.getRemainingExpiration("access-token")).thenReturn(5000L);
+
+        tokenService.logout("testuser", "access-token", "1.2.3.4");
+
+        verify(tokenBlacklistService).blacklistToken("jti-123", Duration.ofMillis(5000L));
+        verify(refreshTokenService).revokeAllUserRefreshTokens("testuser");
+        verify(securityAuditLogger).logLogout("testuser", "1.2.3.4");
+    }
+
+    @Test
+    @DisplayName("Logout without an access token still revokes refresh tokens")
+    void logoutWithoutAccessTokenSkipsBlacklist() {
+        tokenService.logout("testuser", null, "1.2.3.4");
+
+        verify(tokenBlacklistService, never()).blacklistToken(any(), any());
+        verify(refreshTokenService).revokeAllUserRefreshTokens("testuser");
+        verify(securityAuditLogger).logLogout("testuser", "1.2.3.4");
+    }
+
+    @Test
+    @DisplayName("Logout tolerates a malformed access token and still revokes refresh tokens")
+    void logoutToleratesMalformedAccessToken() {
+        when(jwtTokenProvider.getIdFromToken("bad-token")).thenThrow(new RuntimeException("malformed"));
+
+        tokenService.logout("testuser", "bad-token", "1.2.3.4");
+
+        verify(tokenBlacklistService, never()).blacklistToken(any(), any());
+        verify(refreshTokenService).revokeAllUserRefreshTokens("testuser");
+    }
+
+    @Test
+    @DisplayName("revokeAllUserRefreshTokens delegates to the refresh token service")
+    void revokeAllUserRefreshTokensDelegates() {
+        tokenService.revokeAllUserRefreshTokens("testuser");
+
+        verify(refreshTokenService).revokeAllUserRefreshTokens("testuser");
     }
 }

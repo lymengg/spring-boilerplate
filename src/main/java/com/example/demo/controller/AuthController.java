@@ -1,7 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.*;
-import com.example.demo.security.cookie.AuthCookieService;
+import com.example.demo.security.cookie.AuthCookieManager;
 import com.example.demo.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final AuthCookieService authCookieService;
+    private final AuthCookieManager authCookieManager;
 
     /**
      * Login. Sets both auth cookies on success and returns the user profile.
@@ -29,9 +29,8 @@ public class AuthController {
             HttpServletResponse response) {
         LoginResult loginResult = authService.login(request);
 
-        if (loginResult instanceof LoginResult.TokenSuccess tokenSuccess) {
-            TokenResponse tokenResponse = tokenSuccess.tokenResponse();
-            authCookieService.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
+        if (loginResult instanceof LoginResult.TokenSuccess(TokenResponse tokenResponse)) {
+            authCookieManager.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
             UserProfileResponse profile = authService.getUserProfile(tokenResponse.getUsername());
             return ResponseEntity.ok(ApiResponse.success("Login successful", profile));
         }
@@ -45,7 +44,7 @@ public class AuthController {
             @Valid @RequestBody MfaVerifyRequest request,
             HttpServletResponse response) {
         TokenResponse tokenResponse = authService.verifyMfa(request);
-        authCookieService.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
+        authCookieManager.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
         UserProfileResponse profile = authService.getUserProfile(tokenResponse.getUsername());
         return ResponseEntity.ok(ApiResponse.success("MFA verification successful", profile));
     }
@@ -54,13 +53,13 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Object>> refreshToken(
             HttpServletRequest servletRequest,
             HttpServletResponse response) {
-        String refreshToken = authCookieService.resolveRefreshToken(servletRequest);
+        String refreshToken = authCookieManager.resolveRefreshToken(servletRequest);
         if (refreshToken == null) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Refresh token not provided"));
         }
 
         TokenResponse tokenResponse = authService.refreshToken(refreshToken);
-        authCookieService.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
+        authCookieManager.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
         return ResponseEntity.ok(ApiResponse.success("Token refreshed", null));
     }
 
@@ -69,9 +68,9 @@ public class AuthController {
             Authentication authentication,
             HttpServletRequest servletRequest,
             HttpServletResponse response) {
-        String accessToken = authCookieService.resolveAccessToken(servletRequest);
+        String accessToken = authCookieManager.resolveAccessToken(servletRequest);
         authService.logout(authentication, accessToken);
-        authCookieService.clearCookies(response);
+        authCookieManager.clearCookies(response);
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
 
@@ -87,20 +86,20 @@ public class AuthController {
             Authentication authentication,
             HttpServletResponse response) {
         authService.changePassword(authentication, request);
-        authCookieService.clearCookies(response);
+        authCookieManager.clearCookies(response);
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }
 
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request);
-        return ResponseEntity.ok(ApiResponse.<Void>success("If the email exists, a reset link has been sent", null));
+        return ResponseEntity.ok(ApiResponse.success("If the email exists, a reset link has been sent", null));
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
-        return ResponseEntity.ok(ApiResponse.<Void>success("Password reset successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
     }
 
 }

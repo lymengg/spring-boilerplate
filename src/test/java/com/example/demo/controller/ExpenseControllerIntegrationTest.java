@@ -3,7 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.ExpenseCreateRequest;
 import com.example.demo.entity.*;
 import com.example.demo.repository.*;
-import com.example.demo.security.cookie.AuthCookieService;
+import com.example.demo.security.cookie.AuthCookieManager;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -175,7 +175,7 @@ class ExpenseControllerIntegrationTest {
     }
 
     private Cookie accessCookie(String token) {
-        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+        return new Cookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, token);
     }
 
     @Test
@@ -408,5 +408,84 @@ class ExpenseControllerIntegrationTest {
                         .cookie(accessCookie(managerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
+    }
+
+    @Test
+    @DisplayName("Manager can reject an expense in their department")
+    void managerCanRejectDepartmentExpense() throws Exception {
+        mockMvc.perform(post("/api/expenses/{id}/reject", expenseId)
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REJECTED"));
+    }
+
+    @Test
+    @DisplayName("Cannot reject an already approved expense")
+    void cannotRejectApprovedExpense() throws Exception {
+        Expense expense = expenseRepository.findById(expenseId).orElseThrow();
+        expense.setStatus(ExpenseStatus.APPROVED);
+        expenseRepository.save(expense);
+
+        mockMvc.perform(post("/api/expenses/{id}/reject", expenseId)
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().is(409));
+    }
+
+    @Test
+    @DisplayName("Manager with EXPENSE_APPROVE but not manager of the expense's department gets 403")
+    void managerOutsideDepartmentCannotApproveExpense() throws Exception {
+        Tenant tenant1 = tenantRepository.findByName("Tenant 1").orElseThrow();
+        Department dept2 = departmentRepository.findByNameAndTenantId("Dept 2", tenant1.getId()).orElseThrow();
+        User dept2Manager = createUser("dept2mgr", "dept2mgr@example.com",
+                roleRepository.findByName("DEPARTMENT_MANAGER").orElseThrow(), tenant1, dept2);
+        dept2.getManagers().add(dept2Manager);
+        departmentRepository.save(dept2);
+        String dept2ManagerToken = generateToken(dept2Manager.getUsername());
+
+        mockMvc.perform(post("/api/expenses/{id}/approve", expenseId)
+                        .cookie(accessCookie(dept2ManagerToken)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Finance cannot reject an expense")
+    void financeCannotRejectExpense() throws Exception {
+        mockMvc.perform(post("/api/expenses/{id}/reject", expenseId)
+                        .cookie(accessCookie(financeToken)))
+                .andExpect(status().is(403));
+    }
+
+    @Test
+    @DisplayName("Finance cannot process an expense in another tenant")
+    void financeCannotProcessOtherTenantExpense() throws Exception {
+        mockMvc.perform(post("/api/expenses/{id}/process", otherTenantExpenseId)
+                        .cookie(accessCookie(financeToken)))
+                .andExpect(status().is(400));
+    }
+
+    @Test
+    @DisplayName("Cannot process an already processed expense")
+    void cannotProcessProcessedExpense() throws Exception {
+        Expense expense = expenseRepository.findById(expenseId).orElseThrow();
+        expense.setStatus(ExpenseStatus.PROCESSED);
+        expenseRepository.save(expense);
+
+        mockMvc.perform(post("/api/expenses/{id}/process", expenseId)
+                        .cookie(accessCookie(financeToken)))
+                .andExpect(status().is(409));
+    }
+
+    @Test
+    @DisplayName("Approve, reject and process a nonexistent expense return 400")
+    void nonexistentExpenseReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/expenses/{id}/approve", 999999L)
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().is(400));
+        mockMvc.perform(post("/api/expenses/{id}/reject", 999999L)
+                        .cookie(accessCookie(managerToken)))
+                .andExpect(status().is(400));
+        mockMvc.perform(post("/api/expenses/{id}/process", 999999L)
+                        .cookie(accessCookie(financeToken)))
+                .andExpect(status().is(400));
     }
 }

@@ -6,7 +6,7 @@ import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.security.cookie.AuthCookieService;
+import com.example.demo.security.cookie.AuthCookieManager;
 import com.example.demo.security.jwt.JwtTokenProvider;
 import com.example.demo.security.service.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -98,7 +98,7 @@ class SecurityIntegrationTest {
     }
 
     private Cookie accessCookie(String token) {
-        return new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, token);
+        return new Cookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, token);
     }
 
     @Test
