@@ -1,5 +1,6 @@
 package com.example.demo.mapper;
 
+import com.example.demo.dto.UserProfileResponse;
 import com.example.demo.dto.UserResponse;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
@@ -10,6 +11,19 @@ import java.util.stream.Collectors;
 
 @Component
 public class UserManagementMapper {
+
+    public UserProfileResponse toProfileResponse(User user) {
+        return UserProfileResponse.builder()
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .roles(user.getRoles().stream().map(Role::getName).toArray(String[]::new))
+                .permissions(getAllPermissions(user).stream().map(Enum::name).collect(Collectors.toSet()))
+                .enabled(user.getEnabled())
+                .mfaEnabled(user.getMfaEnabled())
+                .mfaMethod(user.getMfaMethod() != null ? user.getMfaMethod().name() : null)
+                .build();
+    }
 
     public UserResponse toResponse(User user) {
         return UserResponse.builder()

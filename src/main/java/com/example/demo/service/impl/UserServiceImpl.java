@@ -2,14 +2,13 @@ package com.example.demo.service.impl;
 
 import com.example.demo.dto.ChangePasswordRequest;
 import com.example.demo.dto.UserProfileResponse;
-import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
+import com.example.demo.mapper.UserManagementMapper;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.audit.SecurityAuditLogger;
 import com.example.demo.security.service.RefreshTokenService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,7 +29,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ModelMapper modelMapper;
+    private final UserManagementMapper userManagementMapper;
     private final SecurityAuditLogger securityAuditLogger;
     private final RefreshTokenService refreshTokenService;
 
@@ -83,11 +82,7 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUser(String email) {
         User user = getByEmail(email);
-        UserProfileResponse response = modelMapper.map(user, UserProfileResponse.class);
-        response.setRoles(user.getRoles().stream().map(Role::getName).toArray(String[]::new));
-        response.setMfaEnabled(user.getMfaEnabled());
-        response.setMfaMethod(user.getMfaMethod() != null ? user.getMfaMethod().name() : null);
-        return response;
+        return userManagementMapper.toProfileResponse(user);
     }
 
     @Override

@@ -9,6 +9,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.security.audit.SecurityAuditLogger;
 import com.example.demo.security.service.RefreshTokenService;
 import com.example.demo.service.impl.UserServiceImpl;
+import com.example.demo.mapper.UserManagementMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -50,7 +50,7 @@ class UserServiceImplTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private ModelMapper modelMapper;
+    private UserManagementMapper userManagementMapper;
 
     @Mock
     private SecurityAuditLogger securityAuditLogger;
@@ -67,7 +67,11 @@ class UserServiceImplTest {
     @BeforeEach
     void setUp() {
         Tenant tenant = Tenant.builder().id(1L).name("Tenant 1").build();
-        Role role = Role.builder().id(1L).name("EMPLOYEE").build();
+        Role role = Role.builder()
+                .id(1L)
+                .name("EMPLOYEE")
+                .permissions(java.util.Set.of(com.example.demo.constants.UserPermission.USER_READ))
+                .build();
         user = User.builder()
                 .id(1L)
                 .email("test@example.com")
@@ -75,10 +79,19 @@ class UserServiceImplTest {
                 .tenant(tenant)
                 .build();
         user.getRoles().add(role);
-        profileResponse = UserProfileResponse.builder().build();
+        profileResponse = UserProfileResponse.builder()
+                .email("test@example.com")
+                .firstName(null)
+                .lastName(null)
+                .roles(new String[]{"EMPLOYEE"})
+                .permissions(java.util.Set.of("USER_READ"))
+                .enabled(true)
+                .mfaEnabled(false)
+                .mfaMethod("NONE")
+                .build();
 
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(modelMapper.map(any(User.class), eq(UserProfileResponse.class))).thenReturn(profileResponse);
+        when(userManagementMapper.toProfileResponse(any(User.class))).thenReturn(profileResponse);
     }
 
     @Test
@@ -194,7 +207,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    @DisplayName("getCurrentUser maps the user and sets roles, mfaEnabled and mfaMethod")
+    @DisplayName("getCurrentUser maps the user with roles and permissions")
     void getCurrentUserMapsProfile() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
@@ -202,8 +215,10 @@ class UserServiceImplTest {
 
         assertThat(result).isSameAs(profileResponse);
         assertThat(result.getRoles()).containsExactly("EMPLOYEE");
+        assertThat(result.getPermissions()).containsExactly("USER_READ");
         assertThat(result.getMfaEnabled()).isFalse();
         assertThat(result.getMfaMethod()).isEqualTo("NONE");
+        verify(userManagementMapper).toProfileResponse(user);
     }
 
     @Test
