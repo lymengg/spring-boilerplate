@@ -51,21 +51,14 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_CREATE')")
-    public UserResponse createUser(UserCreateRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public UserResponse createUser(UserCreateRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
 
-        String username = request.getUsername().trim();
         String email = request.getEmail().trim().toLowerCase();
 
-        if (userService.existsByUsername(username)) {
-            throw new IllegalArgumentException("Username already exists");
-        }
         if (userService.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already exists");
         }
-
-        Tenant tenant = resolveTenantForCreation(currentUser, request.getTenantId());
-        Department department = resolveDepartmentForCreation(currentUser, tenant, request.getDepartmentId());
 
         String roleName = request.getRoleName() == null || request.getRoleName().isBlank()
                 ? Roles.EMPLOYEE : request.getRoleName().toUpperCase();
@@ -73,8 +66,17 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         validateRoleAssignment(currentUser, role);
 
+        Tenant tenant;
+        Department department;
+        if (Roles.PLATFORM_ADMIN.equals(roleName)) {
+            tenant = null;
+            department = null;
+        } else {
+            tenant = resolveTenantForCreation(currentUser, request.getTenantId());
+            department = resolveDepartmentForCreation(currentUser, tenant, request.getDepartmentId());
+        }
+
         User user = User.builder()
-                .username(username)
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
@@ -88,18 +90,18 @@ public class UserManagementServiceImpl implements UserManagementService {
         try {
             saved = userService.save(user);
         } catch (DataIntegrityViolationException e) {
-            throw new IllegalArgumentException("Username or email already exists");
+            throw new IllegalArgumentException("Email already exists");
         }
         auditLogService.record(AuditActions.USER_CREATED, AuditActions.RESOURCE_USER,
-                String.valueOf(saved.getId()), "User created with role " + roleName, currentUsername);
+                String.valueOf(saved.getId()), "User created with role " + roleName, currentEmail);
         return userManagementMapper.toResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
-    public PageResponse<UserResponse> getUsers(Pageable pageable, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public PageResponse<UserResponse> getUsers(Pageable pageable, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (authorizationService.isSuperAdmin(currentUser)) {
             return PageResponse.of(userService.findAll(pageable).map(userManagementMapper::toResponse));
         }
@@ -113,8 +115,8 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('USER_READ')")
-    public UserResponse getUserById(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public UserResponse getUserById(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User user = findAccessibleUser(id, currentUser);
         return userManagementMapper.toResponse(user);
     }
@@ -122,8 +124,8 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_WRITE')")
-    public UserResponse updateUser(Long id, UserUpdateRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public UserResponse updateUser(Long id, UserUpdateRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User user = findAccessibleUser(id, currentUser);
 
         if (!canManage(currentUser, user)) {
@@ -137,26 +139,29 @@ public class UserManagementServiceImpl implements UserManagementService {
             user.setLastName(request.getLastName());
         }
         if (request.getDepartmentId() != null) {
+            if (user.getTenant() == null) {
+                throw new IllegalArgumentException("Platform admin users cannot have a department");
+            }
             Department department = departmentManagementService.findById(request.getDepartmentId());
-            if (user.getTenant() == null || !user.getTenant().getId().equals(department.getTenant().getId())) {
+            if (!user.getTenant().getId().equals(department.getTenant().getId())) {
                 throw new IllegalArgumentException("Department must belong to the same tenant");
             }
             user.setDepartment(department);
         }
 
         User updated = userService.save(user);
-        auditLogService.record(AuditActions.USER_UPDATED, AuditActions.RESOURCE_USER, String.valueOf(updated.getId()), "User updated", currentUsername);
+        auditLogService.record(AuditActions.USER_UPDATED, AuditActions.RESOURCE_USER, String.valueOf(updated.getId()), "User updated", currentEmail);
         return userManagementMapper.toResponse(updated);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_DELETE')")
-    public void deleteUser(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public void deleteUser(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User user = findAccessibleUser(id, currentUser);
 
-        if (user.getUsername().equals(currentUsername)) {
+        if (user.getEmail().equals(currentEmail)) {
             throw new IllegalArgumentException("Cannot delete your own account");
         }
         if (isLastAdmin(user)) {
@@ -168,17 +173,17 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         Long userId = user.getId();
         userService.delete(user);
-        auditLogService.record(AuditActions.USER_DELETED, AuditActions.RESOURCE_USER, String.valueOf(userId), "User deleted", currentUsername);
+        auditLogService.record(AuditActions.USER_DELETED, AuditActions.RESOURCE_USER, String.valueOf(userId), "User deleted", currentEmail);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_ENABLE')")
-    public UserResponse toggleUserEnabled(Long id, UserEnableRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public UserResponse toggleUserEnabled(Long id, UserEnableRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User user = findAccessibleUser(id, currentUser);
 
-        if (user.getUsername().equals(currentUsername)) {
+        if (user.getEmail().equals(currentEmail)) {
             throw new IllegalArgumentException("Cannot change your own enabled state");
         }
         if (!request.getEnabled() && isLastAdmin(user)) {
@@ -191,15 +196,15 @@ public class UserManagementServiceImpl implements UserManagementService {
         user.setEnabled(request.getEnabled());
         User saved = userService.save(user);
         String action = request.getEnabled() ? AuditActions.USER_ENABLED : AuditActions.USER_DISABLED;
-        auditLogService.record(action, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "User enabled state changed to " + request.getEnabled(), currentUsername);
+        auditLogService.record(action, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "User enabled state changed to " + request.getEnabled(), currentEmail);
         return userManagementMapper.toResponse(saved);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_ASSIGN_ROLE')")
-    public UserResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public UserResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User user = findAccessibleUser(id, currentUser);
         String roleName = request.getRoleName().toUpperCase();
         Role role = roleManagementService.findByName(roleName);
@@ -214,15 +219,15 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         user.getRoles().add(role);
         User saved = userService.save(user);
-        auditLogService.record(AuditActions.USER_ROLE_ASSIGNED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Assigned role " + roleName, currentUsername);
+        auditLogService.record(AuditActions.USER_ROLE_ASSIGNED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Assigned role " + roleName, currentEmail);
         return userManagementMapper.toResponse(saved);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_ASSIGN_ROLE')")
-    public UserResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public UserResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User user = findAccessibleUser(id, currentUser);
         String roleName = request.getRoleName().toUpperCase();
         Role role = roleManagementService.findByName(roleName);
@@ -243,7 +248,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         user.getRoles().remove(role);
         User saved = userService.save(user);
-        auditLogService.record(AuditActions.USER_ROLE_REMOVED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Removed role " + roleName, currentUsername);
+        auditLogService.record(AuditActions.USER_ROLE_REMOVED, AuditActions.RESOURCE_USER, String.valueOf(saved.getId()), "Removed role " + roleName, currentEmail);
         return userManagementMapper.toResponse(saved);
     }
 
@@ -264,6 +269,9 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     private Department resolveDepartmentForCreation(User creator, Tenant tenant, Long departmentId) {
+        if (departmentId == null) {
+            throw new IllegalArgumentException("Department is required");
+        }
         Department department = departmentManagementService.findById(departmentId);
         if (tenant == null || !tenant.getId().equals(department.getTenant().getId())) {
             throw new IllegalArgumentException("Department must belong to the same tenant");
@@ -310,8 +318,8 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_WRITE')")
-    public MfaSetupResponse enableMfa(Long id, UserMfaToggleRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public MfaSetupResponse enableMfa(Long id, UserMfaToggleRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User targetUser = findAccessibleUser(id, currentUser);
 
         if (!canManage(currentUser, targetUser)) {
@@ -320,15 +328,15 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         MfaSetupResponse response = mfaSetupService.enableMfa(targetUser, request.getMethod(), getClientIp());
         auditLogService.record(AuditActions.USER_MFA_ENABLED, AuditActions.RESOURCE_USER,
-                String.valueOf(targetUser.getId()), "MFA enabled with method " + request.getMethod(), currentUsername);
+                String.valueOf(targetUser.getId()), "MFA enabled with method " + request.getMethod(), currentEmail);
         return response;
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_WRITE')")
-    public void disableMfa(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public void disableMfa(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User targetUser = findAccessibleUser(id, currentUser);
 
         if (!canManage(currentUser, targetUser)) {
@@ -337,14 +345,14 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         mfaSetupService.disableMfa(targetUser, getClientIp());
         auditLogService.record(AuditActions.USER_MFA_DISABLED, AuditActions.RESOURCE_USER,
-                String.valueOf(targetUser.getId()), "MFA disabled", currentUsername);
+                String.valueOf(targetUser.getId()), "MFA disabled", currentEmail);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('USER_WRITE')")
-    public MfaSetupResponse resetMfa(Long id, UserMfaToggleRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public MfaSetupResponse resetMfa(Long id, UserMfaToggleRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         User targetUser = findAccessibleUser(id, currentUser);
 
         if (!canManage(currentUser, targetUser)) {
@@ -353,7 +361,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         MfaSetupResponse response = mfaSetupService.resetMfa(targetUser, request.getMethod(), getClientIp());
         auditLogService.record(AuditActions.USER_MFA_RESET, AuditActions.RESOURCE_USER,
-                String.valueOf(targetUser.getId()), "MFA reset with method " + request.getMethod(), currentUsername);
+                String.valueOf(targetUser.getId()), "MFA reset with method " + request.getMethod(), currentEmail);
         return response;
     }
 

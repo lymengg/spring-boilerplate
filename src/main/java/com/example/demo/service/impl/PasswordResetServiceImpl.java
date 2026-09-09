@@ -70,7 +70,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             String resetLink = appProperties.getBaseUrl() + "/api/auth/reset-password?token=" + rawToken;
             emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
 
-            securityAuditLogger.logPasswordResetRequested(user.getUsername(), user.getEmail());
+            securityAuditLogger.logPasswordResetRequested(user.getEmail(), user.getEmail());
         });
     }
 
@@ -93,7 +93,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         int maxRequests = securityProperties.getRateLimiting().getPerUser().getResetPassword();
         long windowMillis = securityProperties.getRateLimiting().getWindowMillis();
-        if (!rateLimitingService.isAllowed("reset-password", user.getUsername(), maxRequests, windowMillis)) {
+        if (!rateLimitingService.isAllowed("reset-password", user.getEmail(), maxRequests, windowMillis)) {
             throw new org.springframework.security.authentication.LockedException("Too many requests. Please try again later.");
         }
 
@@ -103,8 +103,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         resetToken.setUsedAt(Instant.now());
         passwordResetTokenRepository.save(resetToken);
 
-        tokenService.revokeAllUserRefreshTokens(user.getUsername());
-        securityAuditLogger.logPasswordResetCompleted(user.getUsername(), ipAddress);
+        tokenService.revokeAllUserRefreshTokens(user.getEmail());
+        securityAuditLogger.logPasswordResetCompleted(user.getEmail(), ipAddress);
     }
 
     @Override

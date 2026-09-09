@@ -32,8 +32,8 @@ public class FinanceProcessingServiceImpl implements FinanceProcessingService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('EXPENSE_PROCESS')")
-    public ExpenseResponse processExpense(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public ExpenseResponse processExpense(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Expense expense = expenseService.findAccessibleExpense(id, currentUser);
         if (expense.getStatus() != ExpenseStatus.APPROVED) {
             throw new IllegalStateException("Only approved expenses can be processed");
@@ -45,7 +45,7 @@ public class FinanceProcessingServiceImpl implements FinanceProcessingService {
         expense.setProcessedDate(Instant.now());
         expense.setProcessedBy(currentUser);
         Expense processed = expenseService.save(expense);
-        auditLogService.record(AuditActions.EXPENSE_PROCESSED, AuditActions.RESOURCE_EXPENSE, String.valueOf(processed.getId()), "Expense processed for payment", currentUsername);
+        auditLogService.record(AuditActions.EXPENSE_PROCESSED, AuditActions.RESOURCE_EXPENSE, String.valueOf(processed.getId()), "Expense processed for payment", currentEmail);
         return expenseMapper.toResponse(processed);
     }
 }

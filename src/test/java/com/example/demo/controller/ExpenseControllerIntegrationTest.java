@@ -91,24 +91,24 @@ class ExpenseControllerIntegrationTest {
         Role financeRole = roleRepository.findByName("FINANCE").orElseThrow();
         Role auditorRole = roleRepository.findByName("AUDITOR").orElseThrow();
 
-        User employee = createUser("employee", "employee@example.com", employeeRole, tenant1, dept1);
-        User otherDeptEmployee = createUser("otherdeptemp", "otherdeptemp@example.com", employeeRole, tenant1, dept2);
-        User otherEmployee = createUser("otheremp", "otheremp@example.com", employeeRole, tenant2, otherDept);
-        User manager = createUser("manager", "manager@example.com", managerRole, tenant1, dept1);
-        User finance = createUser("finance", "finance@example.com", financeRole, tenant1, dept1);
-        User auditor = createUser("auditor", "auditor@example.com", auditorRole, tenant1, dept1);
-        User admin = createUser("adminexp", "adminexp@example.com", adminRole, null, null);
+        User employee = createUser("employee@example.com", employeeRole, tenant1, dept1);
+        User otherDeptEmployee = createUser("otherdeptemp@example.com", employeeRole, tenant1, dept2);
+        User otherEmployee = createUser("otheremp@example.com", employeeRole, tenant2, otherDept);
+        User manager = createUser("manager@example.com", managerRole, tenant1, dept1);
+        User finance = createUser("finance@example.com", financeRole, tenant1, dept1);
+        User auditor = createUser("auditor@example.com", auditorRole, tenant1, dept1);
+        User admin = createUser("adminexp@example.com", adminRole, null, null);
 
         dept1.getManagers().add(manager);
         departmentRepository.save(dept1);
 
-        employeeToken = generateToken(employee.getUsername());
-        otherDeptEmployeeToken = generateToken(otherDeptEmployee.getUsername());
-        otherEmployeeToken = generateToken(otherEmployee.getUsername());
-        managerToken = generateToken(manager.getUsername());
-        financeToken = generateToken(finance.getUsername());
-        auditorToken = generateToken(auditor.getUsername());
-        adminToken = generateToken(admin.getUsername());
+        employeeToken = generateToken(employee.getEmail());
+        otherDeptEmployeeToken = generateToken(otherDeptEmployee.getEmail());
+        otherEmployeeToken = generateToken(otherEmployee.getEmail());
+        managerToken = generateToken(manager.getEmail());
+        financeToken = generateToken(finance.getEmail());
+        auditorToken = generateToken(auditor.getEmail());
+        adminToken = generateToken(admin.getEmail());
 
         Expense expense = Expense.builder()
                 .title("Travel")
@@ -150,9 +150,8 @@ class ExpenseControllerIntegrationTest {
         otherTenantExpenseId = otherExpense.getId();
     }
 
-    private User createUser(String username, String email, Role role, Tenant tenant, Department department) {
+    private User createUser(String email, Role role, Tenant tenant, Department department) {
         User user = User.builder()
-                .username(username)
                 .email(email)
                 .password(passwordEncoder.encode("Password123!"))
                 .firstName("Test")
@@ -217,7 +216,7 @@ class ExpenseControllerIntegrationTest {
     @Test
     @DisplayName("Employee can view a teammate's expense in the same department")
     void employeeCanViewTeammateExpense() throws Exception {
-        User teammate = createUser("teammate", "teammate@example.com",
+        User teammate = createUser("teammate@example.com",
                 roleRepository.findByName("EMPLOYEE").orElseThrow(),
                 tenantRepository.findByName("Tenant 1").orElseThrow(),
                 departmentRepository.findByNameAndTenantId("Dept 1",
@@ -400,7 +399,7 @@ class ExpenseControllerIntegrationTest {
         Department dept2 = departmentRepository.findByNameAndTenantId("Dept 2",
                 tenantRepository.findAll().stream().filter(t -> t.getName().equals("Tenant 1")).findFirst().orElseThrow().getId())
                 .orElseThrow();
-        User multiManager = userRepository.findByUsername("manager").orElseThrow();
+        User multiManager = userRepository.findByEmail("manager@example.com").orElseThrow();
         dept2.getManagers().add(multiManager);
         departmentRepository.save(dept2);
 
@@ -436,11 +435,11 @@ class ExpenseControllerIntegrationTest {
     void managerOutsideDepartmentCannotApproveExpense() throws Exception {
         Tenant tenant1 = tenantRepository.findByName("Tenant 1").orElseThrow();
         Department dept2 = departmentRepository.findByNameAndTenantId("Dept 2", tenant1.getId()).orElseThrow();
-        User dept2Manager = createUser("dept2mgr", "dept2mgr@example.com",
+        User dept2Manager = createUser("dept2mgr@example.com",
                 roleRepository.findByName("DEPARTMENT_MANAGER").orElseThrow(), tenant1, dept2);
         dept2.getManagers().add(dept2Manager);
         departmentRepository.save(dept2);
-        String dept2ManagerToken = generateToken(dept2Manager.getUsername());
+        String dept2ManagerToken = generateToken(dept2Manager.getEmail());
 
         mockMvc.perform(post("/api/expenses/{id}/approve", expenseId)
                         .cookie(accessCookie(dept2ManagerToken)))

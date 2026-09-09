@@ -43,14 +43,14 @@ public class LoginServiceImpl implements LoginService {
     @Override
     @Transactional
     public LoginResult login(LoginRequest request, String ipAddress) {
-        User user = userService.getByUsernameOrEmail(request.getUsernameOrEmail());
+        User user = userService.getByEmail(request.getEmail());
 
         accountLockoutService.prepareForLogin(user, ipAddress);
 
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            request.getUsernameOrEmail(),
+                            request.getEmail(),
                             request.getPassword()
                     )
             );
@@ -58,15 +58,15 @@ public class LoginServiceImpl implements LoginService {
             accountLockoutService.recordSuccessfulLogin(user, ipAddress);
 
             if (user.getMfaEnabled() && user.getMfaMethod() != MfaMethod.NONE) {
-                String mfaSessionToken = mfaService.storeMfaPendingSession(user.getUsername());
+                String mfaSessionToken = mfaService.storeMfaPendingSession(user.getEmail());
 
                 if (user.getMfaMethod() == MfaMethod.EMAIL) {
                     String otp = mfaService.generateEmailOtp();
-                    mfaService.storeEmailOtp(user.getUsername(), otp);
+                    mfaService.storeEmailOtp(user.getEmail(), otp);
                     emailService.sendMfaCodeEmail(user.getEmail(), otp);
                 }
 
-                securityAuditLogger.logMfaChallengeSent(user.getUsername(), user.getMfaMethod().name(), ipAddress);
+                securityAuditLogger.logMfaChallengeSent(user.getEmail(), user.getMfaMethod().name(), ipAddress);
 
                 return new LoginResult.MfaChallenge(MfaLoginResponse.builder()
                         .mfaRequired(true)
@@ -77,7 +77,7 @@ public class LoginServiceImpl implements LoginService {
             }
 
             TokenResponse tokenResponse = tokenService.generateTokenResponse(user);
-            securityAuditLogger.logLoginSuccess(user.getUsername(), ipAddress);
+            securityAuditLogger.logLoginSuccess(user.getEmail(), ipAddress);
             return new LoginResult.TokenSuccess(tokenResponse);
 
         } catch (BadCredentialsException e) {
@@ -91,37 +91,37 @@ public class LoginServiceImpl implements LoginService {
     public TokenResponse verifyMfa(MfaVerifyRequest request, String ipAddress) {
         String sessionToken = request.getMfaSessionToken();
 
-        String username = mfaService.validateMfaPendingSession(sessionToken);
-        if (username == null) {
+        String email = mfaService.validateMfaPendingSession(sessionToken);
+        if (email == null) {
             securityAuditLogger.logMfaFailure("unknown", ipAddress, "Invalid or expired MFA session token");
             throw new BadCredentialsException("Invalid or expired MFA session token");
         }
 
         int maxRequests = securityProperties.getRateLimiting().getPerUser().getMfaVerify();
         long windowMillis = securityProperties.getRateLimiting().getWindowMillis();
-        if (!rateLimitingService.isAllowed("mfa-verify", username, maxRequests, windowMillis)) {
+        if (!rateLimitingService.isAllowed("mfa-verify", email, maxRequests, windowMillis)) {
             throw new LockedException("Too many requests. Please try again later.");
         }
 
-        User user = userService.getByUsername(username);
+        User user = userService.getByEmail(email);
 
         boolean verified = false;
         if (user.getMfaMethod() == MfaMethod.TOTP) {
             verified = mfaService.verifyTotpCode(user.getMfaSecret(), request.getCode());
         } else if (user.getMfaMethod() == MfaMethod.EMAIL) {
-            verified = mfaService.verifyEmailOtp(user.getUsername(), request.getCode());
+            verified = mfaService.verifyEmailOtp(user.getEmail(), request.getCode());
         }
 
         if (!verified) {
-            securityAuditLogger.logMfaFailure(user.getUsername(), ipAddress, "Invalid MFA code");
+            securityAuditLogger.logMfaFailure(user.getEmail(), ipAddress, "Invalid MFA code");
             throw new BadCredentialsException("Invalid MFA code");
         }
 
         mfaService.revokeMfaPendingSession(sessionToken);
         TokenResponse tokenResponse = tokenService.generateTokenResponse(user);
 
-        securityAuditLogger.logMfaSuccess(user.getUsername(), ipAddress);
-        securityAuditLogger.logLoginSuccess(user.getUsername(), ipAddress);
+        securityAuditLogger.logMfaSuccess(user.getEmail(), ipAddress);
+        securityAuditLogger.logLoginSuccess(user.getEmail(), ipAddress);
 
         return tokenResponse;
     }

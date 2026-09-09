@@ -32,8 +32,8 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('EXPENSE_APPROVE')")
-    public ExpenseResponse approveExpense(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public ExpenseResponse approveExpense(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Expense expense = expenseService.findAccessibleExpense(id, currentUser);
         if (expense.getStatus() != ExpenseStatus.PENDING) {
             throw new IllegalStateException("Only pending expenses can be approved");
@@ -45,15 +45,15 @@ public class ApprovalServiceImpl implements ApprovalService {
         expense.setDecisionDate(Instant.now());
         expense.setApprovedBy(currentUser);
         Expense approved = expenseService.save(expense);
-        auditLogService.record(AuditActions.EXPENSE_APPROVED, AuditActions.RESOURCE_EXPENSE, String.valueOf(approved.getId()), "Expense approved", currentUsername);
+        auditLogService.record(AuditActions.EXPENSE_APPROVED, AuditActions.RESOURCE_EXPENSE, String.valueOf(approved.getId()), "Expense approved", currentEmail);
         return expenseMapper.toResponse(approved);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('EXPENSE_REJECT')")
-    public ExpenseResponse rejectExpense(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public ExpenseResponse rejectExpense(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Expense expense = expenseService.findAccessibleExpense(id, currentUser);
         if (expense.getStatus() != ExpenseStatus.PENDING) {
             throw new IllegalStateException("Only pending expenses can be rejected");
@@ -65,7 +65,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         expense.setDecisionDate(Instant.now());
         expense.setRejectedBy(currentUser);
         Expense rejected = expenseService.save(expense);
-        auditLogService.record(AuditActions.EXPENSE_REJECTED, AuditActions.RESOURCE_EXPENSE, String.valueOf(rejected.getId()), "Expense rejected", currentUsername);
+        auditLogService.record(AuditActions.EXPENSE_REJECTED, AuditActions.RESOURCE_EXPENSE, String.valueOf(rejected.getId()), "Expense rejected", currentEmail);
         return expenseMapper.toResponse(rejected);
     }
 }

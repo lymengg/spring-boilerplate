@@ -61,13 +61,13 @@ class AuditLogServiceImplTest {
     @BeforeEach
     void setUp() {
         Tenant tenant = Tenant.builder().id(1L).name("Tenant 1").build();
-        actor = User.builder().id(1L).username("admin").tenant(tenant).build();
-        noTenantUser = User.builder().id(2L).username("noTenantUser").tenant(null).build();
+        actor = User.builder().id(1L).email("admin").tenant(tenant).build();
+        noTenantUser = User.builder().id(2L).tenant(null).build();
         log = AuditLog.builder().id(5L).tenantId(1L).build();
         stubResponse = AuditLogResponse.builder().id(5L).build();
 
-        when(userService.getByUsername("admin")).thenReturn(actor);
-        when(userService.getByUsername("noTenantUser")).thenReturn(noTenantUser);
+        when(userService.getByEmail("admin")).thenReturn(actor);
+        when(userService.getByEmail("noTenantUser")).thenReturn(noTenantUser);
         when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(auditLogMapper.toResponse(any(AuditLog.class))).thenReturn(stubResponse);
     }
@@ -81,7 +81,7 @@ class AuditLogServiceImplTest {
         verify(auditLogRepository).save(captor.capture());
         AuditLog saved = captor.getValue();
         assertThat(saved.getActorId()).isEqualTo(1L);
-        assertThat(saved.getActorUsername()).isEqualTo("admin");
+        assertThat(saved.getActorEmail()).isEqualTo("admin");
         assertThat(saved.getTenantId()).isEqualTo(1L);
         assertThat(saved.getAction()).isEqualTo("USER_CREATED");
         assertThat(saved.getResourceType()).isEqualTo("USER");

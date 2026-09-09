@@ -93,22 +93,21 @@ class AuditLogControllerIntegrationTest {
         Role tenantAdminRole = roleRepository.findByName("TENANT_ADMIN").orElseThrow();
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
 
-        User superAdmin = createUser("auditsuper", "auditsuper@example.com", adminRole, null, null);
-        User tenantAdmin1 = createUser("auditadmin1", "auditadmin1@example.com", tenantAdminRole, tenant1, null);
-        User employee = createUser("auditemp", "auditemp@example.com", employeeRole, tenant1, dept1);
-        User employee2 = createUser("auditemp2", "auditemp2@example.com", employeeRole, tenant2, dept2);
+        User superAdmin = createUser("auditsuper@example.com", adminRole, null, null);
+        User tenantAdmin1 = createUser("auditadmin1@example.com", tenantAdminRole, tenant1, null);
+        User employee = createUser("auditemp@example.com", employeeRole, tenant1, dept1);
+        User employee2 = createUser("auditemp2@example.com", employeeRole, tenant2, dept2);
 
-        superAdminToken = generateToken(superAdmin.getUsername());
-        tenantAdmin1Token = generateToken(tenantAdmin1.getUsername());
-        employeeToken = generateToken(employee.getUsername());
+        superAdminToken = generateToken(superAdmin.getEmail());
+        tenantAdmin1Token = generateToken(tenantAdmin1.getEmail());
+        employeeToken = generateToken(employee.getEmail());
 
         tenant1AuditLogId = createExpenseAndGetAuditLogId(employeeToken, "Tenant 1 Expense");
-        tenant2AuditLogId = createExpenseAndGetAuditLogId(generateToken(employee2.getUsername()), "Tenant 2 Expense");
+        tenant2AuditLogId = createExpenseAndGetAuditLogId(generateToken(employee2.getEmail()), "Tenant 2 Expense");
     }
 
-    private User createUser(String username, String email, Role role, Tenant tenant, Department department) {
+    private User createUser(String email, Role role, Tenant tenant, Department department) {
         User user = User.builder()
-                .username(username)
                 .email(email)
                 .password(passwordEncoder.encode("Password123!"))
                 .firstName("Test")
@@ -245,7 +244,7 @@ class AuditLogControllerIntegrationTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No audit row for expense " + expenseId));
 
-        assertThat(auditLog.getActorUsername()).isEqualTo("auditemp");
+        assertThat(auditLog.getActorEmail()).isEqualTo("auditemp@example.com");
         assertThat(auditLog.getTenantId()).isEqualTo(tenant1Id);
         assertThat(auditLog.getResourceType()).isEqualTo(AuditActions.RESOURCE_EXPENSE);
         assertThat(auditLog.getDetails()).isEqualTo("Expense created");

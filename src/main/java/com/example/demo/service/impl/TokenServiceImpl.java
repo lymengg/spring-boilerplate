@@ -42,7 +42,7 @@ public class TokenServiceImpl implements TokenService {
     @Override
     @Transactional
     public TokenResponse generateTokenResponse(User user) {
-        UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getUsername());
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername(user.getEmail());
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities()
         );
@@ -50,8 +50,8 @@ public class TokenServiceImpl implements TokenService {
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
         String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
 
-        refreshTokenService.revokeAllUserRefreshTokens(user.getUsername());
-        refreshTokenService.storeRefreshToken(user.getUsername(), refreshToken, jwtConfig.getRefreshTokenExpiration());
+        refreshTokenService.revokeAllUserRefreshTokens(user.getEmail());
+        refreshTokenService.storeRefreshToken(user.getEmail(), refreshToken, jwtConfig.getRefreshTokenExpiration());
 
         return buildTokenResponse(accessToken, refreshToken, user);
     }
@@ -67,9 +67,9 @@ public class TokenServiceImpl implements TokenService {
             throw new org.springframework.security.authentication.BadCredentialsException("Invalid refresh token");
         }
 
-        String username = jwtTokenProvider.getUsernameFromToken(refreshToken);
+        String email = jwtTokenProvider.getEmailFromToken(refreshToken);
 
-        if (!refreshTokenService.validateRefreshToken(username, refreshToken)) {
+        if (!refreshTokenService.validateRefreshToken(email, refreshToken)) {
             throw new org.springframework.security.authentication.BadCredentialsException("Refresh token not found or revoked");
         }
 
@@ -81,11 +81,11 @@ public class TokenServiceImpl implements TokenService {
         // Rotation with a reuse grace window: the old token stays valid briefly
         // so concurrent refreshes (multi-tab) don't fail at the boundary.
         refreshTokenService.rotateRefreshToken(
-                username, refreshToken, newRefreshToken,
+                email, refreshToken, newRefreshToken,
                 jwtConfig.getRefreshTokenExpiration(), jwtConfig.getRefreshTokenGraceWindow());
 
-        User user = customUserDetailsService.loadUserEntityByUsername(username);
-        securityAuditLogger.logTokenRefreshed(username, ipAddress);
+        User user = customUserDetailsService.loadUserEntityByEmail(email);
+        securityAuditLogger.logTokenRefreshed(email, ipAddress);
 
         return buildTokenResponse(newAccessToken, newRefreshToken, user);
     }
@@ -96,7 +96,7 @@ public class TokenServiceImpl implements TokenService {
      */
     @Override
     @Transactional
-    public void logout(String username, String accessToken, String ipAddress) {
+    public void logout(String email, String accessToken, String ipAddress) {
         if (accessToken != null) {
             try {
                 String jti = jwtTokenProvider.getIdFromToken(accessToken);
@@ -109,8 +109,8 @@ public class TokenServiceImpl implements TokenService {
             }
         }
 
-        refreshTokenService.revokeAllUserRefreshTokens(username);
-        securityAuditLogger.logLogout(username, ipAddress);
+        refreshTokenService.revokeAllUserRefreshTokens(email);
+        securityAuditLogger.logLogout(email, ipAddress);
     }
 
     /**
@@ -118,8 +118,8 @@ public class TokenServiceImpl implements TokenService {
      * without duplicating the refresh-token repository logic.
      */
     @Override
-    public void revokeAllUserRefreshTokens(String username) {
-        refreshTokenService.revokeAllUserRefreshTokens(username);
+    public void revokeAllUserRefreshTokens(String email) {
+        refreshTokenService.revokeAllUserRefreshTokens(email);
     }
 
     /**
@@ -135,7 +135,7 @@ public class TokenServiceImpl implements TokenService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(jwtConfig.getAccessTokenExpiration() / 1000)
-                .username(user.getUsername())
+                .email(user.getEmail())
                 .roles(roles)
                 .build();
     }

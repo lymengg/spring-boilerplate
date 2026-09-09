@@ -33,8 +33,8 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_READ')")
-    public PageResponse<TenantResponse> getTenants(Pageable pageable, String name, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public PageResponse<TenantResponse> getTenants(Pageable pageable, String name, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (!authorizationService.isSuperAdmin(currentUser)) {
             throw new AccessDeniedException("Only platform administrators can list tenants");
         }
@@ -48,8 +48,8 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('TENANT_READ')")
-    public TenantResponse getTenantById(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public TenantResponse getTenantById(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (!authorizationService.canAccessTenant(currentUser, id)) {
             throw new IllegalArgumentException("Tenant not found");
         }
@@ -68,7 +68,7 @@ public class TenantManagementServiceImpl implements TenantManagementService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_CREATE')")
-    public TenantResponse createTenant(TenantCreateRequest request, String currentUsername) {
+    public TenantResponse createTenant(TenantCreateRequest request, String currentEmail) {
         if (tenantRepository.existsByName(request.getName())) {
             throw new IllegalArgumentException("Tenant already exists");
         }
@@ -78,15 +78,15 @@ public class TenantManagementServiceImpl implements TenantManagementService {
                 .build();
         Tenant saved = tenantRepository.save(tenant);
         auditLogService.record(AuditActions.TENANT_CREATED, AuditActions.RESOURCE_TENANT,
-                String.valueOf(saved.getId()), "Tenant created: " + saved.getName(), currentUsername);
+                String.valueOf(saved.getId()), "Tenant created: " + saved.getName(), currentEmail);
         return tenantMapper.toResponse(saved);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_UPDATE')")
-    public TenantResponse updateTenant(Long id, TenantUpdateRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public TenantResponse updateTenant(Long id, TenantUpdateRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (!authorizationService.canManageTenant(currentUser, id)) {
             throw new IllegalArgumentException("Tenant not found");
         }
@@ -101,15 +101,15 @@ public class TenantManagementServiceImpl implements TenantManagementService {
         tenant.setStatus(request.getStatus());
         Tenant updated = tenantRepository.save(tenant);
         auditLogService.record(AuditActions.TENANT_UPDATED, AuditActions.RESOURCE_TENANT,
-                String.valueOf(updated.getId()), "Tenant updated: " + updated.getName(), currentUsername);
+                String.valueOf(updated.getId()), "Tenant updated: " + updated.getName(), currentEmail);
         return tenantMapper.toResponse(updated);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('TENANT_DELETE')")
-    public void deleteTenant(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public void deleteTenant(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (!authorizationService.canManageTenant(currentUser, id)) {
             throw new IllegalArgumentException("Tenant not found");
         }
@@ -118,6 +118,6 @@ public class TenantManagementServiceImpl implements TenantManagementService {
         String tenantName = tenant.getName();
         tenantRepository.delete(tenant);
         auditLogService.record(AuditActions.TENANT_DELETED, AuditActions.RESOURCE_TENANT,
-                String.valueOf(id), "Tenant deleted: " + tenantName, currentUsername);
+                String.valueOf(id), "Tenant deleted: " + tenantName, currentEmail);
     }
 }

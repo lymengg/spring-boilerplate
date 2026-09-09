@@ -25,16 +25,16 @@ public class ExpenseResponse {
     private Instant decisionDate;
     private Instant processedDate;
     private Long ownerId;
-    private String ownerUsername;
+    private String ownerEmail;
     private Long departmentId;
     private String departmentName;
     private Long tenantId;
     private String tenantName;
     private Long approvedById;
-    private String approvedByUsername;
+    private String approvedByEmail;
     private Long rejectedById;
-    private String rejectedByUsername;
+    private String rejectedByEmail;
     private Long processedById;
-    private String processedByUsername;
+    private String processedByEmail;
     private Instant updatedAt;
 }

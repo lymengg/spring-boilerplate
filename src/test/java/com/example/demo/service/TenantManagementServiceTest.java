@@ -70,7 +70,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Super admin can get all tenants")
     void superAdminCanGetTenants() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
 
         PageRequest pageable = PageRequest.of(0, 10);
@@ -86,7 +86,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Non-super-admin cannot get tenants")
     void nonSuperAdminCannotGetTenants() {
-        when(userService.getByUsername("tenantadmin")).thenReturn(tenantAdmin);
+        when(userService.getByEmail("tenantadmin")).thenReturn(tenantAdmin);
         when(authorizationService.isSuperAdmin(tenantAdmin)).thenReturn(false);
 
         assertThatThrownBy(() -> tenantManagementService.getTenants(PageRequest.of(0, 10), null, "tenantadmin"))
@@ -97,7 +97,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Super admin can search tenants by name")
     void superAdminCanSearchTenantsByName() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
 
         PageRequest pageable = PageRequest.of(0, 10);
@@ -114,7 +114,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Search with blank name returns all tenants")
     void searchWithBlankNameReturnsAll() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
 
         PageRequest pageable = PageRequest.of(0, 10);
@@ -175,7 +175,7 @@ class TenantManagementServiceTest {
                 .status(TenantStatus.ACTIVE)
                 .build();
 
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin")).thenReturn(superAdmin);
         when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
         when(authorizationService.canManageTenant(superAdmin, 1L)).thenReturn(true);
 
@@ -195,7 +195,7 @@ class TenantManagementServiceTest {
                 .status(TenantStatus.INACTIVE)
                 .build();
 
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin")).thenReturn(superAdmin);
         when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
         when(authorizationService.canManageTenant(superAdmin, 1L)).thenReturn(true);
         when(tenantRepository.findByName("Acme Corp")).thenReturn(Optional.of(tenant));
@@ -210,7 +210,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Deleting a tenant audits the action")
     void deleteTenantAuditsAction() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin")).thenReturn(superAdmin);
         when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
         when(authorizationService.canManageTenant(superAdmin, 1L)).thenReturn(true);
 
@@ -224,7 +224,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Authorized user can get a tenant by id")
     void getTenantByIdReturnsTenant() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin")).thenReturn(superAdmin);
         when(authorizationService.canAccessTenant(superAdmin, 1L)).thenReturn(true);
         when(tenantRepository.findById(1L)).thenReturn(Optional.of(tenant));
         when(tenantMapper.toResponse(tenant)).thenReturn(TenantResponse.builder().build());
@@ -238,7 +238,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Unauthorized user gets not found without querying the repository")
     void getTenantByIdForUnauthorizedUserReturnsNotFound() {
-        when(userService.getByUsername("tenantadmin")).thenReturn(tenantAdmin);
+        when(userService.getByEmail("tenantadmin")).thenReturn(tenantAdmin);
         when(authorizationService.canAccessTenant(tenantAdmin, 1L)).thenReturn(false);
 
         assertThatThrownBy(() -> tenantManagementService.getTenantById(1L, "tenantadmin"))
@@ -255,7 +255,7 @@ class TenantManagementServiceTest {
                 .status(TenantStatus.ACTIVE)
                 .build();
 
-        when(userService.getByUsername("tenantadmin")).thenReturn(tenantAdmin);
+        when(userService.getByEmail("tenantadmin")).thenReturn(tenantAdmin);
         when(authorizationService.canManageTenant(tenantAdmin, 1L)).thenReturn(false);
 
         assertThatThrownBy(() -> tenantManagementService.updateTenant(1L, request, "tenantadmin"))
@@ -267,7 +267,7 @@ class TenantManagementServiceTest {
     @Test
     @DisplayName("Non-super-admin cannot delete a tenant they don't manage")
     void nonSuperAdminCannotDeleteUnmanagedTenant() {
-        when(userService.getByUsername("tenantadmin")).thenReturn(tenantAdmin);
+        when(userService.getByEmail("tenantadmin")).thenReturn(tenantAdmin);
         when(authorizationService.canManageTenant(tenantAdmin, 1L)).thenReturn(false);
 
         assertThatThrownBy(() -> tenantManagementService.deleteTenant(1L, "tenantadmin"))
@@ -279,7 +279,7 @@ class TenantManagementServiceTest {
     private User userWithUsername(String username, Long tenantId) {
         User user = User.builder()
                 .id((long) username.hashCode())
-                .username(username)
+                
                 .password("secret")
                 .enabled(true)
                 .accountNonLocked(true)

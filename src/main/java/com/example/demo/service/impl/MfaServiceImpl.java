@@ -45,9 +45,9 @@ public class MfaServiceImpl implements MfaService {
     }
 
     @Override
-    public String generateQrUri(String username, String secret) {
+    public String generateQrUri(String email, String secret) {
         QrData data = new QrData.Builder()
-                .label(username)
+                .label(email)
                 .secret(secret)
                 .issuer(mfaProperties.getIssuer())
                 .algorithm(HashingAlgorithm.SHA1)
@@ -62,17 +62,17 @@ public class MfaServiceImpl implements MfaService {
             return "data:image/png;base64," + base64;
         } catch (QrGenerationException e) {
             log.error("Failed to generate QR code: {}", e.getMessage());
-            return buildOtpAuthUri(username, secret);
+            return buildOtpAuthUri(email, secret);
         }
     }
 
     @Override
-    public String generateOtpAuthUri(String username, String secret) {
-        return buildOtpAuthUri(username, secret);
+    public String generateOtpAuthUri(String email, String secret) {
+        return buildOtpAuthUri(email, secret);
     }
 
-    private String buildOtpAuthUri(String username, String secret) {
-        String label = URLEncoder.encode(mfaProperties.getIssuer() + ":" + username, StandardCharsets.UTF_8);
+    private String buildOtpAuthUri(String email, String secret) {
+        String label = URLEncoder.encode(mfaProperties.getIssuer() + ":" + email, StandardCharsets.UTF_8);
         return String.format("otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=%d&period=30",
                 label, secret,
                 URLEncoder.encode(mfaProperties.getIssuer(), StandardCharsets.UTF_8),
@@ -96,30 +96,30 @@ public class MfaServiceImpl implements MfaService {
     }
 
     @Override
-    public void storeEmailOtp(String username, String code) {
-        String key = MFA_OTP_PREFIX + username;
+    public void storeEmailOtp(String email, String code) {
+        String key = MFA_OTP_PREFIX + email;
         redisTemplate.opsForValue().set(key, code, Duration.ofSeconds(mfaProperties.getOtpExpirationSeconds()));
-        log.debug("Stored MFA email OTP for user: {}", username);
+        log.debug("Stored MFA email OTP for user: {}", email);
     }
 
     @Override
-    public boolean verifyEmailOtp(String username, String code) {
-        String key = MFA_OTP_PREFIX + username;
+    public boolean verifyEmailOtp(String email, String code) {
+        String key = MFA_OTP_PREFIX + email;
         String storedCode = redisTemplate.opsForValue().get(key);
         if (storedCode != null && storedCode.equals(code)) {
             redisTemplate.delete(key);
-            log.debug("Verified MFA email OTP for user: {}", username);
+            log.debug("Verified MFA email OTP for user: {}", email);
             return true;
         }
         return false;
     }
 
     @Override
-    public String storeMfaPendingSession(String username) {
+    public String storeMfaPendingSession(String email) {
         String token = tokenHashingService.generateSecureToken();
         String key = MFA_PENDING_PREFIX + token;
-        redisTemplate.opsForValue().set(key, username, Duration.ofMillis(mfaProperties.getPendingTokenExpiration()));
-        log.debug("Stored MFA pending session for user: {}", username);
+        redisTemplate.opsForValue().set(key, email, Duration.ofMillis(mfaProperties.getPendingTokenExpiration()));
+        log.debug("Stored MFA pending session for user: {}", email);
         return token;
     }
 

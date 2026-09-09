@@ -12,25 +12,25 @@ import org.springframework.data.domain.Pageable;
 
 public interface UserManagementService {
 
-    UserResponse createUser(UserCreateRequest request, String currentUsername);
+    UserResponse createUser(UserCreateRequest request, String currentEmail);
 
-    PageResponse<UserResponse> getUsers(Pageable pageable, String currentUsername);
+    PageResponse<UserResponse> getUsers(Pageable pageable, String currentEmail);
 
-    UserResponse getUserById(Long id, String currentUsername);
+    UserResponse getUserById(Long id, String currentEmail);
 
-    UserResponse updateUser(Long id, UserUpdateRequest request, String currentUsername);
+    UserResponse updateUser(Long id, UserUpdateRequest request, String currentEmail);
 
-    void deleteUser(Long id, String currentUsername);
+    void deleteUser(Long id, String currentEmail);
 
-    UserResponse toggleUserEnabled(Long id, UserEnableRequest request, String currentUsername);
+    UserResponse toggleUserEnabled(Long id, UserEnableRequest request, String currentEmail);
 
-    UserResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentUsername);
+    UserResponse assignRole(Long id, UserRoleAssignmentRequest request, String currentEmail);
 
-    UserResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentUsername);
+    UserResponse removeRole(Long id, UserRoleAssignmentRequest request, String currentEmail);
 
-    MfaSetupResponse enableMfa(Long id, UserMfaToggleRequest request, String currentUsername);
+    MfaSetupResponse enableMfa(Long id, UserMfaToggleRequest request, String currentEmail);
 
-    void disableMfa(Long id, String currentUsername);
+    void disableMfa(Long id, String currentEmail);
 
-    MfaSetupResponse resetMfa(Long id, UserMfaToggleRequest request, String currentUsername);
+    MfaSetupResponse resetMfa(Long id, UserMfaToggleRequest request, String currentEmail);
 }

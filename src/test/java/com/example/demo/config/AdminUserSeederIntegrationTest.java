@@ -24,7 +24,7 @@ class AdminUserSeederIntegrationTest {
     @Test
     @Transactional
     void seedsPlatformAdminWithoutTenant() {
-        User admin = userService.getByUsername("admin");
+        User admin = userService.getByEmail("admin@example.com");
         assertThat(admin.getTenant()).isNull();
         assertThat(admin.getRoles())
                 .extracting(role -> role.getName())

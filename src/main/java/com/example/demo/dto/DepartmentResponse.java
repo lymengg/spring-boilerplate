@@ -18,5 +18,5 @@ public class DepartmentResponse {
     private Long tenantId;
     private String tenantName;
     private List<Long> managerIds;
-    private List<String> managerUsernames;
+    private List<String> managerEmails;
 }

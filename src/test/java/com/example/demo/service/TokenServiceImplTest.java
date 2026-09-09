@@ -53,7 +53,7 @@ class TokenServiceImplTest {
 
     private User userEntity() {
         return User.builder()
-                .username("testuser")
+                .email("testuser")
                 .roles(Set.of(Role.builder().name("EMPLOYEE").build()))
                 .build();
     }
@@ -64,12 +64,12 @@ class TokenServiceImplTest {
         when(jwtConfig.getRefreshTokenExpiration()).thenReturn(604_800_000L);
         when(jwtConfig.getRefreshTokenGraceWindow()).thenReturn(60_000L);
         when(jwtTokenProvider.validateRefreshToken("old-refresh")).thenReturn(true);
-        when(jwtTokenProvider.getUsernameFromToken("old-refresh")).thenReturn("testuser");
+        when(jwtTokenProvider.getEmailFromToken("old-refresh")).thenReturn("testuser");
         when(refreshTokenService.validateRefreshToken("testuser", "old-refresh")).thenReturn(true);
         when(jwtTokenProvider.getAuthentication("old-refresh")).thenReturn(authentication());
         when(jwtTokenProvider.generateAccessToken(any(Authentication.class))).thenReturn("new-access");
         when(jwtTokenProvider.generateRefreshToken(any(Authentication.class))).thenReturn("new-refresh");
-        when(customUserDetailsService.loadUserEntityByUsername("testuser")).thenReturn(userEntity());
+        when(customUserDetailsService.loadUserEntityByEmail("testuser")).thenReturn(userEntity());
 
         TokenResponse response = tokenService.refreshToken("old-refresh", "1.2.3.4");
 
@@ -96,7 +96,7 @@ class TokenServiceImplTest {
     @DisplayName("Refresh rejects a revoked or unknown refresh token")
     void refreshRejectsRevokedToken() {
         when(jwtTokenProvider.validateRefreshToken("old-refresh")).thenReturn(true);
-        when(jwtTokenProvider.getUsernameFromToken("old-refresh")).thenReturn("testuser");
+        when(jwtTokenProvider.getEmailFromToken("old-refresh")).thenReturn("testuser");
         when(refreshTokenService.validateRefreshToken("testuser", "old-refresh")).thenReturn(false);
 
         assertThatThrownBy(() -> tokenService.refreshToken("old-refresh", "1.2.3.4"))
@@ -124,7 +124,7 @@ class TokenServiceImplTest {
 
         assertThat(response.getAccessToken()).isEqualTo("access");
         assertThat(response.getRefreshToken()).isEqualTo("refresh");
-        assertThat(response.getUsername()).isEqualTo("testuser");
+        assertThat(response.getEmail()).isEqualTo("testuser");
         assertThat(response.getRoles()).containsExactly("EMPLOYEE");
         assertThat(response.getExpiresIn()).isEqualTo(900);
         verify(refreshTokenService).revokeAllUserRefreshTokens("testuser");

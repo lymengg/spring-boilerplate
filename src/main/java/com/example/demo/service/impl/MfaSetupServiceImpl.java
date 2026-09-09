@@ -38,8 +38,8 @@ public class MfaSetupServiceImpl implements MfaSetupService {
         MfaSetupResponse response = configureMfa(targetUser, method);
         targetUser.setMfaEnabled(true);
         userService.save(targetUser);
-        tokenService.revokeAllUserRefreshTokens(targetUser.getUsername());
-        securityAuditLogger.logMfaEnabled(targetUser.getUsername(), targetUser.getMfaMethod().name(), ipAddress);
+        tokenService.revokeAllUserRefreshTokens(targetUser.getEmail());
+        securityAuditLogger.logMfaEnabled(targetUser.getEmail(), targetUser.getMfaMethod().name(), ipAddress);
         return response;
     }
 
@@ -54,8 +54,8 @@ public class MfaSetupServiceImpl implements MfaSetupService {
         targetUser.setMfaMethod(MfaMethod.NONE);
         targetUser.setMfaSecret(null);
         userService.save(targetUser);
-        tokenService.revokeAllUserRefreshTokens(targetUser.getUsername());
-        securityAuditLogger.logMfaDisabled(targetUser.getUsername(), ipAddress);
+        tokenService.revokeAllUserRefreshTokens(targetUser.getEmail());
+        securityAuditLogger.logMfaDisabled(targetUser.getEmail(), ipAddress);
     }
 
     @Override
@@ -67,9 +67,9 @@ public class MfaSetupServiceImpl implements MfaSetupService {
 
         MfaSetupResponse response = configureMfa(targetUser, method);
         userService.save(targetUser);
-        tokenService.revokeAllUserRefreshTokens(targetUser.getUsername());
-        securityAuditLogger.logMfaDisabled(targetUser.getUsername(), ipAddress);
-        securityAuditLogger.logMfaEnabled(targetUser.getUsername(), targetUser.getMfaMethod().name(), ipAddress);
+        tokenService.revokeAllUserRefreshTokens(targetUser.getEmail());
+        securityAuditLogger.logMfaDisabled(targetUser.getEmail(), ipAddress);
+        securityAuditLogger.logMfaEnabled(targetUser.getEmail(), targetUser.getMfaMethod().name(), ipAddress);
         return response;
     }
 
@@ -78,7 +78,7 @@ public class MfaSetupServiceImpl implements MfaSetupService {
             String secret = mfaService.generateTotpSecret();
             targetUser.setMfaSecret(secret);
             targetUser.setMfaMethod(MfaMethod.TOTP);
-            String qrUri = mfaService.generateOtpAuthUri(targetUser.getUsername(), secret);
+            String qrUri = mfaService.generateOtpAuthUri(targetUser.getEmail(), secret);
             return MfaSetupResponse.builder()
                     .qrUri(qrUri)
                     .secret(secret)
@@ -87,7 +87,7 @@ public class MfaSetupServiceImpl implements MfaSetupService {
         } else if (method == MfaMethod.EMAIL) {
             targetUser.setMfaMethod(MfaMethod.EMAIL);
             String otp = mfaService.generateEmailOtp();
-            mfaService.storeEmailOtp(targetUser.getUsername(), otp);
+            mfaService.storeEmailOtp(targetUser.getEmail(), otp);
             emailService.sendMfaCodeEmail(targetUser.getEmail(), otp);
             return MfaSetupResponse.builder()
                     .method(MfaMethod.EMAIL.name())

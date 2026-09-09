@@ -15,14 +15,14 @@ public class DepartmentMapper {
 
     public DepartmentResponse toResponse(Department department) {
         List<Long> managerIds = new ArrayList<>();
-        List<String> managerUsernames = new ArrayList<>();
+        List<String> managerEmails = new ArrayList<>();
 
         if (department.getManagers() != null) {
             department.getManagers().stream()
                     .sorted(Comparator.comparing(User::getId))
                     .forEach(manager -> {
                         managerIds.add(manager.getId());
-                        managerUsernames.add(manager.getUsername());
+                        managerEmails.add(manager.getEmail());
                     });
         }
 
@@ -32,7 +32,7 @@ public class DepartmentMapper {
                 .tenantId(department.getTenant().getId())
                 .tenantName(department.getTenant().getName())
                 .managerIds(managerIds)
-                .managerUsernames(managerUsernames)
+                .managerEmails(managerEmails)
                 .build();
     }
 }

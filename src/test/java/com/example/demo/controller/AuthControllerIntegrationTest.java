@@ -90,7 +90,6 @@ class AuthControllerIntegrationTest {
         redisTemplate.clear();
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
         testUser = User.builder()
-                .username("authuser")
                 .email("auth@example.com")
                 .password(passwordEncoder.encode(PASSWORD))
                 .firstName("Auth")
@@ -106,13 +105,13 @@ class AuthControllerIntegrationTest {
 
     private LoginRequest loginRequest() {
         return LoginRequest.builder()
-                .usernameOrEmail("authuser")
+                .email("auth@example.com")
                 .password(PASSWORD)
                 .build();
     }
 
     private String validAccessToken() {
-        UserDetails userDetails = customUserDetailsService.loadUserByUsername(testUser.getUsername());
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername(testUser.getEmail());
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities()
         );
@@ -123,9 +122,8 @@ class AuthControllerIntegrationTest {
         return new Cookie(AuthCookieManager.ACCESS_TOKEN_COOKIE, validAccessToken());
     }
 
-    private User createMfaUser(String username, String email, MfaMethod method) {
+    private User createMfaUser(String email, MfaMethod method) {
         User mfaUser = User.builder()
-                .username(username)
                 .email(email)
                 .password(passwordEncoder.encode(PASSWORD))
                 .firstName("Mfa")
@@ -142,9 +140,9 @@ class AuthControllerIntegrationTest {
         return userRepository.save(mfaUser);
     }
 
-    private String loginAndGetMfaSessionToken(String username, String password) throws Exception {
+    private String loginAndGetMfaSessionToken(String email, String password) throws Exception {
         LoginRequest request = LoginRequest.builder()
-                .usernameOrEmail(username)
+                .email(email)
                 .password(password)
                 .build();
         MvcResult result = mockMvc.perform(post("/api/auth/login")
@@ -182,7 +180,7 @@ class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.username").value("authuser"))
+                .andExpect(jsonPath("$.data.email").value("auth@example.com"))
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(result -> {
@@ -201,7 +199,7 @@ class AuthControllerIntegrationTest {
     @DisplayName("Login with wrong password returns 401")
     void loginWithWrongPasswordReturns401() throws Exception {
         LoginRequest request = LoginRequest.builder()
-                .usernameOrEmail("authuser")
+                .email("auth@example.com")
                 .password("WrongPassword1!")
                 .build();
 
@@ -216,7 +214,6 @@ class AuthControllerIntegrationTest {
     @DisplayName("Login with an MFA-enabled user returns the challenge without cookies")
     void loginMfaReturnsChallengeWithoutCookies() throws Exception {
         User mfaUser = User.builder()
-                .username("mfauser")
                 .email("mfa@example.com")
                 .password(passwordEncoder.encode(PASSWORD))
                 .firstName("Mfa")
@@ -233,7 +230,7 @@ class AuthControllerIntegrationTest {
         userRepository.save(mfaUser);
 
         LoginRequest request = LoginRequest.builder()
-                .usernameOrEmail("mfauser")
+                .email("mfa@example.com")
                 .password(PASSWORD)
                 .build();
 
@@ -251,7 +248,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(get("/api/auth/me")
                         .cookie(accessCookie()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.username").value("authuser"));
+                .andExpect(jsonPath("$.data.email").value("auth@example.com"));
     }
 
     @Test
@@ -283,8 +280,8 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("MFA verify with a valid TOTP code sets cookies and returns the profile")
     void mfaVerifyWithValidTotpCodeSetsCookies() throws Exception {
-        createMfaUser("mfauser", "mfa@example.com", MfaMethod.TOTP);
-        String sessionToken = loginAndGetMfaSessionToken("mfauser", PASSWORD);
+        createMfaUser("mfa@example.com", MfaMethod.TOTP);
+        String sessionToken = loginAndGetMfaSessionToken("mfa@example.com", PASSWORD);
 
         mockMvc.perform(post("/api/auth/mfa/verify")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -293,7 +290,7 @@ class AuthControllerIntegrationTest {
                                 .code(generateTotpCode("JBSWY3DPEHPK3PXP"))
                                 .build())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.username").value("mfauser"))
+                .andExpect(jsonPath("$.data.email").value("mfa@example.com"))
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist())
                 .andExpect(result -> {
                     Cookie access = result.getResponse().getCookie(AuthCookieManager.ACCESS_TOKEN_COOKIE);
@@ -306,8 +303,8 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("MFA verify with an invalid code returns 401 and no cookies")
     void mfaVerifyWithInvalidCodeReturns401() throws Exception {
-        createMfaUser("mfauser", "mfa@example.com", MfaMethod.TOTP);
-        String sessionToken = loginAndGetMfaSessionToken("mfauser", PASSWORD);
+        createMfaUser("mfa@example.com", MfaMethod.TOTP);
+        String sessionToken = loginAndGetMfaSessionToken("mfa@example.com", PASSWORD);
 
         mockMvc.perform(post("/api/auth/mfa/verify")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -334,8 +331,8 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("MFA verify with a non-numeric code returns 400")
     void mfaVerifyWithNonNumericCodeReturns400() throws Exception {
-        createMfaUser("mfauser", "mfa@example.com", MfaMethod.TOTP);
-        String sessionToken = loginAndGetMfaSessionToken("mfauser", PASSWORD);
+        createMfaUser("mfa@example.com", MfaMethod.TOTP);
+        String sessionToken = loginAndGetMfaSessionToken("mfa@example.com", PASSWORD);
 
         mockMvc.perform(post("/api/auth/mfa/verify")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -349,10 +346,10 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("MFA verify with a valid EMAIL OTP completes the login")
     void mfaVerifyWithEmailOtpSucceeds() throws Exception {
-        createMfaUser("emailmfauser", "emailmfa@example.com", MfaMethod.EMAIL);
-        String sessionToken = loginAndGetMfaSessionToken("emailmfauser", PASSWORD);
+        createMfaUser("emailmfa@example.com", MfaMethod.EMAIL);
+        String sessionToken = loginAndGetMfaSessionToken("emailmfa@example.com", PASSWORD);
 
-        String storedOtp = redisTemplate.opsForValue().get("mfa_otp:emailmfauser");
+        String storedOtp = redisTemplate.opsForValue().get("mfa_otp:emailmfa@example.com");
         assertThat(storedOtp).isNotNull();
 
         mockMvc.perform(post("/api/auth/mfa/verify")
@@ -362,7 +359,7 @@ class AuthControllerIntegrationTest {
                                 .code(storedOtp)
                                 .build())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.username").value("emailmfauser"));
+                .andExpect(jsonPath("$.data.email").value("emailmfa@example.com"));
     }
 
     @Test
@@ -514,7 +511,6 @@ class AuthControllerIntegrationTest {
     @DisplayName("Login with a locked account returns 429")
     void loginWithLockedAccountReturns429() throws Exception {
         User lockedUser = User.builder()
-                .username("lockeduser")
                 .email("locked@example.com")
                 .password(passwordEncoder.encode(PASSWORD))
                 .enabled(true)
@@ -530,7 +526,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(LoginRequest.builder()
-                                .usernameOrEmail("lockeduser")
+                                .email("locked@example.com")
                                 .password(PASSWORD)
                                 .build())))
                 .andExpect(status().isTooManyRequests());
@@ -540,7 +536,6 @@ class AuthControllerIntegrationTest {
     @DisplayName("Login with a disabled account returns 401")
     void loginWithDisabledAccountReturns401() throws Exception {
         User disabledUser = User.builder()
-                .username("disableduser")
                 .email("disabled@example.com")
                 .password(passwordEncoder.encode(PASSWORD))
                 .enabled(false)
@@ -554,7 +549,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(LoginRequest.builder()
-                                .usernameOrEmail("disableduser")
+                                .email("disabled@example.com")
                                 .password(PASSWORD)
                                 .build())))
                 .andExpect(status().isUnauthorized());
@@ -564,7 +559,6 @@ class AuthControllerIntegrationTest {
     @DisplayName("Login with an expired account returns 401")
     void loginWithExpiredAccountReturns401() throws Exception {
         User expiredUser = User.builder()
-                .username("expireduser")
                 .email("expired@example.com")
                 .password(passwordEncoder.encode(PASSWORD))
                 .enabled(true)
@@ -578,7 +572,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(LoginRequest.builder()
-                                .usernameOrEmail("expireduser")
+                                .email("expired@example.com")
                                 .password(PASSWORD)
                                 .build())))
                 .andExpect(status().isUnauthorized());
@@ -588,7 +582,6 @@ class AuthControllerIntegrationTest {
     @DisplayName("Login with expired credentials returns 401")
     void loginWithExpiredCredentialsReturns401() throws Exception {
         User expiredCredsUser = User.builder()
-                .username("expiredcredsuser")
                 .email("expiredcreds@example.com")
                 .password(passwordEncoder.encode(PASSWORD))
                 .enabled(true)
@@ -602,7 +595,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(LoginRequest.builder()
-                                .usernameOrEmail("expiredcredsuser")
+                                .email("expiredcreds@example.com")
                                 .password(PASSWORD)
                                 .build())))
                 .andExpect(status().isUnauthorized());
@@ -612,7 +605,7 @@ class AuthControllerIntegrationTest {
     @DisplayName("Account locks after the max failed attempts and rejects further logins with 429")
     void accountLocksAfterMaxFailedAttempts() throws Exception {
         LoginRequest wrongPassword = LoginRequest.builder()
-                .usernameOrEmail("authuser")
+                .email("auth@example.com")
                 .password("WrongPassword1!")
                 .build();
 

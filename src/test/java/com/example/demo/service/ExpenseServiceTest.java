@@ -91,7 +91,7 @@ class ExpenseServiceTest {
                 .category("Food")
                 .build();
 
-        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(userService.getByEmail("employee")).thenReturn(employee);
         when(expenseRepository.save(any(Expense.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         expenseService.createExpense(request, "employee");
@@ -117,7 +117,7 @@ class ExpenseServiceTest {
                 .category("Food")
                 .build();
 
-        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(userService.getByEmail("employee")).thenReturn(employee);
 
         assertThatThrownBy(() -> expenseService.createExpense(request, "employee"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -127,7 +127,7 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("Tenant-scoped employee sees their department (team) expenses")
     void getExpensesShowsDepartmentExpensesForEmployee() {
-        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(userService.getByEmail("employee")).thenReturn(employee);
         when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
         when(authorizationService.hasAuthority(employee, "EXPENSE_READ_ALL")).thenReturn(false);
 
@@ -144,7 +144,7 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("Super admin sees all expenses without a tenant filter")
     void superAdminSeesAllExpenses() {
-        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(userService.getByEmail("employee")).thenReturn(employee);
         when(authorizationService.isSuperAdmin(employee)).thenReturn(true);
 
         PageRequest pageable = PageRequest.of(0, 10);
@@ -160,7 +160,7 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("EXPENSE_READ_ALL user sees all tenant expenses with department and status filters")
     void readAllUserSeesTenantExpensesWithFilters() {
-        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(userService.getByEmail("employee")).thenReturn(employee);
         when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
         when(authorizationService.hasAuthority(employee, "EXPENSE_READ_ALL")).thenReturn(true);
 
@@ -178,7 +178,7 @@ class ExpenseServiceTest {
     @DisplayName("User without a department gets an empty page instead of an error")
     void userWithoutDepartmentGetsEmptyPage() {
         employee.setDepartment(null);
-        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(userService.getByEmail("employee")).thenReturn(employee);
         when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
         when(authorizationService.hasAuthority(employee, "EXPENSE_READ_ALL")).thenReturn(false);
 
@@ -201,7 +201,7 @@ class ExpenseServiceTest {
                 .tenant(tenant)
                 .build();
 
-        when(userService.getByUsername("employee")).thenReturn(employee);
+        when(userService.getByEmail("employee")).thenReturn(employee);
         when(authorizationService.isSuperAdmin(employee)).thenReturn(false);
         when(expenseRepository.findByIdAndTenantId(1L, tenant.getId())).thenReturn(Optional.of(expense));
         when(authorizationService.canEditExpense(employee, expense)).thenReturn(false);
@@ -220,7 +220,7 @@ class ExpenseServiceTest {
     private User userWithUsername(String username) {
         User user = User.builder()
                 .id((long) username.hashCode())
-                .username(username)
+                
                 .password("secret")
                 .enabled(true)
                 .accountNonLocked(true)

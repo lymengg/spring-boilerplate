@@ -27,11 +27,11 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @Transactional
-    public void record(String action, String resourceType, String resourceId, String details, String actorUsername) {
-        User actor = userService.getByUsername(actorUsername);
+    public void record(String action, String resourceType, String resourceId, String details, String actorEmail) {
+        User actor = userService.getByEmail(actorEmail);
         AuditLog log = AuditLog.builder()
                 .actorId(actor.getId())
-                .actorUsername(actor.getUsername())
+                .actorEmail(actor.getEmail())
                 .tenantId(actor.getTenant() != null ? actor.getTenant().getId() : null)
                 .action(action)
                 .resourceType(resourceType)
@@ -44,8 +44,8 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('AUDIT_LOG_READ')")
-    public PageResponse<AuditLogResponse> getAuditLogs(Pageable pageable, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public PageResponse<AuditLogResponse> getAuditLogs(Pageable pageable, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (authorizationService.isSuperAdmin(currentUser)) {
             return PageResponse.of(auditLogRepository.findAll(pageable).map(auditLogMapper::toResponse));
         }
@@ -58,8 +58,8 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('AUDIT_LOG_READ')")
-    public AuditLogResponse getAuditLogById(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public AuditLogResponse getAuditLogById(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         AuditLog log;
         if (authorizationService.isSuperAdmin(currentUser)) {
             log = auditLogRepository.findById(id)

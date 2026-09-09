@@ -58,7 +58,6 @@ class PasswordResetServiceImplTest {
     @BeforeEach
     void setUp() {
         user = User.builder()
-                .username("testuser")
                 .email("test@example.com")
                 .password("old-encoded")
                 .build();
@@ -112,7 +111,7 @@ class PasswordResetServiceImplTest {
         verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
         verify(emailService).sendPasswordResetEmail(eq("test@example.com"),
                 eq("http://localhost:8080/api/auth/reset-password?token=raw-token"));
-        verify(securityAuditLogger).logPasswordResetRequested("testuser", "test@example.com");
+        verify(securityAuditLogger).logPasswordResetRequested("test@example.com", "test@example.com");
     }
 
     @Test
@@ -184,7 +183,7 @@ class PasswordResetServiceImplTest {
                 .build();
         when(tokenHashingService.hashToken("valid-token")).thenReturn("hashed-token");
         when(passwordResetTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(valid));
-        when(rateLimitingService.isAllowed("reset-password", "testuser", 10, 60_000L)).thenReturn(false);
+        when(rateLimitingService.isAllowed("reset-password", "test@example.com", 10, 60_000L)).thenReturn(false);
 
         assertThatThrownBy(() -> passwordResetService.resetPassword(
                 ResetPasswordRequest.builder()
@@ -208,7 +207,7 @@ class PasswordResetServiceImplTest {
                 .build();
         when(tokenHashingService.hashToken("valid-token")).thenReturn("hashed-token");
         when(passwordResetTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(valid));
-        when(rateLimitingService.isAllowed("reset-password", "testuser", 10, 60_000L)).thenReturn(true);
+        when(rateLimitingService.isAllowed("reset-password", "test@example.com", 10, 60_000L)).thenReturn(true);
         when(passwordEncoder.encode("NewPass123!")).thenReturn("new-encoded");
 
         passwordResetService.resetPassword(
@@ -222,7 +221,7 @@ class PasswordResetServiceImplTest {
         assertThat(user.getPassword()).isEqualTo("new-encoded");
         verify(userService).save(user);
         verify(passwordResetTokenRepository).save(valid);
-        verify(tokenService).revokeAllUserRefreshTokens("testuser");
-        verify(securityAuditLogger).logPasswordResetCompleted("testuser", "1.2.3.4");
+        verify(tokenService).revokeAllUserRefreshTokens("test@example.com");
+        verify(securityAuditLogger).logPasswordResetCompleted("test@example.com", "1.2.3.4");
     }
 }

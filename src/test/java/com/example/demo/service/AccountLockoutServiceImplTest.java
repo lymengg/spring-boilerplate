@@ -51,7 +51,7 @@ class AccountLockoutServiceImplTest {
     @DisplayName("prepareForLogin unlocks an expired lockout before continuing")
     void prepareForLoginUnlocksExpiredLockout() {
         User user = User.builder()
-                .username("testuser")
+                .email("testuser@example.com")
                 .accountNonLocked(false)
                 .accountLockedUntil(Instant.now().minus(1, ChronoUnit.MINUTES))
                 .failedAttempts(5)
@@ -62,14 +62,14 @@ class AccountLockoutServiceImplTest {
         assertThat(result.isAccountNonLocked()).isTrue();
         assertThat(result.getFailedAttempts()).isZero();
         verify(userService).save(user);
-        verify(securityAuditLogger).logAccountUnlocked("testuser", "1.2.3.4");
+        verify(securityAuditLogger).logAccountUnlocked("testuser@example.com", "1.2.3.4");
     }
 
     @Test
     @DisplayName("prepareForLogin throws LockedException when the lockout has not expired")
     void prepareForLoginThrowsWhenLocked() {
         User user = User.builder()
-                .username("testuser")
+                .email("testuser@example.com")
                 .accountNonLocked(false)
                 .accountLockedUntil(Instant.now().plus(10, ChronoUnit.MINUTES))
                 .failedAttempts(5)
@@ -79,13 +79,13 @@ class AccountLockoutServiceImplTest {
                 .isInstanceOf(LockedException.class);
 
         verify(userService, never()).save(any());
-        verify(securityAuditLogger).logAccountLocked("testuser", "1.2.3.4", 5);
+        verify(securityAuditLogger).logAccountLocked("testuser@example.com", "1.2.3.4", 5);
     }
 
     @Test
     @DisplayName("prepareForLogin returns the user untouched when not locked")
     void prepareForLoginReturnsUserWhenNotLocked() {
-        User user = User.builder().username("testuser").build();
+        User user = User.builder().build();
 
         User result = accountLockoutService.prepareForLogin(user, "1.2.3.4");
 
@@ -97,7 +97,7 @@ class AccountLockoutServiceImplTest {
     @DisplayName("recordFailedLogin locks the account at the max attempts threshold")
     void recordFailedLoginLocksAtThreshold() {
         User user = User.builder()
-                .username("testuser")
+                .email("testuser@example.com")
                 .failedAttempts(4)
                 .accountNonLocked(true)
                 .build();
@@ -108,15 +108,15 @@ class AccountLockoutServiceImplTest {
         assertThat(user.isAccountNonLocked()).isFalse();
         assertThat(user.getAccountLockedUntil()).isNotNull();
         verify(userService).save(user);
-        verify(securityAuditLogger).logAccountLocked("testuser", "1.2.3.4", 5);
-        verify(securityAuditLogger).logLoginFailure("testuser", "1.2.3.4", "Bad credentials");
+        verify(securityAuditLogger).logAccountLocked("testuser@example.com", "1.2.3.4", 5);
+        verify(securityAuditLogger).logLoginFailure("testuser@example.com", "1.2.3.4", "Bad credentials");
     }
 
     @Test
     @DisplayName("recordFailedLogin below the threshold only increments the counter")
     void recordFailedLoginBelowThresholdDoesNotLock() {
         User user = User.builder()
-                .username("testuser")
+                .email("testuser@example.com")
                 .failedAttempts(1)
                 .accountNonLocked(true)
                 .build();
@@ -132,7 +132,7 @@ class AccountLockoutServiceImplTest {
     @DisplayName("recordSuccessfulLogin resets the lockout counters")
     void recordSuccessfulLoginResetsCounters() {
         User user = User.builder()
-                .username("testuser")
+                .email("testuser@example.com")
                 .failedAttempts(3)
                 .accountNonLocked(false)
                 .accountLockedUntil(Instant.now().plus(5, ChronoUnit.MINUTES))

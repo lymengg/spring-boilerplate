@@ -60,7 +60,7 @@ class JwtTokenProviderTest {
 
         assertThat(token).isNotNull();
         assertThat(token).isNotEmpty();
-        assertThat(jwtTokenProvider.getUsernameFromToken(token)).isEqualTo("testuser");
+        assertThat(jwtTokenProvider.getEmailFromToken(token)).isEqualTo("testuser");
     }
 
     @Test
@@ -123,7 +123,7 @@ class JwtTokenProviderTest {
         Authentication auth = createAuthentication();
         String token = jwtTokenProvider.generateAccessToken(auth);
 
-        String username = jwtTokenProvider.getUsernameFromToken(token);
+        String username = jwtTokenProvider.getEmailFromToken(token);
 
         assertThat(username).isEqualTo("testuser");
     }

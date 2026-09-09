@@ -11,7 +11,7 @@ public class AuditLogMapper {
         return AuditLogResponse.builder()
                 .id(log.getId())
                 .actorId(log.getActorId())
-                .actorUsername(log.getActorUsername())
+                .actorEmail(log.getActorEmail())
                 .tenantId(log.getTenantId())
                 .action(log.getAction())
                 .resourceType(log.getResourceType())

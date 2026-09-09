@@ -27,8 +27,8 @@ public class AuditLog {
     @Column(name = "actor_id")
     private Long actorId;
 
-    @Column(name = "actor_username", length = 100)
-    private String actorUsername;
+    @Column(name = "actor_email", length = 100)
+    private String actorEmail;
 
     @Column(name = "tenant_id")
     private Long tenantId;

@@ -54,7 +54,6 @@ class MfaSetupServiceImplTest {
     void setUp() {
         targetUser = User.builder()
                 .id(1L)
-                .username("target")
                 .email("target@example.com")
                 .password("secret")
                 .mfaEnabled(false)
@@ -63,7 +62,7 @@ class MfaSetupServiceImplTest {
                 .build();
 
         when(mfaService.generateTotpSecret()).thenReturn("SECRET123");
-        when(mfaService.generateOtpAuthUri("target", "SECRET123")).thenReturn("otpauth://totp/target?secret=SECRET123");
+        when(mfaService.generateOtpAuthUri("target@example.com", "SECRET123")).thenReturn("otpauth://totp/target?secret=SECRET123");
         when(mfaService.generateEmailOtp()).thenReturn("123456");
         when(userService.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
@@ -79,8 +78,8 @@ class MfaSetupServiceImplTest {
         assertThat(saved.getMfaSecret()).isEqualTo("SECRET123");
         assertThat(saved.getMfaMethod()).isEqualTo(MfaMethod.TOTP);
         assertThat(saved.getMfaEnabled()).isTrue();
-        verify(tokenService).revokeAllUserRefreshTokens("target");
-        verify(securityAuditLogger).logMfaEnabled("target", "TOTP", IP);
+        verify(tokenService).revokeAllUserRefreshTokens("target@example.com");
+        verify(securityAuditLogger).logMfaEnabled("target@example.com", "TOTP", IP);
         assertThat(response.getQrUri()).isEqualTo("otpauth://totp/target?secret=SECRET123");
         assertThat(response.getSecret()).isEqualTo("SECRET123");
         assertThat(response.getMethod()).isEqualTo("TOTP");
@@ -92,14 +91,14 @@ class MfaSetupServiceImplTest {
         MfaSetupResponse response = mfaSetupService.enableMfa(targetUser, MfaMethod.EMAIL, IP);
 
         verify(mfaService).generateEmailOtp();
-        verify(mfaService).storeEmailOtp("target", "123456");
+        verify(mfaService).storeEmailOtp("target@example.com", "123456");
         verify(emailService).sendMfaCodeEmail("target@example.com", "123456");
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userService).save(captor.capture());
         assertThat(captor.getValue().getMfaMethod()).isEqualTo(MfaMethod.EMAIL);
         assertThat(captor.getValue().getMfaEnabled()).isTrue();
-        verify(tokenService).revokeAllUserRefreshTokens("target");
-        verify(securityAuditLogger).logMfaEnabled("target", "EMAIL", IP);
+        verify(tokenService).revokeAllUserRefreshTokens("target@example.com");
+        verify(securityAuditLogger).logMfaEnabled("target@example.com", "EMAIL", IP);
         assertThat(response.getMethod()).isEqualTo("EMAIL");
         assertThat(response.getSecret()).isNull();
         assertThat(response.getQrUri()).isNull();
@@ -161,8 +160,8 @@ class MfaSetupServiceImplTest {
         assertThat(saved.getMfaEnabled()).isFalse();
         assertThat(saved.getMfaMethod()).isEqualTo(MfaMethod.NONE);
         assertThat(saved.getMfaSecret()).isNull();
-        verify(tokenService).revokeAllUserRefreshTokens("target");
-        verify(securityAuditLogger).logMfaDisabled("target", IP);
+        verify(tokenService).revokeAllUserRefreshTokens("target@example.com");
+        verify(securityAuditLogger).logMfaDisabled("target@example.com", IP);
     }
 
     @Test
@@ -191,9 +190,9 @@ class MfaSetupServiceImplTest {
         assertThat(saved.getMfaSecret()).isEqualTo("SECRET123");
         assertThat(saved.getMfaMethod()).isEqualTo(MfaMethod.TOTP);
         assertThat(saved.getMfaEnabled()).isTrue();
-        verify(tokenService).revokeAllUserRefreshTokens("target");
-        verify(securityAuditLogger).logMfaDisabled("target", IP);
-        verify(securityAuditLogger).logMfaEnabled("target", "TOTP", IP);
+        verify(tokenService).revokeAllUserRefreshTokens("target@example.com");
+        verify(securityAuditLogger).logMfaDisabled("target@example.com", IP);
+        verify(securityAuditLogger).logMfaEnabled("target@example.com", "TOTP", IP);
         assertThat(response.getQrUri()).isEqualTo("otpauth://totp/target?secret=SECRET123");
         assertThat(response.getSecret()).isEqualTo("SECRET123");
         assertThat(response.getMethod()).isEqualTo("TOTP");
@@ -208,15 +207,15 @@ class MfaSetupServiceImplTest {
         MfaSetupResponse response = mfaSetupService.resetMfa(targetUser, MfaMethod.EMAIL, IP);
 
         verify(mfaService).generateEmailOtp();
-        verify(mfaService).storeEmailOtp("target", "123456");
+        verify(mfaService).storeEmailOtp("target@example.com", "123456");
         verify(emailService).sendMfaCodeEmail("target@example.com", "123456");
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userService).save(captor.capture());
         assertThat(captor.getValue().getMfaMethod()).isEqualTo(MfaMethod.EMAIL);
         assertThat(captor.getValue().getMfaEnabled()).isTrue();
-        verify(tokenService).revokeAllUserRefreshTokens("target");
-        verify(securityAuditLogger).logMfaDisabled("target", IP);
-        verify(securityAuditLogger).logMfaEnabled("target", "EMAIL", IP);
+        verify(tokenService).revokeAllUserRefreshTokens("target@example.com");
+        verify(securityAuditLogger).logMfaDisabled("target@example.com", IP);
+        verify(securityAuditLogger).logMfaEnabled("target@example.com", "EMAIL", IP);
         assertThat(response.getMethod()).isEqualTo("EMAIL");
         assertThat(response.getSecret()).isNull();
     }

@@ -9,15 +9,15 @@ import org.springframework.data.domain.Pageable;
 
 public interface TenantManagementService {
 
-    PageResponse<TenantResponse> getTenants(Pageable pageable, String name, String currentUsername);
+    PageResponse<TenantResponse> getTenants(Pageable pageable, String name, String currentEmail);
 
-    TenantResponse getTenantById(Long id, String currentUsername);
+    TenantResponse getTenantById(Long id, String currentEmail);
 
     Tenant findById(Long id);
 
-    TenantResponse createTenant(TenantCreateRequest request, String currentUsername);
+    TenantResponse createTenant(TenantCreateRequest request, String currentEmail);
 
-    TenantResponse updateTenant(Long id, TenantUpdateRequest request, String currentUsername);
+    TenantResponse updateTenant(Long id, TenantUpdateRequest request, String currentEmail);
 
-    void deleteTenant(Long id, String currentUsername);
+    void deleteTenant(Long id, String currentEmail);
 }

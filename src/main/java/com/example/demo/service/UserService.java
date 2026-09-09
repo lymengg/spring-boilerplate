@@ -10,13 +10,9 @@ import java.util.Optional;
 
 public interface UserService {
 
-    boolean existsByUsername(String username);
-
     boolean existsByEmail(String email);
 
-    User getByUsernameOrEmail(String usernameOrEmail);
-
-    User getByUsername(String username);
+    User getByEmail(String email);
 
     User getById(Long id);
 
@@ -28,9 +24,9 @@ public interface UserService {
 
     Optional<User> findByEmail(String email);
 
-    UserProfileResponse getCurrentUser(String username);
+    UserProfileResponse getCurrentUser(String email);
 
-    void changePassword(String username, ChangePasswordRequest request, String ipAddress);
+    void changePassword(String email, ChangePasswordRequest request, String ipAddress);
 
     User save(User user);
 

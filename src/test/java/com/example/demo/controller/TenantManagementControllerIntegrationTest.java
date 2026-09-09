@@ -79,13 +79,13 @@ class TenantManagementControllerIntegrationTest {
         com.example.demo.entity.Role tenantAdminRole = roleRepository.findByName("TENANT_ADMIN").orElseThrow();
         com.example.demo.entity.Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
 
-        User platformAdmin = createUser("platformadmin", "pa@example.com", platformAdminRole, null);
-        User tenantAdminUser = createUser("tenantadmin", "ta@example.com", tenantAdminRole, tenant);
-        User employee = createUser("employee", "emp@example.com", employeeRole, tenant);
+        User platformAdmin = createUser("pa@example.com", platformAdminRole, null);
+        User tenantAdminUser = createUser("ta@example.com", tenantAdminRole, tenant);
+        User employee = createUser("emp@example.com", employeeRole, tenant);
 
-        platformAdminToken = generateToken(platformAdmin.getUsername());
-        tenantAdminToken = generateToken(tenantAdminUser.getUsername());
-        employeeToken = generateToken(employee.getUsername());
+        platformAdminToken = generateToken(platformAdmin.getEmail());
+        tenantAdminToken = generateToken(tenantAdminUser.getEmail());
+        employeeToken = generateToken(employee.getEmail());
     }
 
     @Test
@@ -239,9 +239,8 @@ class TenantManagementControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.content.length()").value(2));
     }
 
-    private User createUser(String username, String email, com.example.demo.entity.Role role, Tenant tenant) {
+    private User createUser(String email, com.example.demo.entity.Role role, Tenant tenant) {
         User user = User.builder()
-                .username(username)
                 .email(email)
                 .password(passwordEncoder.encode("Password123!"))
                 .firstName("Test")

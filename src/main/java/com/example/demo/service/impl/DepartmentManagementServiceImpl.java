@@ -37,8 +37,8 @@ public class DepartmentManagementServiceImpl implements DepartmentManagementServ
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('DEPARTMENT_READ')")
-    public PageResponse<DepartmentResponse> getDepartments(Pageable pageable, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public PageResponse<DepartmentResponse> getDepartments(Pageable pageable, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (authorizationService.isSuperAdmin(currentUser)) {
             return PageResponse.of(departmentRepository.findAll(pageable).map(departmentMapper::toResponse));
         }
@@ -52,8 +52,8 @@ public class DepartmentManagementServiceImpl implements DepartmentManagementServ
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('DEPARTMENT_READ')")
-    public DepartmentResponse getDepartmentById(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public DepartmentResponse getDepartmentById(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Department department = findAccessibleDepartment(id, currentUser);
         return departmentMapper.toResponse(department);
     }
@@ -61,8 +61,8 @@ public class DepartmentManagementServiceImpl implements DepartmentManagementServ
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('DEPARTMENT_CREATE')")
-    public DepartmentResponse createDepartment(DepartmentCreateRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public DepartmentResponse createDepartment(DepartmentCreateRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Tenant tenant = tenantManagementService.findById(request.getTenantId());
         if (!authorizationService.canManageTenant(currentUser, tenant)) {
             throw new AccessDeniedException("Cannot create department in this tenant");
@@ -82,8 +82,8 @@ public class DepartmentManagementServiceImpl implements DepartmentManagementServ
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('DEPARTMENT_UPDATE')")
-    public DepartmentResponse updateDepartment(Long id, DepartmentUpdateRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public DepartmentResponse updateDepartment(Long id, DepartmentUpdateRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Department department = findManageableDepartment(id, currentUser);
         departmentRepository.findByNameAndTenantId(request.getName(), department.getTenant().getId())
                 .filter(existing -> !existing.getId().equals(id))
@@ -98,8 +98,8 @@ public class DepartmentManagementServiceImpl implements DepartmentManagementServ
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('DEPARTMENT_DELETE')")
-    public void deleteDepartment(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public void deleteDepartment(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Department department = findManageableDepartment(id, currentUser);
         departmentRepository.delete(department);
     }

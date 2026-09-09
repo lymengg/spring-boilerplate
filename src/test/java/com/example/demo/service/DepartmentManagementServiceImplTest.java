@@ -78,10 +78,10 @@ class DepartmentManagementServiceImplTest {
         manager = userWithTenant("manager", tenant);
         stubResponse = DepartmentResponse.builder().id(10L).name("HR").build();
 
-        when(userService.getByUsername("admin")).thenReturn(admin);
-        when(userService.getByUsername("crossTenantUser")).thenReturn(crossTenantUser);
-        when(userService.getByUsername("noTenantUser")).thenReturn(noTenantUser);
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("admin")).thenReturn(admin);
+        when(userService.getByEmail("crossTenantUser")).thenReturn(crossTenantUser);
+        when(userService.getByEmail("noTenantUser")).thenReturn(noTenantUser);
+        when(userService.getByEmail("manager")).thenReturn(manager);
         when(departmentRepository.save(any(Department.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(departmentMapper.toResponse(any(Department.class))).thenReturn(stubResponse);
     }
@@ -485,7 +485,7 @@ class DepartmentManagementServiceImplTest {
     private User userWithTenant(String username, Tenant userTenant) {
         return User.builder()
                 .id((long) username.hashCode())
-                .username(username)
+                
                 .password("secret")
                 .enabled(true)
                 .accountNonLocked(true)

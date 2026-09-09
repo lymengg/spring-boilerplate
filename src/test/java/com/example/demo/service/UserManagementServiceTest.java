@@ -111,7 +111,6 @@ class UserManagementServiceTest {
     @DisplayName("Creating a user with default role saves and audits")
     void createUserWithDefaultRole() {
         UserCreateRequest request = UserCreateRequest.builder()
-                .username(" jane.doe ")
                 .email(" JANE@EXAMPLE.COM ")
                 .password("Password123!")
                 .firstName("Jane")
@@ -119,8 +118,7 @@ class UserManagementServiceTest {
                 .departmentId(1L)
                 .build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
-        when(userService.existsByUsername("jane.doe")).thenReturn(false);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.existsByEmail("jane@example.com")).thenReturn(false);
         when(departmentManagementService.findById(1L)).thenReturn(department);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
@@ -132,54 +130,33 @@ class UserManagementServiceTest {
         });
         when(userManagementMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
 
-        userManagementService.createUser(request, "manager");
+        userManagementService.createUser(request, "manager@example.com");
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userService).save(captor.capture());
         User saved = captor.getValue();
-        assertThat(saved.getUsername()).isEqualTo("jane.doe");
         assertThat(saved.getEmail()).isEqualTo("jane@example.com");
         assertThat(saved.getPassword()).isEqualTo("encoded");
         assertThat(saved.getTenant()).isEqualTo(tenant);
         assertThat(saved.getDepartment()).isEqualTo(department);
         assertThat(saved.getRoles()).containsExactly(employeeRole);
         verify(auditLogService).record(AuditActions.USER_CREATED, AuditActions.RESOURCE_USER,
-                "10", "User created with role EMPLOYEE", "manager");
-    }
-
-    @Test
-    @DisplayName("Creating a user with a duplicate username fails")
-    void createUserDuplicateUsernameFails() {
-        UserCreateRequest request = UserCreateRequest.builder()
-                .username("jane.doe")
-                .email("jane@example.com")
-                .password("Password123!")
-                .departmentId(1L)
-                .build();
-
-        when(userService.getByUsername("manager")).thenReturn(manager);
-        when(userService.existsByUsername("jane.doe")).thenReturn(true);
-
-        assertThatThrownBy(() -> userManagementService.createUser(request, "manager"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Username already exists");
+                "10", "User created with role EMPLOYEE", "manager@example.com");
     }
 
     @Test
     @DisplayName("Creating a user with a duplicate email fails")
     void createUserDuplicateEmailFails() {
         UserCreateRequest request = UserCreateRequest.builder()
-                .username("jane.doe")
                 .email("jane@example.com")
                 .password("Password123!")
                 .departmentId(1L)
                 .build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
-        when(userService.existsByUsername("jane.doe")).thenReturn(false);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.existsByEmail("jane@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.createUser(request, "manager"))
+        assertThatThrownBy(() -> userManagementService.createUser(request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Email already exists");
     }
@@ -188,19 +165,18 @@ class UserManagementServiceTest {
     @DisplayName("Non-super-admin cannot create a user in another tenant")
     void nonSuperAdminCannotCreateInOtherTenant() {
         UserCreateRequest request = UserCreateRequest.builder()
-                .username("jane.doe")
                 .email("jane@example.com")
                 .password("Password123!")
                 .tenantId(2L)
                 .departmentId(1L)
                 .build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
-        when(userService.existsByUsername("jane.doe")).thenReturn(false);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.existsByEmail("jane@example.com")).thenReturn(false);
+        when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(authorizationService.isSuperAdmin(manager)).thenReturn(false);
 
-        assertThatThrownBy(() -> userManagementService.createUser(request, "manager"))
+        assertThatThrownBy(() -> userManagementService.createUser(request, "manager@example.com"))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot create user in a different tenant");
     }
@@ -211,15 +187,13 @@ class UserManagementServiceTest {
         Tenant otherTenant = Tenant.builder().id(2L).name("Other Corp").build();
         Department otherDept = Department.builder().id(2L).name("Other Dept").tenant(otherTenant).build();
         UserCreateRequest request = UserCreateRequest.builder()
-                .username("jane.doe")
                 .email("jane@example.com")
                 .password("Password123!")
                 .tenantId(2L)
                 .departmentId(2L)
                 .build();
 
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
-        when(userService.existsByUsername("jane.doe")).thenReturn(false);
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
         when(userService.existsByEmail("jane@example.com")).thenReturn(false);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
         when(tenantManagementService.findById(2L)).thenReturn(otherTenant);
@@ -228,11 +202,58 @@ class UserManagementServiceTest {
         when(userService.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(userManagementMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
 
-        userManagementService.createUser(request, "superadmin");
+        userManagementService.createUser(request, "superadmin@example.com");
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userService).save(captor.capture());
         assertThat(captor.getValue().getTenant()).isEqualTo(otherTenant);
+    }
+
+    @Test
+    @DisplayName("Super admin can create a platform admin without tenant or department")
+    void superAdminCanCreatePlatformAdminWithoutTenantOrDepartment() {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .email("newadmin@example.com")
+                .password("Password123!")
+                .roleName(Roles.PLATFORM_ADMIN)
+                .build();
+
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
+        when(userService.existsByEmail("newadmin@example.com")).thenReturn(false);
+        when(roleManagementService.findByName(Roles.PLATFORM_ADMIN)).thenReturn(platformAdminRole);
+        when(passwordEncoder.encode("Password123!")).thenReturn("encoded");
+        when(userService.save(any(User.class))).thenAnswer(invocation -> {
+            User saved = invocation.getArgument(0);
+            saved.setId(11L);
+            return saved;
+        });
+        when(userManagementMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+
+        userManagementService.createUser(request, "superadmin@example.com");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userService).save(captor.capture());
+        User saved = captor.getValue();
+        assertThat(saved.getTenant()).isNull();
+        assertThat(saved.getDepartment()).isNull();
+        assertThat(saved.getRoles()).containsExactly(platformAdminRole);
+    }
+
+    @Test
+    @DisplayName("Creating a non-platform-admin without department fails")
+    void createNonPlatformAdminWithoutDepartmentFails() {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .email("jane@example.com")
+                .password("Password123!")
+                .build();
+
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
+        when(userService.existsByEmail("jane@example.com")).thenReturn(false);
+        when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
+
+        assertThatThrownBy(() -> userManagementService.createUser(request, "manager@example.com"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Department is required");
     }
 
     @Test
@@ -241,18 +262,17 @@ class UserManagementServiceTest {
         Tenant otherTenant = Tenant.builder().id(2L).name("Other Corp").build();
         Department otherDept = Department.builder().id(2L).name("Other Dept").tenant(otherTenant).build();
         UserCreateRequest request = UserCreateRequest.builder()
-                .username("jane.doe")
                 .email("jane@example.com")
                 .password("Password123!")
                 .departmentId(2L)
                 .build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
-        when(userService.existsByUsername("jane.doe")).thenReturn(false);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.existsByEmail("jane@example.com")).thenReturn(false);
+        when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(departmentManagementService.findById(2L)).thenReturn(otherDept);
 
-        assertThatThrownBy(() -> userManagementService.createUser(request, "manager"))
+        assertThatThrownBy(() -> userManagementService.createUser(request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Department must belong to the same tenant");
     }
@@ -261,20 +281,17 @@ class UserManagementServiceTest {
     @DisplayName("Non-admin cannot create a user with an admin role")
     void nonAdminCannotCreateWithAdminRole() {
         UserCreateRequest request = UserCreateRequest.builder()
-                .username("jane.doe")
                 .email("jane@example.com")
                 .password("Password123!")
                 .roleName(Roles.PLATFORM_ADMIN)
                 .departmentId(1L)
                 .build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
-        when(userService.existsByUsername("jane.doe")).thenReturn(false);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.existsByEmail("jane@example.com")).thenReturn(false);
-        when(departmentManagementService.findById(1L)).thenReturn(department);
         when(roleManagementService.findByName(Roles.PLATFORM_ADMIN)).thenReturn(platformAdminRole);
 
-        assertThatThrownBy(() -> userManagementService.createUser(request, "manager"))
+        assertThatThrownBy(() -> userManagementService.createUser(request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Only admin can assign this role");
     }
@@ -283,35 +300,33 @@ class UserManagementServiceTest {
     @DisplayName("Data integrity violation on save maps to a friendly message")
     void createUserDataIntegrityViolationMapsToFriendlyMessage() {
         UserCreateRequest request = UserCreateRequest.builder()
-                .username("jane.doe")
                 .email("jane@example.com")
                 .password("Password123!")
                 .departmentId(1L)
                 .build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
-        when(userService.existsByUsername("jane.doe")).thenReturn(false);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.existsByEmail("jane@example.com")).thenReturn(false);
         when(departmentManagementService.findById(1L)).thenReturn(department);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(userService.save(any(User.class))).thenThrow(new DataIntegrityViolationException("constraint"));
 
-        assertThatThrownBy(() -> userManagementService.createUser(request, "manager"))
+        assertThatThrownBy(() -> userManagementService.createUser(request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Username or email already exists");
+                .hasMessageContaining("Email already exists");
     }
 
     @Test
     @DisplayName("Super admin can list all users")
     void superAdminCanListAllUsers() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
         PageRequest pageable = PageRequest.of(0, 10);
         when(userService.findAll(pageable))
                 .thenReturn(new PageImpl<>(List.of(employee), pageable, 1));
         when(userManagementMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
 
-        PageResponse<UserResponse> result = userManagementService.getUsers(pageable, "superadmin");
+        PageResponse<UserResponse> result = userManagementService.getUsers(pageable, "superadmin@example.com");
 
         assertThat(result.getContent()).hasSize(1);
         verify(userService).findAll(pageable);
@@ -320,14 +335,14 @@ class UserManagementServiceTest {
     @Test
     @DisplayName("Tenant user can list only users in their tenant")
     void tenantUserListsOnlyOwnTenant() {
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(authorizationService.isSuperAdmin(manager)).thenReturn(false);
         PageRequest pageable = PageRequest.of(0, 10);
         when(userService.findAllByTenantId(1L, pageable))
                 .thenReturn(new PageImpl<>(List.of(employee), pageable, 1));
         when(userManagementMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
 
-        PageResponse<UserResponse> result = userManagementService.getUsers(pageable, "manager");
+        PageResponse<UserResponse> result = userManagementService.getUsers(pageable, "manager@example.com");
 
         assertThat(result.getContent()).hasSize(1);
         verify(userService).findAllByTenantId(1L, pageable);
@@ -337,11 +352,11 @@ class UserManagementServiceTest {
     @DisplayName("Tenant-less user gets an empty page")
     void tenantLessUserGetsEmptyPage() {
         User noTenant = userWithRole("notenant", null, employeeRole);
-        when(userService.getByUsername("notenant")).thenReturn(noTenant);
+        when(userService.getByEmail("notenant@example.com")).thenReturn(noTenant);
         when(authorizationService.isSuperAdmin(noTenant)).thenReturn(false);
         PageRequest pageable = PageRequest.of(0, 10);
 
-        PageResponse<UserResponse> result = userManagementService.getUsers(pageable, "notenant");
+        PageResponse<UserResponse> result = userManagementService.getUsers(pageable, "notenant@example.com");
 
         assertThat(result.isEmpty()).isTrue();
     }
@@ -349,12 +364,12 @@ class UserManagementServiceTest {
     @Test
     @DisplayName("Super admin can get any user by id")
     void superAdminCanGetUserById() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
         when(userService.getById(5L)).thenReturn(employee);
         when(userManagementMapper.toResponse(employee)).thenReturn(UserResponse.builder().build());
 
-        userManagementService.getUserById(5L, "superadmin");
+        userManagementService.getUserById(5L, "superadmin@example.com");
 
         verify(userService).getById(5L);
     }
@@ -362,12 +377,12 @@ class UserManagementServiceTest {
     @Test
     @DisplayName("Tenant user can get a user in their tenant")
     void tenantUserCanGetUserInOwnTenant() {
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(authorizationService.isSuperAdmin(manager)).thenReturn(false);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(userManagementMapper.toResponse(employee)).thenReturn(UserResponse.builder().build());
 
-        userManagementService.getUserById(5L, "manager");
+        userManagementService.getUserById(5L, "manager@example.com");
 
         verify(userService).getByIdAndTenantId(5L, 1L);
     }
@@ -376,10 +391,10 @@ class UserManagementServiceTest {
     @DisplayName("Tenant-less user cannot access other users")
     void tenantLessUserCannotAccessUsers() {
         User noTenant = userWithRole("notenant", null, employeeRole);
-        when(userService.getByUsername("notenant")).thenReturn(noTenant);
+        when(userService.getByEmail("notenant@example.com")).thenReturn(noTenant);
         when(authorizationService.isSuperAdmin(noTenant)).thenReturn(false);
 
-        assertThatThrownBy(() -> userManagementService.getUserById(5L, "notenant"))
+        assertThatThrownBy(() -> userManagementService.getUserById(5L, "notenant@example.com"))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot access this user");
     }
@@ -392,19 +407,19 @@ class UserManagementServiceTest {
                 .departmentId(1L)
                 .build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(departmentManagementService.findById(1L)).thenReturn(department);
         when(userService.save(employee)).thenReturn(employee);
         when(userManagementMapper.toResponse(employee)).thenReturn(UserResponse.builder().build());
 
-        userManagementService.updateUser(5L, request, "manager");
+        userManagementService.updateUser(5L, request, "manager@example.com");
 
         assertThat(employee.getFirstName()).isEqualTo("Jane");
         verify(userService).save(employee);
         verify(auditLogService).record(AuditActions.USER_UPDATED, AuditActions.RESOURCE_USER,
-                "5", "User updated", "manager");
+                "5", "User updated", "manager@example.com");
     }
 
     @Test
@@ -412,11 +427,11 @@ class UserManagementServiceTest {
     void cannotUpdateUserWithMorePrivileges() {
         UserUpdateRequest request = UserUpdateRequest.builder().firstName("Hacked").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(tenantAdmin);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.updateUser(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.updateUser(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot update a user with more privileges");
     }
@@ -428,37 +443,52 @@ class UserManagementServiceTest {
         Department otherDept = Department.builder().id(2L).name("Other Dept").tenant(otherTenant).build();
         UserUpdateRequest request = UserUpdateRequest.builder().departmentId(2L).build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(departmentManagementService.findById(2L)).thenReturn(otherDept);
 
-        assertThatThrownBy(() -> userManagementService.updateUser(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.updateUser(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Department must belong to the same tenant");
     }
 
     @Test
+    @DisplayName("Cannot assign a department to a platform admin")
+    void cannotAssignDepartmentToPlatformAdmin() {
+        UserUpdateRequest request = UserUpdateRequest.builder().departmentId(1L).build();
+
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
+        when(userService.getById(5L)).thenReturn(superAdmin);
+        when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
+        when(authorizationService.canAccessTenant(superAdmin, (Tenant) null)).thenReturn(true);
+
+        assertThatThrownBy(() -> userManagementService.updateUser(5L, request, "superadmin@example.com"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Platform admin users cannot have a department");
+    }
+
+    @Test
     @DisplayName("Deleting a user audits the action")
     void deleteUserAuditsAction() {
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        userManagementService.deleteUser(5L, "manager");
+        userManagementService.deleteUser(5L, "manager@example.com");
 
         verify(userService).delete(employee);
         verify(auditLogService).record(AuditActions.USER_DELETED, AuditActions.RESOURCE_USER,
-                "5", "User deleted", "manager");
+                "5", "User deleted", "manager@example.com");
     }
 
     @Test
     @DisplayName("Cannot delete your own account")
     void cannotDeleteOwnAccount() {
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(manager);
 
-        assertThatThrownBy(() -> userManagementService.deleteUser(5L, "manager"))
+        assertThatThrownBy(() -> userManagementService.deleteUser(5L, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot delete your own account");
     }
@@ -466,13 +496,13 @@ class UserManagementServiceTest {
     @Test
     @DisplayName("Cannot delete the last admin")
     void cannotDeleteLastAdmin() {
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
         when(userService.getById(5L)).thenReturn(tenantAdmin);
         when(userService.countByRoleNameAndTenantId(Roles.PLATFORM_ADMIN, 1L)).thenReturn(0L);
         when(userService.countByRoleNameAndTenantId(Roles.TENANT_ADMIN, 1L)).thenReturn(1L);
 
-        assertThatThrownBy(() -> userManagementService.deleteUser(5L, "superadmin"))
+        assertThatThrownBy(() -> userManagementService.deleteUser(5L, "superadmin@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot delete the last admin");
     }
@@ -480,13 +510,13 @@ class UserManagementServiceTest {
     @Test
     @DisplayName("Cannot delete a user with more privileges")
     void cannotDeleteUserWithMorePrivileges() {
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(tenantAdmin);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(userService.countByRoleNameAndTenantId(Roles.PLATFORM_ADMIN, 1L)).thenReturn(5L);
         when(userService.countByRoleNameAndTenantId(Roles.TENANT_ADMIN, 1L)).thenReturn(5L);
 
-        assertThatThrownBy(() -> userManagementService.deleteUser(5L, "manager"))
+        assertThatThrownBy(() -> userManagementService.deleteUser(5L, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot delete a user with more privileges");
     }
@@ -496,17 +526,17 @@ class UserManagementServiceTest {
     void enableUserSavesAndAudits() {
         UserEnableRequest request = UserEnableRequest.builder().enabled(true).build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(userService.save(employee)).thenReturn(employee);
         when(userManagementMapper.toResponse(employee)).thenReturn(UserResponse.builder().build());
 
-        userManagementService.toggleUserEnabled(5L, request, "manager");
+        userManagementService.toggleUserEnabled(5L, request, "manager@example.com");
 
         assertThat(employee.getEnabled()).isTrue();
         verify(auditLogService).record(AuditActions.USER_ENABLED, AuditActions.RESOURCE_USER,
-                "5", "User enabled state changed to true", "manager");
+                "5", "User enabled state changed to true", "manager@example.com");
     }
 
     @Test
@@ -514,10 +544,10 @@ class UserManagementServiceTest {
     void cannotChangeOwnEnabledState() {
         UserEnableRequest request = UserEnableRequest.builder().enabled(false).build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(manager);
 
-        assertThatThrownBy(() -> userManagementService.toggleUserEnabled(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.toggleUserEnabled(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot change your own enabled state");
     }
@@ -527,13 +557,13 @@ class UserManagementServiceTest {
     void cannotDisableLastAdmin() {
         UserEnableRequest request = UserEnableRequest.builder().enabled(false).build();
 
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
         when(userService.getById(5L)).thenReturn(tenantAdmin);
         when(userService.countByRoleNameAndTenantId(Roles.PLATFORM_ADMIN, 1L)).thenReturn(0L);
         when(userService.countByRoleNameAndTenantId(Roles.TENANT_ADMIN, 1L)).thenReturn(1L);
 
-        assertThatThrownBy(() -> userManagementService.toggleUserEnabled(5L, request, "superadmin"))
+        assertThatThrownBy(() -> userManagementService.toggleUserEnabled(5L, request, "superadmin@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot disable the last admin");
     }
@@ -543,13 +573,13 @@ class UserManagementServiceTest {
     void cannotChangeEnabledStateOfMorePrivilegedUser() {
         UserEnableRequest request = UserEnableRequest.builder().enabled(false).build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(tenantAdmin);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(userService.countByRoleNameAndTenantId(Roles.PLATFORM_ADMIN, 1L)).thenReturn(5L);
         when(userService.countByRoleNameAndTenantId(Roles.TENANT_ADMIN, 1L)).thenReturn(5L);
 
-        assertThatThrownBy(() -> userManagementService.toggleUserEnabled(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.toggleUserEnabled(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot change enabled state of a user with more privileges");
     }
@@ -561,18 +591,18 @@ class UserManagementServiceTest {
         User noRoleUser = userWithRole("norole", tenant, employeeRole);
         noRoleUser.getRoles().clear();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(noRoleUser);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(userService.save(noRoleUser)).thenReturn(noRoleUser);
         when(userManagementMapper.toResponse(noRoleUser)).thenReturn(UserResponse.builder().build());
 
-        userManagementService.assignRole(5L, request, "manager");
+        userManagementService.assignRole(5L, request, "manager@example.com");
 
         assertThat(noRoleUser.getRoles()).contains(employeeRole);
         verify(auditLogService).record(AuditActions.USER_ROLE_ASSIGNED, AuditActions.RESOURCE_USER,
-                "5", "Assigned role EMPLOYEE", "manager");
+                "5", "Assigned role EMPLOYEE", "manager@example.com");
     }
 
     @Test
@@ -580,12 +610,12 @@ class UserManagementServiceTest {
     void cannotAssignRoleToMorePrivilegedUser() {
         UserRoleAssignmentRequest request = UserRoleAssignmentRequest.builder().roleName("EMPLOYEE").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(tenantAdmin);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.assignRole(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.assignRole(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot modify roles of a user with more privileges");
     }
@@ -595,12 +625,12 @@ class UserManagementServiceTest {
     void nonAdminCannotAssignBuiltInRole() {
         UserRoleAssignmentRequest request = UserRoleAssignmentRequest.builder().roleName("USER_MANAGER").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(roleManagementService.findByName(Roles.USER_MANAGER)).thenReturn(userManagerRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.assignRole(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.assignRole(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Only admin can assign this role");
     }
@@ -610,12 +640,12 @@ class UserManagementServiceTest {
     void assignExistingRoleFails() {
         UserRoleAssignmentRequest request = UserRoleAssignmentRequest.builder().roleName("EMPLOYEE").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.assignRole(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.assignRole(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("User already has this role");
     }
@@ -625,18 +655,18 @@ class UserManagementServiceTest {
     void removeRoleSavesAndAudits() {
         UserRoleAssignmentRequest request = UserRoleAssignmentRequest.builder().roleName("EMPLOYEE").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(userService.save(employee)).thenReturn(employee);
         when(userManagementMapper.toResponse(employee)).thenReturn(UserResponse.builder().build());
 
-        userManagementService.removeRole(5L, request, "manager");
+        userManagementService.removeRole(5L, request, "manager@example.com");
 
         assertThat(employee.getRoles()).doesNotContain(employeeRole);
         verify(auditLogService).record(AuditActions.USER_ROLE_REMOVED, AuditActions.RESOURCE_USER,
-                "5", "Removed role EMPLOYEE", "manager");
+                "5", "Removed role EMPLOYEE", "manager@example.com");
     }
 
     @Test
@@ -644,12 +674,12 @@ class UserManagementServiceTest {
     void cannotRemoveRoleFromMorePrivilegedUser() {
         UserRoleAssignmentRequest request = UserRoleAssignmentRequest.builder().roleName("EMPLOYEE").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(tenantAdmin);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot modify roles of a user with more privileges");
     }
@@ -659,7 +689,7 @@ class UserManagementServiceTest {
     void cannotRemoveLastAdminRole() {
         UserRoleAssignmentRequest request = UserRoleAssignmentRequest.builder().roleName("TENANT_ADMIN").build();
 
-        when(userService.getByUsername("superadmin")).thenReturn(superAdmin);
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
         when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
         when(userService.getById(5L)).thenReturn(tenantAdmin);
         when(roleManagementService.findByName(Roles.TENANT_ADMIN)).thenReturn(tenantAdminRole);
@@ -667,7 +697,7 @@ class UserManagementServiceTest {
         when(userService.countByRoleNameAndTenantId(Roles.PLATFORM_ADMIN, 1L)).thenReturn(0L);
         when(userService.countByRoleNameAndTenantId(Roles.TENANT_ADMIN, 1L)).thenReturn(1L);
 
-        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "superadmin"))
+        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "superadmin@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot remove the last admin");
     }
@@ -679,12 +709,12 @@ class UserManagementServiceTest {
         User noRoleUser = userWithRole("norole", tenant, employeeRole);
         noRoleUser.getRoles().clear();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(noRoleUser);
         when(roleManagementService.findByName(Roles.EMPLOYEE)).thenReturn(employeeRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("User does not have this role");
     }
@@ -694,12 +724,12 @@ class UserManagementServiceTest {
     void onlyAdminCanRemoveBuiltInRole() {
         UserRoleAssignmentRequest request = UserRoleAssignmentRequest.builder().roleName("USER_MANAGER").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(roleManagementService.findByName(Roles.USER_MANAGER)).thenReturn(userManagerRole);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.removeRole(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Only admin can remove this role");
     }
@@ -711,16 +741,16 @@ class UserManagementServiceTest {
         MfaSetupResponse response = MfaSetupResponse.builder()
                 .method("TOTP").secret("SECRET").qrUri("otpauth://...").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(mfaSetupService.enableMfa(employee, MfaMethod.TOTP, "unknown")).thenReturn(response);
 
-        MfaSetupResponse result = userManagementService.enableMfa(5L, request, "manager");
+        MfaSetupResponse result = userManagementService.enableMfa(5L, request, "manager@example.com");
 
         assertThat(result).isEqualTo(response);
         verify(auditLogService).record(AuditActions.USER_MFA_ENABLED, AuditActions.RESOURCE_USER,
-                "5", "MFA enabled with method TOTP", "manager");
+                "5", "MFA enabled with method TOTP", "manager@example.com");
     }
 
     @Test
@@ -728,11 +758,11 @@ class UserManagementServiceTest {
     void cannotManageMfaForMorePrivilegedUser() {
         UserMfaToggleRequest request = UserMfaToggleRequest.builder().method(MfaMethod.TOTP).build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(tenantAdmin);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.enableMfa(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.enableMfa(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot manage MFA for a user with more privileges");
     }
@@ -740,15 +770,15 @@ class UserManagementServiceTest {
     @Test
     @DisplayName("Disabling MFA delegates and audits")
     void disableMfaDelegatesAndAudits() {
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        userManagementService.disableMfa(5L, "manager");
+        userManagementService.disableMfa(5L, "manager@example.com");
 
         verify(mfaSetupService).disableMfa(employee, "unknown");
         verify(auditLogService).record(AuditActions.USER_MFA_DISABLED, AuditActions.RESOURCE_USER,
-                "5", "MFA disabled", "manager");
+                "5", "MFA disabled", "manager@example.com");
     }
 
     @Test
@@ -758,16 +788,16 @@ class UserManagementServiceTest {
         MfaSetupResponse response = MfaSetupResponse.builder()
                 .method("TOTP").secret("NEWSECRET").qrUri("otpauth://...").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(employee);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
         when(mfaSetupService.resetMfa(employee, MfaMethod.TOTP, "unknown")).thenReturn(response);
 
-        MfaSetupResponse result = userManagementService.resetMfa(5L, request, "manager");
+        MfaSetupResponse result = userManagementService.resetMfa(5L, request, "manager@example.com");
 
         assertThat(result).isEqualTo(response);
         verify(auditLogService).record(AuditActions.USER_MFA_RESET, AuditActions.RESOURCE_USER,
-                "5", "MFA reset with method TOTP", "manager");
+                "5", "MFA reset with method TOTP", "manager@example.com");
     }
 
     @Test
@@ -776,11 +806,11 @@ class UserManagementServiceTest {
         User otherManager = userWithRole("othermanager", tenant, userManagerRole);
         UserUpdateRequest request = UserUpdateRequest.builder().firstName("Hacked").build();
 
-        when(userService.getByUsername("manager")).thenReturn(manager);
+        when(userService.getByEmail("manager@example.com")).thenReturn(manager);
         when(userService.getByIdAndTenantId(5L, 1L)).thenReturn(otherManager);
         when(authorizationService.canAccessTenant(manager, tenant)).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementService.updateUser(5L, request, "manager"))
+        assertThatThrownBy(() -> userManagementService.updateUser(5L, request, "manager@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot update a user with more privileges");
     }
@@ -792,7 +822,6 @@ class UserManagementServiceTest {
     private User userWithRole(String username, Tenant tenant, Role role) {
         User user = User.builder()
                 .id(5L)
-                .username(username)
                 .email(username + "@example.com")
                 .password("secret")
                 .enabled(true)

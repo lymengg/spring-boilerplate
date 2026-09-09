@@ -47,7 +47,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should delegate login to LoginService")
     void shouldDelegateLogin() {
-        LoginRequest request = LoginRequest.builder().usernameOrEmail("testuser").password("password").build();
+        LoginRequest request = LoginRequest.builder().email("testuser").password("password").build();
         TokenResponse tokenResponse = TokenResponse.builder().accessToken("access").build();
         LoginResult loginResult = new LoginResult.TokenSuccess(tokenResponse);
 
@@ -97,7 +97,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should delegate get current user to UserService")
     void shouldDelegateGetCurrentUser() {
-        UserProfileResponse userProfileResponse = UserProfileResponse.builder().username("testuser").build();
+        UserProfileResponse userProfileResponse = UserProfileResponse.builder().build();
 
         when(userService.getCurrentUser("testuser")).thenReturn(userProfileResponse);
 
@@ -109,7 +109,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should delegate profile lookup by username to UserService")
     void shouldDelegateGetUserProfile() {
-        UserProfileResponse userProfileResponse = UserProfileResponse.builder().username("testuser").build();
+        UserProfileResponse userProfileResponse = UserProfileResponse.builder().build();
 
         when(userService.getCurrentUser("testuser")).thenReturn(userProfileResponse);
 

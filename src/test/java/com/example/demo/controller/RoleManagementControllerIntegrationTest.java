@@ -67,11 +67,11 @@ class RoleManagementControllerIntegrationTest {
         Role adminRole = roleRepository.findByName("PLATFORM_ADMIN").orElseThrow();
         Role managerRole = roleRepository.findByName("USER_MANAGER").orElseThrow();
 
-        User admin = createUser("adminuser", "admin@example.com", adminRole);
-        User manager = createUser("manager", "manager@example.com", managerRole);
+        User admin = createUser("admin@example.com", adminRole);
+        User manager = createUser("manager@example.com", managerRole);
 
-        adminToken = generateToken(admin.getUsername());
-        managerToken = generateToken(manager.getUsername());
+        adminToken = generateToken(admin.getEmail());
+        managerToken = generateToken(manager.getEmail());
 
         Role custom = Role.builder()
                 .name("CUSTOM")
@@ -82,9 +82,8 @@ class RoleManagementControllerIntegrationTest {
         customRoleId = custom.getId();
     }
 
-    private User createUser(String username, String email, Role role) {
+    private User createUser(String email, Role role) {
         User user = User.builder()
-                .username(username)
                 .email(email)
                 .password(passwordEncoder.encode("Password123!"))
                 .firstName("Test")
@@ -197,7 +196,7 @@ class RoleManagementControllerIntegrationTest {
     @Test
     @DisplayName("Admin cannot delete role that is assigned to users")
     void adminCannotDeleteRoleInUse() throws Exception {
-        User user = createUser("roletest", "roletest@example.com", roleRepository.findByName("EMPLOYEE").orElseThrow());
+        User user = createUser("roletest@example.com", roleRepository.findByName("EMPLOYEE").orElseThrow());
         Role custom = roleRepository.findById(customRoleId).orElseThrow();
         user.getRoles().add(custom);
         userRepository.save(user);

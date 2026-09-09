@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "users", uniqueConstraints = {
-    @UniqueConstraint(columnNames = "username"),
     @UniqueConstraint(columnNames = "email")
 })
 @Getter
@@ -29,9 +28,6 @@ public class User implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
 
     @Column(nullable = false, unique = true, length = 100)
     private String email;
@@ -114,6 +110,11 @@ public class User implements UserDetails {
                     authorities.add(new SimpleGrantedAuthority(permission.name())));
         });
         return authorities;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
     }
 
     @Override

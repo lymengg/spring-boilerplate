@@ -77,7 +77,6 @@ class SecurityIntegrationTest {
     void setUp() {
         Role employeeRole = roleRepository.findByName("EMPLOYEE").orElseThrow();
         User user = User.builder()
-                .username("testuser")
                 .email("test@example.com")
                 .password(passwordEncoder.encode("Password123!"))
                 .firstName("Test")
@@ -90,7 +89,7 @@ class SecurityIntegrationTest {
         user.getRoles().add(employeeRole);
         userRepository.save(user);
 
-        UserDetails userDetails = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername("test@example.com");
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities()
         );
@@ -141,7 +140,7 @@ class SecurityIntegrationTest {
     @DisplayName("Missing required fields in request body returns 400")
     void missingRequestFieldsReturn400() throws Exception {
         LoginRequest request = LoginRequest.builder()
-                .usernameOrEmail("")
+                .email("")
                 .password("")
                 .build();
 
@@ -154,7 +153,7 @@ class SecurityIntegrationTest {
     @Test
     @DisplayName("Self-registration endpoint is no longer publicly accessible")
     void registerEndpointIsNoLongerPublic() throws Exception {
-        String body = "{\"username\":\"attacker\",\"email\":\"attacker@example.com\",\"password\":\"SecurePass123!\"}";
+        String body = "{\"email\":\"attacker@example.com\",\"password\":\"SecurePass123!\"}";
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

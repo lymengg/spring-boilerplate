@@ -52,7 +52,6 @@ class CustomUserDetailsServiceTest {
 
         user = User.builder()
                 .id(1L)
-                .username("testuser")
                 .email("test@example.com")
                 .password("secret")
                 .enabled(true)
@@ -64,53 +63,44 @@ class CustomUserDetailsServiceTest {
                 .build();
         user.setRoles(new HashSet<>(Set.of(employeeRole)));
 
-        when(userRepository.findByUsernameOrEmail(any(), any())).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail(any())).thenReturn(Optional.of(user));
     }
 
     @Test
-    @DisplayName("loadUserByUsername by username returns the user and queries username-or-email with the username")
-    void loadUserByUsernameByUsername() {
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
-
-        assertThat(loaded).isSameAs(user);
-        verify(userRepository).findByUsernameOrEmail("testuser", "testuser");
-    }
-
-    @Test
-    @DisplayName("loadUserByUsername by email queries the repository with the same value for both args")
-    void loadUserByUsernameByEmail() {
+    @DisplayName("loadUserByEmail returns the user")
+    void loadUserByEmailSuccess() {
         UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded).isSameAs(user);
-        verify(userRepository).findByUsernameOrEmail("test@example.com", "test@example.com");
+        verify(userRepository).findByEmail("test@example.com");
     }
 
     @Test
-    @DisplayName("loadUserByUsername for an unknown user throws UsernameNotFoundException")
-    void loadUserByUsernameUnknownUser() {
-        when(userRepository.findByUsernameOrEmail(any(), any())).thenReturn(Optional.empty());
+    @DisplayName("loadUserByEmail for an unknown user throws UsernameNotFoundException")
+    void loadUserByEmailUnknownUser() {
+        when(userRepository.findByEmail(any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername("testuser"))
+        assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername("unknown@example.com"))
                 .isInstanceOf(UsernameNotFoundException.class)
-                .hasMessage("User not found: testuser");
+                .hasMessage("User not found: unknown@example.com");
     }
 
     @Test
-    @DisplayName("loadUserEntityByUsername returns the user entity")
-    void loadUserEntityByUsernameSuccess() {
-        User loaded = customUserDetailsService.loadUserEntityByUsername("testuser");
+    @DisplayName("loadUserEntityByEmail returns the user entity")
+    void loadUserEntityByEmailSuccess() {
+        User loaded = customUserDetailsService.loadUserEntityByEmail("test@example.com");
 
         assertThat(loaded).isSameAs(user);
     }
 
     @Test
-    @DisplayName("loadUserEntityByUsername for an unknown user throws UsernameNotFoundException")
-    void loadUserEntityByUsernameUnknown() {
-        when(userRepository.findByUsernameOrEmail(any(), any())).thenReturn(Optional.empty());
+    @DisplayName("loadUserEntityByEmail for an unknown user throws UsernameNotFoundException")
+    void loadUserEntityByEmailUnknown() {
+        when(userRepository.findByEmail(any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> customUserDetailsService.loadUserEntityByUsername("testuser"))
+        assertThatThrownBy(() -> customUserDetailsService.loadUserEntityByEmail("unknown@example.com"))
                 .isInstanceOf(UsernameNotFoundException.class)
-                .hasMessage("User not found: testuser");
+                .hasMessage("User not found: unknown@example.com");
     }
 
     @Test
@@ -118,7 +108,7 @@ class CustomUserDetailsServiceTest {
     void disabledUserPreservesEnabledFlag() {
         user.setEnabled(false);
 
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.isEnabled()).isFalse();
     }
@@ -128,7 +118,7 @@ class CustomUserDetailsServiceTest {
     void lockedUserPreservesAccountNonLockedFlag() {
         user.setAccountNonLocked(false);
 
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.isAccountNonLocked()).isFalse();
     }
@@ -138,7 +128,7 @@ class CustomUserDetailsServiceTest {
     void expiredAccountPreservesAccountNonExpiredFlag() {
         user.setAccountNonExpired(false);
 
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.isAccountNonExpired()).isFalse();
     }
@@ -148,7 +138,7 @@ class CustomUserDetailsServiceTest {
     void expiredCredentialsPreservesCredentialsNonExpiredFlag() {
         user.setCredentialsNonExpired(false);
 
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.isCredentialsNonExpired()).isFalse();
     }
@@ -156,7 +146,7 @@ class CustomUserDetailsServiceTest {
     @Test
     @DisplayName("A fresh user has all four account flags true")
     void freshUserHasAllFlagsTrue() {
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.isEnabled()).isTrue();
         assertThat(loaded.isAccountNonExpired()).isTrue();
@@ -167,7 +157,7 @@ class CustomUserDetailsServiceTest {
     @Test
     @DisplayName("Authorities contain the ROLE_-prefixed role and the raw permission names")
     void authoritiesIncludeRoleAndPermissions() {
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.getAuthorities())
                 .extracting(GrantedAuthority::getAuthority)
@@ -179,7 +169,7 @@ class CustomUserDetailsServiceTest {
     void userWithNoRolesHasEmptyAuthorities() {
         user.getRoles().clear();
 
-        UserDetails loaded = customUserDetailsService.loadUserByUsername("testuser");
+        UserDetails loaded = customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.getAuthorities()).isEmpty();
     }
@@ -187,7 +177,7 @@ class CustomUserDetailsServiceTest {
     @Test
     @DisplayName("Roles, permissions, tenant, and department are initialized on the returned user")
     void associationsAreInitialized() {
-        User loaded = (User) customUserDetailsService.loadUserByUsername("testuser");
+        User loaded = (User) customUserDetailsService.loadUserByUsername("test@example.com");
 
         assertThat(loaded.getRoles()).isNotEmpty();
         assertThat(loaded.getRoles()).allSatisfy(role -> assertThat(role.getPermissions()).isNotEmpty());

@@ -32,11 +32,11 @@ public class AccountLockoutServiceImpl implements AccountLockoutService {
     public User prepareForLogin(User user, String ipAddress) {
         if (user.unlockIfExpired()) {
             userService.save(user);
-            securityAuditLogger.logAccountUnlocked(user.getUsername(), ipAddress);
+            securityAuditLogger.logAccountUnlocked(user.getEmail(), ipAddress);
         }
 
         if (!user.isAccountNonLocked()) {
-            securityAuditLogger.logAccountLocked(user.getUsername(), ipAddress, user.getFailedAttempts());
+            securityAuditLogger.logAccountLocked(user.getEmail(), ipAddress, user.getFailedAttempts());
             throw new LockedException("Account is locked due to too many failed attempts. Try again later.");
         }
 
@@ -55,11 +55,11 @@ public class AccountLockoutServiceImpl implements AccountLockoutService {
         SecurityProperties.AccountLockout accountLockout = securityProperties.getAccountLockout();
         if (user.getFailedAttempts() >= accountLockout.getMaxAttempts()) {
             user.lockAccount(accountLockout.getLockoutDurationMinutes());
-            securityAuditLogger.logAccountLocked(user.getUsername(), ipAddress, user.getFailedAttempts());
+            securityAuditLogger.logAccountLocked(user.getEmail(), ipAddress, user.getFailedAttempts());
         }
 
         userService.save(user);
-        securityAuditLogger.logLoginFailure(user.getUsername(), ipAddress, "Bad credentials");
+        securityAuditLogger.logLoginFailure(user.getEmail(), ipAddress, "Bad credentials");
     }
 
     /**

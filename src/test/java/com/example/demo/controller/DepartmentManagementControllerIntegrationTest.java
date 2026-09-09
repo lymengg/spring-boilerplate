@@ -85,19 +85,18 @@ class DepartmentManagementControllerIntegrationTest {
         tenant = tenantRepository.save(Tenant.builder().name("Test Tenant").build());
         otherTenant = tenantRepository.save(Tenant.builder().name("Second Tenant").build());
 
-        User admin = createUser("adminuser", "admin@example.com", adminRole, null);
-        User tenantAdmin = createUser("tenantadmin", "tenantadmin@example.com", tenantAdminRole, tenant);
-        manager1 = createUser("manager1", "manager1@example.com", managerRole, tenant);
-        manager2 = createUser("manager2", "manager2@example.com", managerRole, tenant);
-        employee = createUser("employee", "employee@example.com", employeeRole, tenant);
+        User admin = createUser("admin@example.com", adminRole, null);
+        User tenantAdmin = createUser("tenantadmin@example.com", tenantAdminRole, tenant);
+        manager1 = createUser("manager1@example.com", managerRole, tenant);
+        manager2 = createUser("manager2@example.com", managerRole, tenant);
+        employee = createUser("employee@example.com", employeeRole, tenant);
 
-        adminToken = generateToken(admin.getUsername());
-        tenantAdminToken = generateToken(tenantAdmin.getUsername());
+        adminToken = generateToken(admin.getEmail());
+        tenantAdminToken = generateToken(tenantAdmin.getEmail());
     }
 
-    private User createUser(String username, String email, Role role, Tenant userTenant) {
+    private User createUser(String email, Role role, Tenant userTenant) {
         User user = User.builder()
-                .username(username)
                 .email(email)
                 .password(passwordEncoder.encode("Password123!"))
                 .firstName("Test")
@@ -177,7 +176,7 @@ class DepartmentManagementControllerIntegrationTest {
     @DisplayName("Rejects manager from another tenant")
     void rejectsManagerFromAnotherTenant() throws Exception {
         Tenant otherTenant = tenantRepository.save(Tenant.builder().name("Other Tenant").build());
-        User otherManager = createUser("othermanager", "other@example.com",
+        User otherManager = createUser("other@example.com",
                 roleRepository.findByName("DEPARTMENT_MANAGER").orElseThrow(), otherTenant);
 
         mockMvc.perform(post("/api/management/departments")
@@ -300,7 +299,7 @@ class DepartmentManagementControllerIntegrationTest {
     @DisplayName("Non-manager cannot delete department")
     void nonManagerCannotDeleteDepartment() throws Exception {
         Department dept = departmentRepository.save(Department.builder().name("HR").tenant(tenant).build());
-        String managerToken = generateToken(manager2.getUsername());
+        String managerToken = generateToken(manager2.getEmail());
 
         mockMvc.perform(delete("/api/management/departments/{id}", dept.getId())
                         .cookie(accessCookie(managerToken)))

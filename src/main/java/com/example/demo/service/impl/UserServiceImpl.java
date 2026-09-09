@@ -36,28 +36,15 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public boolean existsByUsername(String username) {
-        return userRepository.existsByUsername(username);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public User getByUsernameOrEmail(String usernameOrEmail) {
-        return userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
-                .orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException("Invalid credentials"));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public User getByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username));
+    public User getByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + email));
     }
 
     @Override
@@ -94,8 +81,8 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public UserProfileResponse getCurrentUser(String username) {
-        User user = getByUsername(username);
+    public UserProfileResponse getCurrentUser(String email) {
+        User user = getByEmail(email);
         UserProfileResponse response = modelMapper.map(user, UserProfileResponse.class);
         response.setRoles(user.getRoles().stream().map(Role::getName).toArray(String[]::new));
         response.setMfaEnabled(user.getMfaEnabled());
@@ -105,12 +92,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void changePassword(String username, ChangePasswordRequest request, String ipAddress) {
+    public void changePassword(String email, ChangePasswordRequest request, String ipAddress) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Passwords do not match");
         }
 
-        User user = getByUsername(username);
+        User user = getByEmail(email);
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new org.springframework.security.authentication.BadCredentialsException("Current password is incorrect");
@@ -119,8 +106,8 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        refreshTokenService.revokeAllUserRefreshTokens(user.getUsername());
-        securityAuditLogger.logPasswordChanged(user.getUsername(), ipAddress);
+        refreshTokenService.revokeAllUserRefreshTokens(user.getEmail());
+        securityAuditLogger.logPasswordChanged(user.getEmail(), ipAddress);
     }
 
     @Override

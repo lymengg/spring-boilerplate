@@ -70,25 +70,24 @@ class UserServiceImplTest {
         Role role = Role.builder().id(1L).name("EMPLOYEE").build();
         user = User.builder()
                 .id(1L)
-                .username("testuser")
                 .email("test@example.com")
                 .password("encoded")
                 .tenant(tenant)
                 .build();
         user.getRoles().add(role);
-        profileResponse = UserProfileResponse.builder().username("testuser").build();
+        profileResponse = UserProfileResponse.builder().build();
 
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(modelMapper.map(any(User.class), eq(UserProfileResponse.class))).thenReturn(profileResponse);
     }
 
     @Test
-    @DisplayName("existsByUsername delegates to the repository and returns its result")
-    void existsByUsernameDelegates() {
-        when(userRepository.existsByUsername("testuser")).thenReturn(true);
+    @DisplayName("existsByEmail delegates to the repository and returns its result")
+    void existsByEmailDelegatesToRepo() {
+        when(userRepository.existsByEmail("testuser")).thenReturn(true);
 
-        assertThat(userService.existsByUsername("testuser")).isTrue();
-        verify(userRepository).existsByUsername("testuser");
+        assertThat(userService.existsByEmail("testuser")).isTrue();
+        verify(userRepository).existsByEmail("testuser");
     }
 
     @Test
@@ -101,39 +100,21 @@ class UserServiceImplTest {
     }
 
     @Test
-    @DisplayName("getByUsernameOrEmail returns the user when found")
-    void getByUsernameOrEmailReturnsUser() {
-        when(userRepository.findByUsernameOrEmail("testuser", "testuser")).thenReturn(Optional.of(user));
+    @DisplayName("getByEmail returns the user when found")
+    void getByEmailReturnsUser() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
-        assertThat(userService.getByUsernameOrEmail("testuser")).isSameAs(user);
+        assertThat(userService.getByEmail("test@example.com")).isSameAs(user);
     }
 
     @Test
-    @DisplayName("getByUsernameOrEmail throws BadCredentialsException when not found to avoid enumeration")
-    void getByUsernameOrEmailNotFoundThrowsBadCredentials() {
-        when(userRepository.findByUsernameOrEmail("missing", "missing")).thenReturn(Optional.empty());
+    @DisplayName("getByEmail throws UsernameNotFoundException when not found")
+    void getByEmailNotFoundThrows() {
+        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.getByUsernameOrEmail("missing"))
-                .isInstanceOf(BadCredentialsException.class)
-                .hasMessage("Invalid credentials");
-    }
-
-    @Test
-    @DisplayName("getByUsername returns the user when found")
-    void getByUsernameReturnsUser() {
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
-
-        assertThat(userService.getByUsername("testuser")).isSameAs(user);
-    }
-
-    @Test
-    @DisplayName("getByUsername throws UsernameNotFoundException with the username when not found")
-    void getByUsernameNotFoundThrows() {
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> userService.getByUsername("testuser"))
+        assertThatThrownBy(() -> userService.getByEmail("missing@example.com"))
                 .isInstanceOf(UsernameNotFoundException.class)
-                .hasMessage("User not found: testuser");
+                .hasMessage("User not found: missing@example.com");
     }
 
     @Test
@@ -215,9 +196,9 @@ class UserServiceImplTest {
     @Test
     @DisplayName("getCurrentUser maps the user and sets roles, mfaEnabled and mfaMethod")
     void getCurrentUserMapsProfile() {
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
-        UserProfileResponse result = userService.getCurrentUser("testuser");
+        UserProfileResponse result = userService.getCurrentUser("test@example.com");
 
         assertThat(result).isSameAs(profileResponse);
         assertThat(result.getRoles()).containsExactly("EMPLOYEE");
@@ -233,16 +214,16 @@ class UserServiceImplTest {
                 .newPassword("newPass123!")
                 .confirmPassword("newPass123!")
                 .build();
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("oldPass", "encoded")).thenReturn(true);
         when(passwordEncoder.encode("newPass123!")).thenReturn("encoded-new");
 
-        userService.changePassword("testuser", request, "127.0.0.1");
+        userService.changePassword("test@example.com", request, "127.0.0.1");
 
         assertThat(user.getPassword()).isEqualTo("encoded-new");
         verify(userRepository).save(user);
-        verify(refreshTokenService).revokeAllUserRefreshTokens("testuser");
-        verify(securityAuditLogger).logPasswordChanged("testuser", "127.0.0.1");
+        verify(refreshTokenService).revokeAllUserRefreshTokens("test@example.com");
+        verify(securityAuditLogger).logPasswordChanged("test@example.com", "127.0.0.1");
     }
 
     @Test
@@ -254,7 +235,7 @@ class UserServiceImplTest {
                 .confirmPassword("different")
                 .build();
 
-        assertThatThrownBy(() -> userService.changePassword("testuser", request, "127.0.0.1"))
+        assertThatThrownBy(() -> userService.changePassword("test@example.com", request, "127.0.0.1"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Passwords do not match");
         verify(userRepository, never()).save(any(User.class));
@@ -270,10 +251,10 @@ class UserServiceImplTest {
                 .newPassword("newPass123!")
                 .confirmPassword("newPass123!")
                 .build();
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrongPass", "encoded")).thenReturn(false);
 
-        assertThatThrownBy(() -> userService.changePassword("testuser", request, "127.0.0.1"))
+        assertThatThrownBy(() -> userService.changePassword("test@example.com", request, "127.0.0.1"))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Current password is incorrect");
         verify(userRepository, never()).save(any(User.class));

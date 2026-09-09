@@ -15,7 +15,7 @@ public class AuditLogResponse {
 
     private Long id;
     private Long actorId;
-    private String actorUsername;
+    private String actorEmail;
     private Long tenantId;
     private String action;
     private String resourceType;

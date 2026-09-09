@@ -139,12 +139,12 @@ public class JwtTokenProvider {
 
     public Authentication getAuthentication(String token) {
         Claims claims = parseClaims(token);
-        String username = claims.getSubject();
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        String email = claims.getSubject();
+        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
-    public String getUsernameFromToken(String token) {
+    public String getEmailFromToken(String token) {
         return parseClaims(token).getSubject();
     }
 
@@ -179,12 +179,12 @@ public class JwtTokenProvider {
         return expiration.getTime() - System.currentTimeMillis();
     }
 
-    public String generateMfaPendingToken(String username) {
+    public String generateMfaPendingToken(String email) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtConfig.getAccessTokenExpiration());
 
         return Jwts.builder()
-                .subject(username)
+                .subject(email)
                 .claim("type", "mfa_pending")
                 .issuedAt(now)
                 .expiration(expiry)
@@ -205,7 +205,7 @@ public class JwtTokenProvider {
         }
     }
 
-    public String getUsernameFromMfaPendingToken(String token) {
+    public String getEmailFromMfaPendingToken(String token) {
         return parseClaims(token).getSubject();
     }
 

@@ -31,7 +31,7 @@ public class AuthController {
 
         if (loginResult instanceof LoginResult.TokenSuccess(TokenResponse tokenResponse)) {
             authCookieManager.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
-            UserProfileResponse profile = authService.getUserProfile(tokenResponse.getUsername());
+            UserProfileResponse profile = authService.getUserProfile(tokenResponse.getEmail());
             return ResponseEntity.ok(ApiResponse.success("Login successful", profile));
         }
 
@@ -45,7 +45,7 @@ public class AuthController {
             HttpServletResponse response) {
         TokenResponse tokenResponse = authService.verifyMfa(request);
         authCookieManager.addCookies(response, tokenResponse.getAccessToken(), tokenResponse.getRefreshToken());
-        UserProfileResponse profile = authService.getUserProfile(tokenResponse.getUsername());
+        UserProfileResponse profile = authService.getUserProfile(tokenResponse.getEmail());
         return ResponseEntity.ok(ApiResponse.success("MFA verification successful", profile));
     }
 

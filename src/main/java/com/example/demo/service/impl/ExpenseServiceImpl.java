@@ -38,8 +38,8 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('EXPENSE_READ')")
-    public PageResponse<ExpenseResponse> getExpenses(Pageable pageable, ExpenseStatus status, Long filterTenantId, Long filterDepartmentId, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public PageResponse<ExpenseResponse> getExpenses(Pageable pageable, ExpenseStatus status, Long filterTenantId, Long filterDepartmentId, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
 
         if (authorizationService.isSuperAdmin(currentUser)) {
             return PageResponse.of(expenseRepository.findAllWithFilters(filterTenantId, filterDepartmentId, status, pageable)
@@ -68,8 +68,8 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('EXPENSE_READ')")
-    public ExpenseResponse getExpenseById(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public ExpenseResponse getExpenseById(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Expense expense = findAccessibleExpense(id, currentUser);
         if (!authorizationService.canViewExpense(currentUser, expense)) {
             throw new AccessDeniedException("Cannot view this expense");
@@ -80,8 +80,8 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('EXPENSE_CREATE')")
-    public ExpenseResponse createExpense(ExpenseCreateRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public ExpenseResponse createExpense(ExpenseCreateRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         if (currentUser.getTenant() == null) {
             throw new IllegalArgumentException("User must belong to a tenant to create an expense");
         }
@@ -97,15 +97,15 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .tenant(currentUser.getTenant())
                 .build();
         Expense saved = expenseRepository.save(expense);
-        recordExpenseEvent(saved, currentUsername, AuditActions.EXPENSE_CREATED, "Expense created");
+        recordExpenseEvent(saved, currentEmail, AuditActions.EXPENSE_CREATED, "Expense created");
         return expenseMapper.toResponse(saved);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('EXPENSE_UPDATE')")
-    public ExpenseResponse updateExpense(Long id, ExpenseUpdateRequest request, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public ExpenseResponse updateExpense(Long id, ExpenseUpdateRequest request, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Expense expense = findAccessibleExpense(id, currentUser);
         if (expense.getStatus() != ExpenseStatus.PENDING) {
             throw new IllegalStateException("Only pending expenses can be updated");
@@ -118,15 +118,15 @@ public class ExpenseServiceImpl implements ExpenseService {
         expense.setAmount(request.getAmount());
         expense.setCategory(request.getCategory());
         Expense updated = expenseRepository.save(expense);
-        recordExpenseEvent(updated, currentUsername, AuditActions.EXPENSE_UPDATED, "Expense updated");
+        recordExpenseEvent(updated, currentEmail, AuditActions.EXPENSE_UPDATED, "Expense updated");
         return expenseMapper.toResponse(updated);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('EXPENSE_UPDATE')")
-    public ExpenseResponse cancelExpense(Long id, String currentUsername) {
-        User currentUser = userService.getByUsername(currentUsername);
+    public ExpenseResponse cancelExpense(Long id, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
         Expense expense = findAccessibleExpense(id, currentUser);
         if (expense.getStatus() != ExpenseStatus.PENDING) {
             throw new IllegalStateException("Only pending expenses can be cancelled");
@@ -136,7 +136,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
         expense.setStatus(ExpenseStatus.CANCELLED);
         Expense cancelled = expenseRepository.save(expense);
-        recordExpenseEvent(cancelled, currentUsername, AuditActions.EXPENSE_CANCELLED, "Expense cancelled");
+        recordExpenseEvent(cancelled, currentEmail, AuditActions.EXPENSE_CANCELLED, "Expense cancelled");
         return expenseMapper.toResponse(cancelled);
     }
 
@@ -159,8 +159,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         throw new AccessDeniedException("Cannot access this expense");
     }
 
-    private void recordExpenseEvent(Expense expense, String actorUsername, String action, String details) {
-        auditLogService.record(action, AuditActions.RESOURCE_EXPENSE, String.valueOf(expense.getId()), details, actorUsername);
+    private void recordExpenseEvent(Expense expense, String actorEmail, String action, String details) {
+        auditLogService.record(action, AuditActions.RESOURCE_EXPENSE, String.valueOf(expense.getId()), details, actorEmail);
     }
 
     private Department resolveDepartment(Long departmentId, User user) {

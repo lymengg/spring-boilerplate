@@ -25,9 +25,6 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
-    @Value("${seed.admin.username}")
-    private String adminUsername;
-
     @Value("${seed.admin.email}")
     private String adminEmail;
 
@@ -37,8 +34,8 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (userRepository.existsByUsername(adminUsername)) {
-            log.info("Seed admin user '{}' already exists — skipping creation", adminUsername);
+        if (userRepository.existsByEmail(adminEmail)) {
+            log.info("Seed admin user '{}' already exists — skipping creation", adminEmail);
             return;
         }
 
@@ -47,7 +44,6 @@ public class DataInitializer implements CommandLineRunner {
                         "PLATFORM_ADMIN role not found. Ensure Flyway migrations have run."));
 
         User admin = User.builder()
-                .username(adminUsername)
                 .email(adminEmail)
                 .password(passwordEncoder.encode(adminPassword))
                 .firstName("Super")
@@ -57,6 +53,6 @@ public class DataInitializer implements CommandLineRunner {
                 .build();
 
         userRepository.save(admin);
-        log.warn("Seed admin user created — username='{}', email='{}'", adminUsername, adminEmail);
+        log.warn("Seed admin user created — email='{}'", adminEmail);
     }
 }

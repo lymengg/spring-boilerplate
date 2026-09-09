@@ -9,7 +9,7 @@ public interface TokenService {
 
     TokenResponse refreshToken(String refreshToken, String ipAddress);
 
-    void logout(String username, String accessToken, String ipAddress);
+    void logout(String email, String accessToken, String ipAddress);
 
-    void revokeAllUserRefreshTokens(String username);
+    void revokeAllUserRefreshTokens(String email);
 }

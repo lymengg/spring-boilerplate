@@ -15,7 +15,7 @@ public interface AuthService {
 
     UserProfileResponse getCurrentUser(Authentication authentication);
 
-    UserProfileResponse getUserProfile(String username);
+    UserProfileResponse getUserProfile(String email);
 
     void changePassword(Authentication authentication, ChangePasswordRequest request);
 

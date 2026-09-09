@@ -140,7 +140,7 @@ class AuthorizationServiceTest {
     private User userWithRole(Role role, Tenant userTenant, Department userDepartment) {
         User user = User.builder()
                 .id(nextId++)
-                .username(role.getName().toLowerCase() + nextId)
+                .email("user" + nextId + "@example.com")
                 .tenant(userTenant)
                 .department(userDepartment)
                 .build();

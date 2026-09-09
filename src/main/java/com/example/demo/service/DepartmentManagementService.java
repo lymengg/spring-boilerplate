@@ -11,15 +11,15 @@ import java.util.List;
 
 public interface DepartmentManagementService {
 
-    PageResponse<DepartmentResponse> getDepartments(Pageable pageable, String currentUsername);
+    PageResponse<DepartmentResponse> getDepartments(Pageable pageable, String currentEmail);
 
-    DepartmentResponse getDepartmentById(Long id, String currentUsername);
+    DepartmentResponse getDepartmentById(Long id, String currentEmail);
 
-    DepartmentResponse createDepartment(DepartmentCreateRequest request, String currentUsername);
+    DepartmentResponse createDepartment(DepartmentCreateRequest request, String currentEmail);
 
-    DepartmentResponse updateDepartment(Long id, DepartmentUpdateRequest request, String currentUsername);
+    DepartmentResponse updateDepartment(Long id, DepartmentUpdateRequest request, String currentEmail);
 
-    void deleteDepartment(Long id, String currentUsername);
+    void deleteDepartment(Long id, String currentEmail);
 
     Department findById(Long id);
 

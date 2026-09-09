@@ -16,6 +16,6 @@ public class TokenResponse {
     @Builder.Default
     private String tokenType = "Bearer";
     private long expiresIn;
-    private String username;
+    private String email;
     private String[] roles;
 }

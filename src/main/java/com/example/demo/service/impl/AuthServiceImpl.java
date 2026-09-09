@@ -50,8 +50,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public UserProfileResponse getUserProfile(String username) {
-        return userService.getCurrentUser(username);
+    public UserProfileResponse getUserProfile(String email) {
+        return userService.getCurrentUser(email);
     }
 
     @Override

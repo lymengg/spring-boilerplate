@@ -81,9 +81,9 @@ class FinanceProcessingServiceImplTest {
 
         stubResponse = ExpenseResponse.builder().id(100L).build();
 
-        when(userService.getByUsername("approver")).thenReturn(approver);
-        when(userService.getByUsername("otherUser")).thenReturn(otherUser);
-        when(userService.getByUsername("crossTenantUser")).thenReturn(crossTenantUser);
+        when(userService.getByEmail("approver")).thenReturn(approver);
+        when(userService.getByEmail("otherUser")).thenReturn(otherUser);
+        when(userService.getByEmail("crossTenantUser")).thenReturn(crossTenantUser);
         when(expenseService.save(any(Expense.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(expenseMapper.toResponse(any(Expense.class))).thenReturn(stubResponse);
     }
@@ -302,7 +302,7 @@ class FinanceProcessingServiceImplTest {
     private User userWithUsername(String username) {
         return User.builder()
                 .id((long) username.hashCode())
-                .username(username)
+                
                 .password("secret")
                 .enabled(true)
                 .accountNonLocked(true)

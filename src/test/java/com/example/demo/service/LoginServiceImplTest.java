@@ -56,7 +56,6 @@ class LoginServiceImplTest {
     @BeforeEach
     void setUp() {
         user = User.builder()
-                .username("testuser")
                 .email("test@example.com")
                 .password("encoded-password")
                 .mfaEnabled(false)
@@ -72,7 +71,7 @@ class LoginServiceImplTest {
 
     private LoginRequest loginRequest() {
         return LoginRequest.builder()
-                .usernameOrEmail("testuser")
+                .email("test@example.com")
                 .password("Password123!")
                 .build();
     }
@@ -81,7 +80,7 @@ class LoginServiceImplTest {
     @DisplayName("Login without MFA returns tokens and records the successful login")
     void loginWithoutMfaReturnsTokens() {
         TokenResponse tokenResponse = TokenResponse.builder().accessToken("access").refreshToken("refresh").build();
-        when(userService.getByUsernameOrEmail("testuser")).thenReturn(user);
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
         when(tokenService.generateTokenResponse(user)).thenReturn(tokenResponse);
 
         LoginResult result = loginService.login(loginRequest(), "1.2.3.4");
@@ -90,7 +89,7 @@ class LoginServiceImplTest {
         assertThat(((LoginResult.TokenSuccess) result).tokenResponse()).isEqualTo(tokenResponse);
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(accountLockoutService).recordSuccessfulLogin(user, "1.2.3.4");
-        verify(securityAuditLogger).logLoginSuccess("testuser", "1.2.3.4");
+        verify(securityAuditLogger).logLoginSuccess("test@example.com", "1.2.3.4");
         verify(mfaService, never()).storeMfaPendingSession(any());
     }
 
@@ -99,8 +98,8 @@ class LoginServiceImplTest {
     void loginWithTotpMfaReturnsChallenge() {
         user.setMfaEnabled(true);
         user.setMfaMethod(MfaMethod.TOTP);
-        when(userService.getByUsernameOrEmail("testuser")).thenReturn(user);
-        when(mfaService.storeMfaPendingSession("testuser")).thenReturn("session-token");
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
+        when(mfaService.storeMfaPendingSession("test@example.com")).thenReturn("session-token");
 
         LoginResult result = loginService.login(loginRequest(), "1.2.3.4");
 
@@ -112,7 +111,7 @@ class LoginServiceImplTest {
         assertThat(challenge.mfaResponse().getExpiresIn()).isEqualTo(300);
         verify(tokenService, never()).generateTokenResponse(any());
         verify(emailService, never()).sendMfaCodeEmail(any(), any());
-        verify(securityAuditLogger).logMfaChallengeSent("testuser", "TOTP", "1.2.3.4");
+        verify(securityAuditLogger).logMfaChallengeSent("test@example.com", "TOTP", "1.2.3.4");
     }
 
     @Test
@@ -120,22 +119,22 @@ class LoginServiceImplTest {
     void loginWithEmailMfaSendsOtp() {
         user.setMfaEnabled(true);
         user.setMfaMethod(MfaMethod.EMAIL);
-        when(userService.getByUsernameOrEmail("testuser")).thenReturn(user);
-        when(mfaService.storeMfaPendingSession("testuser")).thenReturn("session-token");
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
+        when(mfaService.storeMfaPendingSession("test@example.com")).thenReturn("session-token");
         when(mfaService.generateEmailOtp()).thenReturn("123456");
 
         LoginResult result = loginService.login(loginRequest(), "1.2.3.4");
 
         assertThat(result).isInstanceOf(LoginResult.MfaChallenge.class);
         assertThat(((LoginResult.MfaChallenge) result).mfaResponse().getMethod()).isEqualTo("EMAIL");
-        verify(mfaService).storeEmailOtp("testuser", "123456");
+        verify(mfaService).storeEmailOtp("test@example.com", "123456");
         verify(emailService).sendMfaCodeEmail("test@example.com", "123456");
     }
 
     @Test
     @DisplayName("Login with bad credentials records the failed attempt and rethrows")
     void loginWithBadCredentialsRecordsFailure() {
-        when(userService.getByUsernameOrEmail("testuser")).thenReturn(user);
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new BadCredentialsException("bad credentials"));
 
@@ -149,7 +148,7 @@ class LoginServiceImplTest {
     @Test
     @DisplayName("Login with a locked account propagates LockedException")
     void loginWithLockedAccountPropagatesLocked() {
-        when(userService.getByUsernameOrEmail("testuser")).thenReturn(user);
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
         when(accountLockoutService.prepareForLogin(user, "1.2.3.4"))
                 .thenThrow(new LockedException("Account is locked"));
 
@@ -162,9 +161,9 @@ class LoginServiceImplTest {
     @Test
     @DisplayName("MFA verify with a valid TOTP code issues tokens and revokes the session")
     void verifyMfaWithValidTotpCodeIssuesTokens() {
-        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("testuser");
-        when(rateLimitingService.isAllowed("mfa-verify", "testuser", 10, 60_000L)).thenReturn(true);
-        when(userService.getByUsername("testuser")).thenReturn(user);
+        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("test@example.com");
+        when(rateLimitingService.isAllowed("mfa-verify", "test@example.com", 10, 60_000L)).thenReturn(true);
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
         user.setMfaEnabled(true);
         user.setMfaMethod(MfaMethod.TOTP);
         user.setMfaSecret("JBSWY3DPEHPK3PXP");
@@ -178,19 +177,19 @@ class LoginServiceImplTest {
 
         assertThat(result).isEqualTo(tokenResponse);
         verify(mfaService).revokeMfaPendingSession("session-token");
-        verify(securityAuditLogger).logMfaSuccess("testuser", "1.2.3.4");
-        verify(securityAuditLogger).logLoginSuccess("testuser", "1.2.3.4");
+        verify(securityAuditLogger).logMfaSuccess("test@example.com", "1.2.3.4");
+        verify(securityAuditLogger).logLoginSuccess("test@example.com", "1.2.3.4");
     }
 
     @Test
     @DisplayName("MFA verify with a valid EMAIL OTP issues tokens")
     void verifyMfaWithValidEmailOtpIssuesTokens() {
-        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("testuser");
-        when(rateLimitingService.isAllowed("mfa-verify", "testuser", 10, 60_000L)).thenReturn(true);
-        when(userService.getByUsername("testuser")).thenReturn(user);
+        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("test@example.com");
+        when(rateLimitingService.isAllowed("mfa-verify", "test@example.com", 10, 60_000L)).thenReturn(true);
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
         user.setMfaEnabled(true);
         user.setMfaMethod(MfaMethod.EMAIL);
-        when(mfaService.verifyEmailOtp("testuser", "123456")).thenReturn(true);
+        when(mfaService.verifyEmailOtp("test@example.com", "123456")).thenReturn(true);
         TokenResponse tokenResponse = TokenResponse.builder().accessToken("access").build();
         when(tokenService.generateTokenResponse(user)).thenReturn(tokenResponse);
 
@@ -219,9 +218,9 @@ class LoginServiceImplTest {
     @Test
     @DisplayName("MFA verify with an invalid code returns 401 and does not revoke the session")
     void verifyMfaRejectsInvalidCode() {
-        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("testuser");
-        when(rateLimitingService.isAllowed("mfa-verify", "testuser", 10, 60_000L)).thenReturn(true);
-        when(userService.getByUsername("testuser")).thenReturn(user);
+        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("test@example.com");
+        when(rateLimitingService.isAllowed("mfa-verify", "test@example.com", 10, 60_000L)).thenReturn(true);
+        when(userService.getByEmail("test@example.com")).thenReturn(user);
         user.setMfaEnabled(true);
         user.setMfaMethod(MfaMethod.TOTP);
         user.setMfaSecret("JBSWY3DPEHPK3PXP");
@@ -232,7 +231,7 @@ class LoginServiceImplTest {
                 "1.2.3.4"))
                 .isInstanceOf(BadCredentialsException.class);
 
-        verify(securityAuditLogger).logMfaFailure("testuser", "1.2.3.4", "Invalid MFA code");
+        verify(securityAuditLogger).logMfaFailure("test@example.com", "1.2.3.4", "Invalid MFA code");
         verify(mfaService, never()).revokeMfaPendingSession(any());
         verify(tokenService, never()).generateTokenResponse(any());
     }
@@ -240,14 +239,14 @@ class LoginServiceImplTest {
     @Test
     @DisplayName("MFA verify is rate limited per user")
     void verifyMfaIsRateLimited() {
-        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("testuser");
-        when(rateLimitingService.isAllowed("mfa-verify", "testuser", 10, 60_000L)).thenReturn(false);
+        when(mfaService.validateMfaPendingSession("session-token")).thenReturn("test@example.com");
+        when(rateLimitingService.isAllowed("mfa-verify", "test@example.com", 10, 60_000L)).thenReturn(false);
 
         assertThatThrownBy(() -> loginService.verifyMfa(
                 MfaVerifyRequest.builder().mfaSessionToken("session-token").code("123456").build(),
                 "1.2.3.4"))
                 .isInstanceOf(LockedException.class);
 
-        verify(userService, never()).getByUsername(any());
+        verify(userService, never()).getByEmail(any());
     }
 }
