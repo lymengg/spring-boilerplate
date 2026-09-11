@@ -9,7 +9,6 @@ import com.example.demo.service.DepartmentManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +22,7 @@ public class DepartmentManagementController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<DepartmentResponse>>> getDepartments(
-            @PageableDefault Pageable pageable,
+            Pageable pageable,
             Authentication authentication) {
         PageResponse<DepartmentResponse> departments = departmentManagementService.getDepartments(pageable, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Departments retrieved successfully", departments));
