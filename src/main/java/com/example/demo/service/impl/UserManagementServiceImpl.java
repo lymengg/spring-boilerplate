@@ -376,13 +376,15 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     private boolean canAssignBuiltInRole(User granter, Role role) {
-        if (!(Roles.PLATFORM_ADMIN.equals(role.getName())
-                || Roles.TENANT_ADMIN.equals(role.getName())
-                || Roles.USER_MANAGER.equals(role.getName()))) {
-            return true;
+        if (Roles.PLATFORM_ADMIN.equals(role.getName())) {
+            return granter.getRoles().stream()
+                    .anyMatch(r -> Roles.PLATFORM_ADMIN.equals(r.getName()));
         }
-        return granter.getRoles().stream()
-                .anyMatch(r -> Roles.PLATFORM_ADMIN.equals(r.getName())
-                        || Roles.TENANT_ADMIN.equals(r.getName()));
+        if (Roles.TENANT_ADMIN.equals(role.getName()) || Roles.USER_MANAGER.equals(role.getName())) {
+            return granter.getRoles().stream()
+                    .anyMatch(r -> Roles.PLATFORM_ADMIN.equals(r.getName())
+                            || Roles.TENANT_ADMIN.equals(r.getName()));
+        }
+        return true;
     }
 }

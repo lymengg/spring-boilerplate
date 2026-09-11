@@ -297,6 +297,24 @@ class UserManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Tenant admin cannot create a user with the platform admin role")
+    void tenantAdminCannotCreateWithPlatformAdminRole() {
+        UserCreateRequest request = UserCreateRequest.builder()
+                .email("jane@example.com")
+                .password("Password123!")
+                .roleName(Roles.PLATFORM_ADMIN)
+                .build();
+
+        when(userService.getByEmail("tenantadmin@example.com")).thenReturn(tenantAdmin);
+        when(userService.existsByEmail("jane@example.com")).thenReturn(false);
+        when(roleManagementService.findByName(Roles.PLATFORM_ADMIN)).thenReturn(platformAdminRole);
+
+        assertThatThrownBy(() -> userManagementService.createUser(request, "tenantadmin@example.com"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only admin can assign this role");
+    }
+
+    @Test
     @DisplayName("Data integrity violation on save maps to a friendly message")
     void createUserDataIntegrityViolationMapsToFriendlyMessage() {
         UserCreateRequest request = UserCreateRequest.builder()

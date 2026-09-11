@@ -11,7 +11,7 @@ public interface RoleManagementService {
 
     Role findByName(String name);
 
-    PageResponse<RoleResponse> getRoles(Pageable pageable);
+    PageResponse<RoleResponse> getRoles(Pageable pageable, String currentEmail);
 
     RoleResponse getRoleById(Long id);
 

@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,8 +21,8 @@ public class RoleManagementController {
     private final RoleManagementService roleManagementService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<PageResponse<RoleResponse>>> getRoles(Pageable pageable) {
-        PageResponse<RoleResponse> roles = roleManagementService.getRoles(pageable);
+    public ResponseEntity<ApiResponse<PageResponse<RoleResponse>>> getRoles(Pageable pageable, Authentication authentication) {
+        PageResponse<RoleResponse> roles = roleManagementService.getRoles(pageable, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Roles retrieved successfully", roles));
     }
 

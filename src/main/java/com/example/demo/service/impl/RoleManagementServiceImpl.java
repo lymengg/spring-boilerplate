@@ -7,17 +7,21 @@ import com.example.demo.dto.RoleResponse;
 import com.example.demo.constants.Roles;
 import com.example.demo.constants.UserPermission;
 import com.example.demo.entity.Role;
+import com.example.demo.entity.User;
 import com.example.demo.mapper.RoleMapper;
 import com.example.demo.repository.RoleRepository;
+import com.example.demo.security.service.AuthorizationService;
 import com.example.demo.service.RoleManagementService;
 import com.example.demo.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -27,6 +31,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     private final RoleRepository roleRepository;
     private final UserService userService;
     private final RoleMapper roleMapper;
+    private final AuthorizationService authorizationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -38,8 +43,15 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ROLE_READ')")
-    public PageResponse<RoleResponse> getRoles(Pageable pageable) {
-        return PageResponse.of(roleRepository.findAll(pageable).map(roleMapper::toResponse));
+    public PageResponse<RoleResponse> getRoles(Pageable pageable, String currentEmail) {
+        User currentUser = userService.getByEmail(currentEmail);
+        Page<Role> page = roleRepository.findAll(pageable);
+        List<RoleResponse> content = page.getContent().stream()
+                .filter(role -> authorizationService.isSuperAdmin(currentUser)
+                        || !Roles.PLATFORM_ADMIN.equals(role.getName()))
+                .map(roleMapper::toResponse)
+                .toList();
+        return PageResponse.of(page, content);
     }
 
     @Override

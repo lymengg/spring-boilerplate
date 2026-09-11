@@ -7,8 +7,11 @@ import com.example.demo.dto.RoleCreateRequest;
 import com.example.demo.dto.RolePermissionRequest;
 import com.example.demo.dto.RoleResponse;
 import com.example.demo.entity.Role;
+import com.example.demo.entity.Tenant;
+import com.example.demo.entity.User;
 import com.example.demo.mapper.RoleMapper;
 import com.example.demo.repository.RoleRepository;
+import com.example.demo.security.service.AuthorizationService;
 import com.example.demo.service.impl.RoleManagementServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,6 +53,9 @@ class RoleManagementServiceImplTest {
     @Mock
     private RoleMapper roleMapper;
 
+    @Mock
+    private AuthorizationService authorizationService;
+
     @InjectMocks
     private RoleManagementServiceImpl roleManagementService;
 
@@ -57,6 +63,8 @@ class RoleManagementServiceImplTest {
     private Role builtInRole;
     private Role otherRole;
     private RoleResponse stubResponse;
+    private User superAdmin;
+    private User tenantAdmin;
 
     @BeforeEach
     void setUp() {
@@ -64,6 +72,10 @@ class RoleManagementServiceImplTest {
         builtInRole = Role.builder().id(2L).name(Roles.EMPLOYEE).build();
         otherRole = Role.builder().id(3L).name("OTHER_ROLE").build();
         stubResponse = RoleResponse.builder().id(1L).name("CUSTOM_ROLE").build();
+        superAdmin = User.builder().email("superadmin@example.com").build();
+        tenantAdmin = User.builder().email("tenantadmin@example.com")
+                .tenant(Tenant.builder().id(1L).name("Acme Corp").build())
+                .build();
 
         when(roleRepository.save(any(Role.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(roleMapper.toResponse(any(Role.class))).thenReturn(stubResponse);
@@ -96,13 +108,50 @@ class RoleManagementServiceImplTest {
         PageRequest pageable = PageRequest.of(0, 10);
         when(roleRepository.findAll(pageable))
                 .thenReturn(new PageImpl<>(List.of(customRole), pageable, 1));
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
+        when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
 
-        PageResponse<RoleResponse> result = roleManagementService.getRoles(pageable);
+        PageResponse<RoleResponse> result = roleManagementService.getRoles(pageable, "superadmin@example.com");
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0)).isSameAs(stubResponse);
         verify(roleRepository).findAll(pageable);
         verify(roleMapper).toResponse(customRole);
+    }
+
+    @Test
+    @DisplayName("Tenant admin does not see the platform admin role in the role list")
+    void tenantAdminDoesNotSeePlatformAdminRole() {
+        Role platformAdminRole = Role.builder().id(4L).name(Roles.PLATFORM_ADMIN).build();
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(roleRepository.findAll(pageable))
+                .thenReturn(new PageImpl<>(List.of(customRole, platformAdminRole), pageable, 2));
+        when(userService.getByEmail("tenantadmin@example.com")).thenReturn(tenantAdmin);
+        when(authorizationService.isSuperAdmin(tenantAdmin)).thenReturn(false);
+
+        PageResponse<RoleResponse> result = roleManagementService.getRoles(pageable, "tenantadmin@example.com");
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0)).isSameAs(stubResponse);
+        verify(roleMapper).toResponse(customRole);
+        verify(roleMapper, never()).toResponse(platformAdminRole);
+    }
+
+    @Test
+    @DisplayName("Platform admin sees the platform admin role in the role list")
+    void platformAdminSeesPlatformAdminRole() {
+        Role platformAdminRole = Role.builder().id(4L).name(Roles.PLATFORM_ADMIN).build();
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(roleRepository.findAll(pageable))
+                .thenReturn(new PageImpl<>(List.of(customRole, platformAdminRole), pageable, 2));
+        when(userService.getByEmail("superadmin@example.com")).thenReturn(superAdmin);
+        when(authorizationService.isSuperAdmin(superAdmin)).thenReturn(true);
+
+        PageResponse<RoleResponse> result = roleManagementService.getRoles(pageable, "superadmin@example.com");
+
+        assertThat(result.getContent()).hasSize(2);
+        verify(roleMapper).toResponse(customRole);
+        verify(roleMapper).toResponse(platformAdminRole);
     }
 
     @Test
